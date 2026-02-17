@@ -68,7 +68,7 @@
     ]
   },
   "techStack": {
-    "terminal": "Kitty",
+    "terminal": "Ghostty",
     "packageManager": "bun",
     "pythonPackageManager": "uv",
     "language": "TypeScript"
