@@ -1,0 +1,19 @@
+/**
+ * response-format.ts - Compatibility re-export
+ *
+ * Renamed to output-validators.ts in v0.2.32.
+ * This shim keeps existing imports working.
+ */
+export {
+  isValidVoiceCompletion,
+  getVoiceFallback,
+  isValidWorkingTitle,
+  isValidTabSummary,
+  isValidCompletionTitle,
+  isValidQuestionTitle,
+  getWorkingFallback,
+  getCompletionFallback,
+  getQuestionFallback,
+  getTabFallback,
+  gerundToPastTense,
+} from './output-validators';

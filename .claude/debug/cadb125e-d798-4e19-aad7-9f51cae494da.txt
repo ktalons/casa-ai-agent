@@ -1,0 +1,124 @@
+2026-02-17T06:03:30.663Z [DEBUG] Detected deletion of /Users/kylev/.claude/settings.json
+2026-02-17T06:03:30.665Z [DEBUG] Settings changed from userSettings, updating app state
+2026-02-17T06:03:30.665Z [DEBUG] Replacing all allow rules for destination 'userSettings' with 0 rule(s): []
+2026-02-17T06:03:30.665Z [DEBUG] Replacing all deny rules for destination 'userSettings' with 0 rule(s): []
+2026-02-17T06:03:30.665Z [DEBUG] Replacing all ask rules for destination 'userSettings' with 0 rule(s): []
+2026-02-17T06:03:30.665Z [DEBUG] Replacing all allow rules for destination 'projectSettings' with 0 rule(s): []
+2026-02-17T06:03:30.665Z [DEBUG] Replacing all deny rules for destination 'projectSettings' with 0 rule(s): []
+2026-02-17T06:03:30.665Z [DEBUG] Replacing all ask rules for destination 'projectSettings' with 0 rule(s): []
+2026-02-17T06:03:30.665Z [DEBUG] Replacing all allow rules for destination 'localSettings' with 0 rule(s): []
+2026-02-17T06:03:30.666Z [DEBUG] Replacing all deny rules for destination 'localSettings' with 0 rule(s): []
+2026-02-17T06:03:30.666Z [DEBUG] Replacing all ask rules for destination 'localSettings' with 0 rule(s): []
+2026-02-17T06:03:30.671Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:30.671Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:30.784Z [DEBUG] High write ratio: blit=0, write=109348 (100.0% writes), screen=1709x107
+2026-02-17T06:03:30.855Z [DEBUG] Writing to temp file: /Users/kylev/.claude.json.tmp.48252.1771308210855
+2026-02-17T06:03:30.855Z [DEBUG] Preserving file permissions: 100600
+2026-02-17T06:03:30.856Z [DEBUG] Temp file written successfully, size: 30612 bytes
+2026-02-17T06:03:30.856Z [DEBUG] Applied original permissions to temp file
+2026-02-17T06:03:30.856Z [DEBUG] Renaming /Users/kylev/.claude.json.tmp.48252.1771308210855 to /Users/kylev/.claude.json
+2026-02-17T06:03:30.856Z [DEBUG] File /Users/kylev/.claude.json written atomically
+2026-02-17T06:03:31.253Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-17T06:03:31.253Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.44.34f; cc_entrypoint=cli; cch=00000;
+2026-02-17T06:03:31.253Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-17T06:03:31.253Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-17T06:03:31.253Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:31.253Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-17T06:03:31.253Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:31.254Z [DEBUG] Getting matching hook commands for PostToolUse with query: Bash
+2026-02-17T06:03:31.254Z [DEBUG] Found 5 hook matchers in settings
+2026-02-17T06:03:31.254Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-02-17T06:03:31.255Z [DEBUG] LSP Diagnostics: getLSPDiagnosticAttachments called
+2026-02-17T06:03:31.255Z [DEBUG] LSP Diagnostics: Checking registry - 0 pending
+2026-02-17T06:03:31.255Z [DEBUG] Hooks: Found 0 total hooks in registry
+2026-02-17T06:03:31.255Z [DEBUG] Hooks: checkForNewResponses returning 0 responses
+2026-02-17T06:03:31.255Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:31.255Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:31.255Z [DEBUG] autocompact: tokens=137037 threshold=167000 effectiveWindow=180000
+2026-02-17T06:03:31.255Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:31.256Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:31.256Z [DEBUG] Auto tool search disabled: 0 tokens (threshold: 20000, 10% of context) [source: query]
+2026-02-17T06:03:31.258Z [DEBUG] Writing to temp file: /Users/kylev/.claude.json.tmp.48252.1771308211258
+2026-02-17T06:03:31.258Z [DEBUG] Preserving file permissions: 100600
+2026-02-17T06:03:31.258Z [DEBUG] Temp file written successfully, size: 30612 bytes
+2026-02-17T06:03:31.258Z [DEBUG] Applied original permissions to temp file
+2026-02-17T06:03:31.258Z [DEBUG] Renaming /Users/kylev/.claude.json.tmp.48252.1771308211258 to /Users/kylev/.claude.json
+2026-02-17T06:03:31.258Z [DEBUG] File /Users/kylev/.claude.json written atomically
+2026-02-17T06:03:31.259Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.44.dad; cc_entrypoint=cli; cch=00000;
+2026-02-17T06:03:31.259Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-17T06:03:31.259Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-17T06:03:31.259Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:31.259Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-17T06:03:31.259Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:31.262Z [DEBUG] [useDeferredValue] Messages deferred by 2 (510→512)
+2026-02-17T06:03:31.267Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:31.267Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:31.343Z [DEBUG] High write ratio: blit=0, write=109348 (100.0% writes), screen=1709x107
+2026-02-17T06:03:31.432Z [DEBUG] High write ratio: blit=0, write=109595 (100.0% writes), screen=1713x107
+2026-02-17T06:03:31.850Z [DEBUG] Stream started - received first chunk
+2026-02-17T06:03:33.629Z [DEBUG] Stream started - received first chunk
+2026-02-17T06:03:34.509Z [DEBUG] [useDeferredValue] Messages deferred by 1 (512→513)
+2026-02-17T06:03:34.524Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:34.524Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:34.628Z [DEBUG] High write ratio: blit=0, write=109596 (100.0% writes), screen=1713x107
+2026-02-17T06:03:34.740Z [DEBUG] High write ratio: blit=0, write=109666 (100.0% writes), screen=1715x107
+2026-02-17T06:03:35.064Z [DEBUG] executePreToolHooks called for tool: Bash
+2026-02-17T06:03:35.066Z [DEBUG] Getting matching hook commands for PreToolUse with query: Bash
+2026-02-17T06:03:35.066Z [DEBUG] Found 0 hook matchers in settings
+2026-02-17T06:03:35.066Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-02-17T06:03:35.069Z [DEBUG] Snapshot file missing, recreating: /Users/kylev/.claude/shell-snapshots/snapshot-zsh-1771305775075-waf0bm.sh
+2026-02-17T06:03:35.069Z [DEBUG] Creating shell snapshot for zsh (/bin/zsh)
+2026-02-17T06:03:35.069Z [DEBUG] Looking for shell config file: /Users/kylev/.zshrc
+2026-02-17T06:03:35.069Z [DEBUG] Snapshots directory: /Users/kylev/.claude/shell-snapshots
+2026-02-17T06:03:35.069Z [DEBUG] Creating snapshot at: /Users/kylev/.claude/shell-snapshots/snapshot-zsh-1771308215069-fzge4z.sh
+2026-02-17T06:03:35.069Z [DEBUG] Shell binary exists: true
+2026-02-17T06:03:35.069Z [DEBUG] Execution timeout: 10000ms
+2026-02-17T06:03:35.073Z [DEBUG] [useDeferredValue] Messages deferred by 1 (513→514)
+2026-02-17T06:03:35.083Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:35.083Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:35.193Z [DEBUG] High write ratio: blit=0, write=109697 (100.0% writes), screen=1717x107
+2026-02-17T06:03:35.242Z [DEBUG] Shell snapshot created successfully (5474 bytes)
+2026-02-17T06:03:35.295Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-17T06:03:35.295Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.44.631; cc_entrypoint=cli; cch=00000;
+2026-02-17T06:03:35.295Z [DEBUG] [API:request] Creating client, ANTHROPIC_CUSTOM_HEADERS present: false, has Authorization header: false
+2026-02-17T06:03:35.295Z [DEBUG] [API:auth] OAuth token check starting
+2026-02-17T06:03:35.295Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:35.295Z [DEBUG] [API:auth] OAuth token check complete
+2026-02-17T06:03:35.295Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:35.296Z [DEBUG] Getting matching hook commands for PostToolUse with query: Bash
+2026-02-17T06:03:35.296Z [DEBUG] Found 5 hook matchers in settings
+2026-02-17T06:03:35.296Z [DEBUG] Matched 0 unique hooks for query "Bash" (0 before deduplication)
+2026-02-17T06:03:35.298Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:35.298Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:35.953Z [DEBUG] Stream started - received first chunk
+2026-02-17T06:03:36.842Z [DEBUG] [useDeferredValue] Messages deferred by 1 (514→515)
+2026-02-17T06:03:36.854Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:36.854Z [DEBUG] CLAUDE_CODE_MAX_OUTPUT_TOKENS Capped from 80000 to 64000
+2026-02-17T06:03:36.859Z [DEBUG] [useDeferredValue] Messages deferred by 1 (514→515)
+2026-02-17T06:03:36.964Z [DEBUG] High write ratio: blit=0, write=109697 (100.0% writes), screen=1717x107
+2026-02-17T06:03:37.129Z [DEBUG] executePreToolHooks called for tool: Bash
+2026-02-17T06:03:37.130Z [DEBUG] Getting matching hook commands for PreToolUse with query: Bash
+2026-02-17T06:03:37.137Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-17T06:03:37.137Z [DEBUG] Tool search disabled for model 'claude-haiku-4-5-20251001': model does not support tool_reference blocks. This feature is only available on Claude Sonnet 4+, Opus 4+, and newer models.
+2026-02-17T06:03:37.138Z [ERROR] Error: Error: ENOENT: no such file or directory, open '/Users/kylev/.claude/debug/cadb125e-d798-4e19-aad7-9f51cae494da.txt'
+    at appendFileSync (unknown)
+    at <anonymous> (/$bunfs/root/claude:12:1465)
+    at C2 (/$bunfs/root/claude:11:49471)
+    at appendFileSync (/$bunfs/root/claude:12:1271)
+    at writeFn (/$bunfs/root/claude:12:5597)
+    at H (/$bunfs/root/claude:12:4980)
+    at write (/$bunfs/root/claude:12:5103)
+    at V (/$bunfs/root/claude:14:36)
+    at fmT (/$bunfs/root/claude:6172:11977)
+    at ueB (/$bunfs/root/claude:5566:5619)
+    at async checkPermissions (/$bunfs/root/claude:5820:2892)
+    at async db8 (/$bunfs/root/claude:5827:14004)
+    at async <anonymous> (/$bunfs/root/claude:5827:16098)
+2026-02-17T06:03:37.140Z [DEBUG] executePermissionRequestHooks called for tool: Bash
+2026-02-17T06:03:37.140Z [DEBUG] [useDeferredValue] Messages deferred by 1 (515→516)
+2026-02-17T06:03:37.146Z [DEBUG] [useDeferredValue] Messages deferred by 1 (515→516)
+2026-02-17T06:03:37.158Z [DEBUG] Full reset (shrink->below): prevHeight=1717, nextHeight=15, viewport=42
+2026-02-17T06:03:37.159Z [DEBUG] [REPL:unmount] REPL unmounting
+2026-02-17T06:03:37.159Z [DEBUG] Stopped caffeinate, allowing sleep
+2026-02-17T06:03:37.181Z [DEBUG] Full reset (shrink->below): prevHeight=1717, nextHeight=0, viewport=42
+2026-02-17T06:05:11.304Z [DEBUG] Full reset (shrink->below): prevHeight=1717, nextHeight=0, viewport=42
