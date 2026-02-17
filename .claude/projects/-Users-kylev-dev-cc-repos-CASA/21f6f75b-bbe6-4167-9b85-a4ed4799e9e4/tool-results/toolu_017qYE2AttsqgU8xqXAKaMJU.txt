@@ -1,0 +1,183 @@
+.claude/skills/PAI/SKILL.md:275:| Engineer | Engineer (subagent_type=Engineer) | Building, implementing, coding, fixing |
+.claude/skills/PAI/SKILL.md:276:| Architect | Architect (subagent_type=Architect) | System design, architecture, structure decisions |
+.claude/skills/PAI/SKILL.md:277:| Analyst | Algorithm (subagent_type=Algorithm) | Analysis, review, evaluation, assessment |
+.claude/skills/PAI/SKILL.md:278:| QA | QATester (subagent_type=QATester) | Testing, verification, browser validation |
+.claude/skills/PAI/SKILL.md:279:| Design | Designer (subagent_type=Designer) | UX/UI design |
+.claude/skills/PAI/SKILL.md:280:| Security | Pentester (subagent_type=Pentester) | Security testing, vulnerability assessment |
+.claude/skills/PAI/SKILL.md:281:| Explore | Explore (subagent_type=Explore) | Codebase exploration, file discovery |
+.claude/skills/PAIUpgrade/Workflows/Upgrade.md:40:Use Task tool with subagent_type=Intern, run 4 agents in parallel:
+.claude/skills/PAIUpgrade/Workflows/Upgrade.md:104:Use Task tool with subagent_type=Intern, run 3 agents in parallel:
+.claude/skills/PAIUpgrade/Workflows/ResearchUpgrade.md:45:Use Task tool with subagent_type=Intern, run 4 agents in parallel:
+.claude/skills/PAI/Components/Algorithm/v0.2.14.md:204:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.2.14.md:205:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.2.14.md:206:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/PAI/Components/Algorithm/v0.2.1.6.md:330:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.2.1.6.md:331:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.2.1.6.md:332:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/PAI/Components/Algorithm/v0.2.24.md:236:| Engineer | Engineer (subagent_type=Engineer) | Building, implementing, coding, fixing |
+.claude/skills/PAI/Components/Algorithm/v0.2.24.md:237:| Architect | Architect (subagent_type=Architect) | System design, architecture, structure decisions |
+.claude/skills/PAI/Components/Algorithm/v0.2.24.md:238:| Analyst | Algorithm (subagent_type=Algorithm) | Analysis, review, evaluation, assessment |
+.claude/skills/PAI/Components/Algorithm/v0.2.24.md:239:| QA | QATester (subagent_type=QATester) | Testing, verification, browser validation |
+.claude/skills/PAI/Components/Algorithm/v0.2.24.md:240:| Design | Designer (subagent_type=Designer) | UX/UI design |
+.claude/skills/PAI/Components/Algorithm/v0.2.24.md:241:| Security | Pentester (subagent_type=Pentester) | Security testing, vulnerability assessment |
+.claude/skills/PAI/Components/Algorithm/v0.2.24.md:242:| Explore | Explore (subagent_type=Explore) | Codebase exploration, file discovery |
+.claude/skills/PAI/Components/Algorithm/v0.2.10.md:176:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.2.10.md:177:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.2.10.md:178:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/PAI/Components/Algorithm/v0.2.25.md:286:| Engineer | Engineer (subagent_type=Engineer) | Building, implementing, coding, fixing |
+.claude/skills/PAI/Components/Algorithm/v0.2.25.md:287:| Architect | Architect (subagent_type=Architect) | System design, architecture, structure decisions |
+.claude/skills/PAI/Components/Algorithm/v0.2.25.md:288:| Analyst | Algorithm (subagent_type=Algorithm) | Analysis, review, evaluation, assessment |
+.claude/skills/PAI/Components/Algorithm/v0.2.25.md:289:| QA | QATester (subagent_type=QATester) | Testing, verification, browser validation |
+.claude/skills/PAI/Components/Algorithm/v0.2.25.md:290:| Design | Designer (subagent_type=Designer) | UX/UI design |
+.claude/skills/PAI/Components/Algorithm/v0.2.25.md:291:| Security | Pentester (subagent_type=Pentester) | Security testing, vulnerability assessment |
+.claude/skills/PAI/Components/Algorithm/v0.2.25.md:292:| Explore | Explore (subagent_type=Explore) | Codebase exploration, file discovery |
+.claude/skills/PAI/Components/Algorithm/v0.2.13.md:204:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.2.13.md:205:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.2.13.md:206:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/PAI/Components/Algorithm/v0.2.11.md:194:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.2.11.md:195:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.2.11.md:196:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/Research/Workflows/ExtensiveResearch.md:42:Task({ subagent_type: "ClaudeResearcher", description: "[topic] angle 1", prompt: "Search for: [angle 1]. Return findings." })
+.claude/skills/Research/Workflows/ExtensiveResearch.md:43:Task({ subagent_type: "ClaudeResearcher", description: "[topic] angle 2", prompt: "Search for: [angle 2]. Return findings." })
+.claude/skills/Research/Workflows/ExtensiveResearch.md:44:Task({ subagent_type: "ClaudeResearcher", description: "[topic] angle 3", prompt: "Search for: [angle 3]. Return findings." })
+.claude/skills/Research/Workflows/ExtensiveResearch.md:47:Task({ subagent_type: "GeminiResearcher", description: "[topic] angle 4", prompt: "Search for: [angle 4]. Return findings." })
+.claude/skills/Research/Workflows/ExtensiveResearch.md:48:Task({ subagent_type: "GeminiResearcher", description: "[topic] angle 5", prompt: "Search for: [angle 5]. Return findings." })
+.claude/skills/Research/Workflows/ExtensiveResearch.md:49:Task({ subagent_type: "GeminiResearcher", description: "[topic] angle 6", prompt: "Search for: [angle 6]. Return findings." })
+.claude/skills/Research/Workflows/ExtensiveResearch.md:52:Task({ subagent_type: "GrokResearcher", description: "[topic] angle 7", prompt: "Search for: [angle 7]. Return findings." })
+.claude/skills/Research/Workflows/ExtensiveResearch.md:53:Task({ subagent_type: "GrokResearcher", description: "[topic] angle 8", prompt: "Search for: [angle 8]. Return findings." })
+.claude/skills/Research/Workflows/ExtensiveResearch.md:54:Task({ subagent_type: "GrokResearcher", description: "[topic] angle 9", prompt: "Search for: [angle 9]. Return findings." })
+.claude/skills/Council/CouncilMembers.md:26:| Council Role | Task subagent_type | Personality |
+.claude/skills/PAI/Components/Algorithm/v0.2.5.md:499:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.2.5.md:500:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.2.5.md:501:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/Council/Workflows/Debate.md:191:| Council Role | Task subagent_type | Personality Reference |
+.claude/skills/Research/Workflows/AnalyzeAiTrends.md:11:   - Use the Task tool with subagent_type="GeminiResearcher"
+.claude/skills/PAI/Components/Algorithm/v0.2.15.md:216:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.2.15.md:217:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.2.15.md:218:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/PAI/SYSTEM/THEHOOKSYSTEM.md:520:if (hookData.tool_name === 'Task' && hookData.tool_input?.subagent_type) {
+.claude/skills/PAI/SYSTEM/THEHOOKSYSTEM.md:521:  agentName = hookData.tool_input.subagent_type;
+.claude/skills/PAI/SYSTEM/THEHOOKSYSTEM.md:957:- Verify Task tool passes `subagent_type` parameter
+.claude/skills/PAI/Components/Algorithm/v0.2.1.md:499:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.2.1.md:500:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.2.1.md:501:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/PAI/SYSTEM/THEDELEGATIONSYSTEM.md:36:Task({ prompt: "Check if blue bar exists on website", subagent_type: "Intern" })
+.claude/skills/PAI/SYSTEM/THEDELEGATIONSYSTEM.md:39:Task({ prompt: "Check if blue bar exists on website", subagent_type: "Intern", model: "haiku" })
+.claude/skills/PAI/SYSTEM/THEDELEGATIONSYSTEM.md:42:Task({ prompt: "Implement the login form validation", subagent_type: "Engineer", model: "sonnet" })
+.claude/skills/PAI/SYSTEM/THEDELEGATIONSYSTEM.md:45:Task({ prompt: "Design the distributed caching strategy", subagent_type: "Architect", model: "opus" })
+.claude/skills/PAI/Components/Algorithm/v0.2.12.md:193:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.2.12.md:194:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.2.12.md:195:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/PAI/Components/Algorithm/v0.2.md:260:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.2.md:261:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.2.md:262:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/PAI/Components/Algorithm/v0.2.md:450:| **Algorithm** | Task: `subagent_type=Algorithm` | ISC tracking needed, verification work, multi-phase tasks |
+.claude/skills/PAI/Components/Algorithm/v0.2.md:451:| **Engineer** | Task: `subagent_type=Engineer` | Code to write/modify (>20 lines), implementation work |
+.claude/skills/PAI/Components/Algorithm/v0.2.md:452:| **Architect** | Task: `subagent_type=Architect` | System design, API design, refactoring decisions |
+.claude/skills/Research/Workflows/StandardResearch.md:35:  subagent_type: "ClaudeResearcher",
+.claude/skills/Research/Workflows/StandardResearch.md:41:  subagent_type: "GeminiResearcher",
+.claude/skills/PAI/Components/Algorithm/v0.2.18.md:289:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.2.18.md:290:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.2.18.md:291:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/Research/Workflows/QuickResearch.md:20:  subagent_type: "ClaudeResearcher",
+.claude/skills/PAI/Components/Algorithm/v0.1.md:270:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.1.md:271:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.1.md:272:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/PAI/Components/Algorithm/v0.1.md:459:| **Algorithm** | Task: `subagent_type=Algorithm` | ISC tracking needed, verification work, multi-phase tasks |
+.claude/skills/PAI/Components/Algorithm/v0.1.md:460:| **Engineer** | Task: `subagent_type=Engineer` | Code to write/modify (>20 lines), implementation work |
+.claude/skills/PAI/Components/Algorithm/v0.1.md:461:| **Architect** | Task: `subagent_type=Architect` | System design, API design, refactoring decisions |
+.claude/skills/PAI/Components/Algorithm/v0.2.22.md:146:| Engineer | Engineer (subagent_type=Engineer) | Building, implementing, coding, fixing |
+.claude/skills/PAI/Components/Algorithm/v0.2.22.md:147:| Architect | Architect (subagent_type=Architect) | System design, architecture, structure decisions |
+.claude/skills/PAI/Components/Algorithm/v0.2.22.md:148:| Analyst | Algorithm (subagent_type=Algorithm) | Analysis, review, evaluation, assessment |
+.claude/skills/PAI/Components/Algorithm/v0.2.22.md:149:| QA | QATester (subagent_type=QATester) | Testing, verification, browser validation |
+.claude/skills/PAI/Components/Algorithm/v0.2.22.md:150:| Design | Designer (subagent_type=Designer) | UX/UI design |
+.claude/skills/PAI/Components/Algorithm/v0.2.22.md:151:| Security | Pentester (subagent_type=Pentester) | Security testing, vulnerability assessment |
+.claude/skills/PAI/Components/Algorithm/v0.2.22.md:152:| Explore | Explore (subagent_type=Explore) | Codebase exploration, file discovery |
+.claude/skills/PAI/Components/Algorithm/v0.2.2.md:497:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.2.2.md:498:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.2.2.md:499:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/PAI/SYSTEM/PAIAGENTSYSTEM.md:24:// ❌ WRONG - These are Task tool subagent_types, NOT custom agents
+.claude/skills/PAI/SYSTEM/PAIAGENTSYSTEM.md:25:Task({ subagent_type: "Architect", prompt: "..." })
+.claude/skills/PAI/SYSTEM/PAIAGENTSYSTEM.md:26:Task({ subagent_type: "Designer", prompt: "..." })
+.claude/skills/PAI/SYSTEM/PAIAGENTSYSTEM.md:27:Task({ subagent_type: "Engineer", prompt: "..." })
+.claude/skills/PAI/SYSTEM/PAIAGENTSYSTEM.md:46:| "agents", "launch agents", "parallel agents" | Generic Interns | `Task({ subagent_type: "Intern" })` |
+.claude/skills/PAI/SYSTEM/PAIAGENTSYSTEM.md:47:| "use Remy", "get Ava to" | Named agent | Use appropriate researcher subagent_type |
+.claude/skills/PAI/SYSTEM/PAIAGENTSYSTEM.md:48:| (Internal workflow calls) | Task subagent_types | `Task({ subagent_type: "Engineer" })` etc. |
+.claude/skills/PAI/SYSTEM/PAIAGENTSYSTEM.md:148:Task({ prompt: agentPrompt, subagent_type: "Intern", model: "sonnet" })
+.claude/skills/PAI/SYSTEM/PAIAGENTSYSTEM.md:160:  subagent_type: "Intern",
+.claude/skills/PAI/Components/Algorithm/v0.2.17.md:263:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Most cases - prefer this agent |
+.claude/skills/PAI/Components/Algorithm/v0.2.17.md:264:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation |
+.claude/skills/PAI/Components/Algorithm/v0.2.17.md:265:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/PAI/Components/Algorithm/v0.2.19.md:130:🔧 **MUST INVOKE for code tasks:** Engineer Agent (subagent_type=Engineer)
+.claude/skills/PAI/Components/Algorithm/v0.2.19.md:335:  subagent_type: "Algorithm"
+.claude/skills/PAI/Components/Algorithm/v0.2.19.md:342:  subagent_type: "Engineer"
+.claude/skills/PAI/Components/Algorithm/v0.2.19.md:349:  subagent_type: "Architect"
+.claude/skills/PAI/Components/Algorithm/v0.2.19.md:407:| **Algorithm Agent** (Task: `subagent_type=Algorithm`) | Specialized for ISC and algorithm tasks | Complex ISC extraction (5+ criteria), ISC refinement |
+.claude/skills/PAI/Components/Algorithm/v0.2.19.md:408:| **Engineer Agent** (Task: `subagent_type=Engineer`) | Builds and implements | Code implementation tasks |
+.claude/skills/PAI/Components/Algorithm/v0.2.19.md:409:| **Architect Agent** (Task: `subagent_type=Architect`) | Design and structure thinking | System design decisions |
+.claude/skills/PAI/Components/Algorithm/v0.2.23.md:236:| Engineer | Engineer (subagent_type=Engineer) | Building, implementing, coding, fixing |
+.claude/skills/PAI/Components/Algorithm/v0.2.23.md:237:| Architect | Architect (subagent_type=Architect) | System design, architecture, structure decisions |
+.claude/skills/PAI/Components/Algorithm/v0.2.23.md:238:| Analyst | Algorithm (subagent_type=Algorithm) | Analysis, review, evaluation, assessment |
+.claude/skills/PAI/Components/Algorithm/v0.2.23.md:239:| QA | QATester (subagent_type=QATester) | Testing, verification, browser validation |
+.claude/skills/PAI/Components/Algorithm/v0.2.23.md:240:| Design | Designer (subagent_type=Designer) | UX/UI design |
+.claude/skills/PAI/Components/Algorithm/v0.2.23.md:241:| Security | Pentester (subagent_type=Pentester) | Security testing, vulnerability assessment |
+.claude/skills/PAI/Components/Algorithm/v0.2.23.md:242:| Explore | Explore (subagent_type=Explore) | Codebase exploration, file discovery |
+.claude/skills/Agents/AgentPersonalities.md:79:4. Launch with `subagent_type: "general-purpose"` - NEVER use static types
+.claude/skills/Agents/AgentPersonalities.md:97:Task(prompt=<ComposeAgent output>, subagent_type="general-purpose", model="sonnet")
+.claude/skills/Agents/AgentPersonalities.md:116:Task(prompt="Research Company A...", subagent_type="general-purpose", model="haiku")
+.claude/skills/Agents/AgentPersonalities.md:117:Task(prompt="Research Company B...", subagent_type="general-purpose", model="haiku")
+.claude/skills/Agents/AgentPersonalities.md:127:Task(prompt="...", subagent_type="Intern")  # NO - custom agents get "general-purpose"
+.claude/skills/Agents/AgentPersonalities.md:128:Task(prompt="...", subagent_type="Engineer") # NO - custom agents are NOT static types
+.claude/skills/Agents/AgentPersonalities.md:134:Task(prompt="You are Dr. Nova...", subagent_type="general-purpose")
+.claude/skills/Agents/AgentPersonalities.md:140:2. Task with that prompt + `subagent_type: "general-purpose"`
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:76:  subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:82:  subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:88:  subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:116:  subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:143:  subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:149:  subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:155:  subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:161:  subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:167:  subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:175:  subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:198:    subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:218:    subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:244:    subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:273:  subagent_type: "Intern",
+.claude/skills/Agents/Workflows/SpawnParallelAgents.md:309:  subagent_type: "Intern",
+.claude/skills/Agents/REDESIGN-SUMMARY.md:93:  subagent_type: "general-purpose",
+.claude/skills/Agents/Workflows/CreateCustomAgent.md:83:**CRITICAL: Use `subagent_type: "general-purpose"` - NEVER use static types like "Intern", "Architect", or "Engineer" for custom agents.**
+.claude/skills/Agents/Workflows/CreateCustomAgent.md:90:  subagent_type: "general-purpose",
+.claude/skills/Agents/Workflows/CreateCustomAgent.md:96:  subagent_type: "general-purpose",
+.claude/skills/Agents/Workflows/CreateCustomAgent.md:102:  subagent_type: "general-purpose",
+.claude/skills/Agents/Workflows/CreateCustomAgent.md:133:  subagent_type: "general-purpose",
+.claude/skills/Agents/AgentProfileSystem.md:111:  subagent_type: "general-purpose",
+.claude/skills/Agents/AgentProfileSystem.md:241:  subagent_type: "general-purpose",
+.claude/skills/OSINT/Workflows/EntityLookup.md:79:Task({ subagent_type: "PerplexityResearcher", prompt: "Research malware associated with [entity] via VirusTotal, Hybrid Analysis, Malware Bazaar" })
+.claude/skills/OSINT/Workflows/EntityLookup.md:80:Task({ subagent_type: "PerplexityResearcher", prompt: "Check reputation of [entity] via AbuseIPDB, AlienVault OTX, Cisco Talos" })
+.claude/skills/OSINT/Workflows/EntityLookup.md:83:Task({ subagent_type: "ClaudeResearcher", prompt: "Profile threat actors associated with [entity] using MITRE ATT&CK, Malpedia" })
+.claude/skills/OSINT/Workflows/EntityLookup.md:84:Task({ subagent_type: "ClaudeResearcher", prompt: "Research historical campaigns involving [entity]" })
+.claude/skills/OSINT/Workflows/EntityLookup.md:87:Task({ subagent_type: "GeminiResearcher", prompt: "Detect C2 indicators for [entity] - Cobalt Strike, Metasploit patterns" })
+.claude/skills/OSINT/Workflows/EntityLookup.md:88:Task({ subagent_type: "GeminiResearcher", prompt: "Map infrastructure relationships for [entity]" })
+.claude/skills/OSINT/Workflows/EntityLookup.md:91:Task({ subagent_type: "GrokResearcher", prompt: "Verify IOC claims for [entity] - active vs. historical vs. false positive" })
+.claude/skills/OSINT/Workflows/EntityLookup.md:92:Task({ subagent_type: "GrokResearcher", prompt: "Assess attribution confidence for [entity]" })
+.claude/skills/OSINT/Workflows/EntityLookup.md:128:Task({ subagent_type: "PerplexityResearcher", prompt: "Search paste sites for [entity]" })
+.claude/skills/OSINT/Workflows/EntityLookup.md:129:Task({ subagent_type: "PerplexityResearcher", prompt: "Check breach databases for [entity]" })
+.claude/skills/OSINT/Workflows/EntityLookup.md:132:Task({ subagent_type: "ClaudeResearcher", prompt: "Check ransomware leak sites for [entity]" })
+.claude/skills/OSINT/Workflows/EntityLookup.md:133:Task({ subagent_type: "ClaudeResearcher", prompt: "Search underground forum mentions for [entity]" })
+.claude/skills/OSINT/Workflows/EntityLookup.md:136:Task({ subagent_type: "GeminiResearcher", prompt: "Search Telegram/Discord for [entity]" })
+.claude/skills/OSINT/Workflows/EntityLookup.md:137:Task({ subagent_type: "GrokResearcher", prompt: "Verify dark web exposure for [entity]" })
+.claude/skills/OSINT/Workflows/PeopleLookup.md:99:Task({ subagent_type: "PerplexityResearcher", prompt: "Research [name] professional background, career history, and credentials" })
+.claude/skills/OSINT/Workflows/PeopleLookup.md:102:Task({ subagent_type: "ClaudeResearcher", prompt: "Search public records for [name] including court records, business filings, property" })
+.claude/skills/OSINT/Workflows/PeopleLookup.md:105:Task({ subagent_type: "GeminiResearcher", prompt: "Map digital footprint for [name] - domains, social media, online presence" })
+.claude/skills/OSINT/Workflows/PeopleLookup.md:108:Task({ subagent_type: "GrokResearcher", prompt: "Verify credentials and claims for [name] - education, certifications, experience" })
+.claude/skills/OSINT/Workflows/CompanyLookup.md:92:Task({ subagent_type: "PerplexityResearcher", prompt: "Verify business registrations for [company]" })
+.claude/skills/OSINT/Workflows/CompanyLookup.md:95:Task({ subagent_type: "ClaudeResearcher", prompt: "Research founder and executive backgrounds for [company]" })
+.claude/skills/OSINT/Workflows/CompanyLookup.md:98:Task({ subagent_type: "ClaudeResearcher", prompt: "Research funding history and financial health for [company]" })
+.claude/skills/OSINT/Workflows/CompanyLookup.md:101:Task({ subagent_type: "GrokResearcher", prompt: "Search for legal issues and regulatory actions for [company]" })
+.claude/skills/OSINT/Workflows/CompanyLookup.md:104:Task({ subagent_type: "PerplexityResearcher", prompt: "Analyze media coverage and reputation for [company]" })
+.claude/skills/OSINT/Workflows/CompanyLookup.md:107:Task({ subagent_type: "GeminiResearcher", prompt: "Map competitive landscape and market position for [company]" })
+.claude/skills/OSINT/Methodology.md:67:Task({ subagent_type: "PerplexityResearcher", prompt: "Entity verification" })
+.claude/skills/OSINT/Methodology.md:68:Task({ subagent_type: "ClaudeResearcher", prompt: "Leadership backgrounds" })
+.claude/skills/OSINT/Methodology.md:69:Task({ subagent_type: "GeminiResearcher", prompt: "Competitive analysis" })
+.claude/skills/OSINT/Methodology.md:70:Task({ subagent_type: "GrokResearcher", prompt: "Risk assessment" })

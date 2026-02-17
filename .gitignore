@@ -256,3 +256,26 @@ bun.lockb
 # Misc
 .DS_Store
 *.pem
+
+# =====================
+# CASA / PAI user-specific files
+# =====================
+# These are generated per-user by setup.sh and should not be committed.
+
+# User settings (generated from settings.template.json)
+.claude/settings.json
+
+# API keys and secrets
+.claude/.env
+
+# Runtime state and user session data
+.claude/MEMORY/STATE/*
+.claude/MEMORY/LEARNING/*
+.claude/MEMORY/WORK/*
+.claude/MEMORY/RESEARCH/*
+!.claude/MEMORY/**/README.md
+.claude/WORK/
+.claude/Plans/
+
+# Observability database
+.claude/Observability/apps/server/*.db

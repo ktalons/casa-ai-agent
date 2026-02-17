@@ -1,0 +1,496 @@
+# Incident Report: Brute Force RDP Compromise with Lateral Movement to Domain Controller
+
+| Field | Value |
+|-------|-------|
+| **Report ID** | CASA-IR-2026-0001 |
+| **Classification** | CONFIDENTIAL |
+| **Date of Report** | 2026-02-16 |
+| **Incident Date** | 2026-02-15 |
+| **Incident Window** | 08:12:01Z — 08:19:45Z (7 min 44 sec) |
+| **Severity** | CRITICAL (P1) |
+| **Status** | Active — Pending Containment Verification |
+| **Prepared By** | CASA (Cybersecurity Analysis Support Agent) |
+| **Framework References** | NIST SP 800-61 Rev 3, NIST CSF 2.0, MITRE ATT&CK v14 |
+
+---
+
+## 1. Executive Summary
+
+On 2026-02-15 at 08:12:01 UTC, external IP address `203.0.113.42` initiated a scripted brute force attack against the `jsmith` account via the organization's RDP gateway (`RDS-GW01`). After 15 authentication attempts over approximately 3 minutes, the attacker successfully authenticated using NTLM. The compromised account held `SeBackupPrivilege` and `SeRestorePrivilege` — privileges that allow unrestricted file system read/write access, bypassing all access control lists.
+
+Within 4 minutes of the initial breach, the attacker performed lateral movement to a finance department workstation (`WS-FINANCE04`) and attempted explicit credential authentication to the primary domain controller (`DC01.corp.local`) using a secondary admin account (`admin.jsmith`).
+
+**The total elapsed time from first probe to domain controller targeting was 7 minutes and 44 seconds.**
+
+This incident exposes five critical control failures: absence of account lockout policy, no multi-factor authentication on the RDP gateway, excessive standing privileges on a user account, insufficient network segmentation, and no real-time detection rules for brute force or privilege escalation patterns.
+
+**Determination of whether `admin.jsmith` successfully authenticated to DC01 is the highest-priority open question. If successful, this incident constitutes full domain compromise.**
+
+---
+
+## 2. Incident Classification
+
+| Attribute | Assessment |
+|-----------|-----------|
+| **Type** | Unauthorized Access — External Brute Force with Lateral Movement |
+| **Attack Vector** | Internet-facing RDP Gateway (RDS-GW01) |
+| **Threat Actor Sophistication** | Medium-High |
+| **Confidence in Findings** | HIGH — all conclusions drawn directly from log evidence |
+| **Data at Risk** | Domain credentials (via SeBackupPrivilege + ntds.dit access), finance department data, Active Directory infrastructure |
+| **Regulatory Implications** | Potential PII/financial data exposure pending scope determination |
+
+---
+
+## 3. Incident Timeline
+
+### 3.1 Attack Phase Reconstruction
+
+```
+TIME (UTC)       EVENT   PHASE                    DESCRIPTION
+─────────────────────────────────────────────────────────────────────────
+08:12:01Z        #1      RECONNAISSANCE           Username probe — "jsmith" NOT FOUND
+                                                   (SubStatus=0xC0000064)
+
+08:12:14Z–       #2–15   BRUTE FORCE              14 failed password attempts
+08:15:01Z                                          (SubStatus=0xC000006A, ~13sec intervals)
+
+08:15:14Z        #16     BREACH                   Successful RDP logon via NTLM
+                                                   from 203.0.113.42
+
+08:15:16Z        #17     PRIVILEGE CONFIRMATION   SeBackupPrivilege + SeRestorePrivilege
+                                                   assigned (T+2 seconds post-logon)
+
+08:19:22Z        #18     LATERAL MOVEMENT         Network logon to WS-FINANCE04
+                                                   via Kerberos from 198.51.100.7
+
+08:19:45Z        #19     DC TARGETING             Explicit credential use: jsmith →
+                                                   admin.jsmith against DC01.corp.local
+─────────────────────────────────────────────────────────────────────────
+TOTAL DURATION: 7 minutes 44 seconds
+```
+
+### 3.2 Timing Analysis
+
+The brute force phase exhibits a mean inter-attempt interval of **12.86 seconds** with a standard deviation of **0.86 seconds** (coefficient of variation: 6.7%). Human-initiated retries typically show 30–60% variance. This regularity is consistent with automated tooling using a fixed sleep timer — likely configured to evade sliding-window lockout thresholds.
+
+| Phase Transition | Interval | Significance |
+|-----------------|----------|-------------|
+| Probe → Brute Force | 13 sec | Immediate pivot after username correction |
+| Brute Force Duration | 2 min 47 sec | 14 attempts, consistent pacing |
+| Last Failure → Success | 13 sec | No pause — scripted progression |
+| Logon → Privilege Assignment | 2 sec | Automatic — jsmith has standing privileges |
+| Privilege → Lateral Movement | 4 min 6 sec | Brief recon or tool staging on RDS-GW01 |
+| Lateral Move → DC Targeting | 23 sec | Pre-planned — attacker knew exact targets |
+
+---
+
+## 4. Detailed Findings
+
+### Finding 1: Scripted Brute Force Attack via RDP Gateway
+
+**Evidence:** Events #1–15 (EventID 4625)
+
+| Attribute | Value |
+|-----------|-------|
+| Source IP | `203.0.113.42` (external) |
+| Target Account | `jsmith` |
+| Logon Type | 10 (RemoteInteractive / RDP) |
+| Gateway | `RDS-GW01` |
+| Total Attempts | 15 (1 username probe + 14 password guesses) |
+| Duration | 3 min 0 sec |
+| Result | Password discovered on attempt 15 |
+
+**SubStatus Code Analysis:**
+
+| Event | SubStatus | Meaning |
+|-------|-----------|---------|
+| #1 | `0xC0000064` | `STATUS_NO_SUCH_USER` — username not found in directory |
+| #2–15 | `0xC000006A` | `STATUS_WRONG_PASSWORD` — username valid, password incorrect |
+
+The transition from "user not found" to "wrong password" after a single attempt indicates either: (a) the attacker corrected a username typo, or (b) username enumeration was performed via the differentiated SubStatus response — an information disclosure vulnerability in the domain controller configuration.
+
+**MITRE ATT&CK:** T1110.001 (Brute Force: Password Guessing), T1589.003 (Gather Victim Identity: Employee Names)
+**NIST CSF 2.0:** DE.CM.01 (Continuous Monitoring), PR.AA.01 (Identity Management)
+
+---
+
+### Finding 2: Successful Authentication — Account Compromise Confirmed
+
+**Evidence:** Event #16 (EventID 4624)
+
+| Attribute | Value |
+|-----------|-------|
+| Source IP | `203.0.113.42` |
+| Target Account | `jsmith` |
+| Logon Type | 10 (RemoteInteractive / RDP) |
+| Auth Package | NTLM |
+| Gateway | `RDS-GW01` |
+
+The use of NTLM rather than Kerberos for an RDP gateway session in a domain environment is anomalous. This may indicate: the attacker's tooling forced NTLM negotiation, the RDS gateway is not configured for Network Level Authentication (NLA) with Kerberos, or the attacker is operating from a non-domain-joined host (expected for an external attacker).
+
+**MITRE ATT&CK:** T1078 (Valid Accounts), T1021.001 (Remote Desktop Protocol)
+**NIST CSF 2.0:** DE.AE.02 (Adverse Event Analysis), PR.AA.05 (Access Permissions)
+
+---
+
+### Finding 3: Dangerous Privilege Assignment — SeBackupPrivilege + SeRestorePrivilege
+
+**Evidence:** Event #17 (EventID 4672)
+
+| Attribute | Value |
+|-----------|-------|
+| Account | `jsmith` |
+| Logon Session ID | `0x1A2B3C4D` |
+| Privileges Assigned | `SeBackupPrivilege`, `SeRestorePrivilege` |
+| Time After Logon | 2 seconds |
+
+**Privilege Impact Assessment:**
+
+| Privilege | Capability | Abuse Potential |
+|-----------|-----------|----------------|
+| `SeBackupPrivilege` | Read any file regardless of ACL | Extract SAM database, ntds.dit, registry hives, any sensitive file |
+| `SeRestorePrivilege` | Write any file/registry key regardless of ACL | Replace system binaries, plant persistence, modify security settings |
+
+These privileges are assigned at logon, meaning `jsmith` holds them as **standing permissions** — most likely through membership in the `Backup Operators` built-in group. This is not a runtime exploit; it is a pre-existing privilege misconfiguration that the attacker inherited upon compromise.
+
+**Combined, these privileges provide the functional equivalent of SYSTEM-level file access.** An attacker with SeBackupPrivilege can extract `C:\Windows\NTDS\ntds.dit` and the SYSTEM registry hive, enabling offline cracking of every domain password hash.
+
+**MITRE ATT&CK:** T1134 (Access Token Manipulation), T1003.003 (OS Credential Dumping: NTDS)
+**NIST CSF 2.0:** PR.AA.05 (Access Permissions), DE.CM.03 (Personnel Activity Monitoring)
+
+---
+
+### Finding 4: Lateral Movement to Finance Workstation
+
+**Evidence:** Event #18 (EventID 4624)
+
+| Attribute | Value |
+|-----------|-------|
+| Source IP | `198.51.100.7` |
+| Target Account | `jsmith` |
+| Logon Type | 3 (Network) |
+| Auth Package | Kerberos |
+| Destination | `WS-FINANCE04` |
+| Time After Breach | 4 min 8 sec |
+
+The attacker pivoted from RDS-GW01 to an internal finance workstation using a network logon (LogonType=3), consistent with SMB, WMI, or PowerShell Remoting access. The authentication protocol switched from NTLM (initial breach) to Kerberos (lateral movement), indicating the attacker obtained a Kerberos TGT during the initial RDS session and is now operating as a domain-authenticated entity.
+
+The specific targeting of a finance workstation suggests prior reconnaissance of the environment — the attacker knew where high-value data resides.
+
+**MITRE ATT&CK:** T1021.002 (SMB/Windows Admin Shares), T1550 (Use Alternate Authentication Material)
+**NIST CSF 2.0:** DE.CM.01 (Continuous Monitoring), PR.IR.01 (Network Protection)
+
+---
+
+### Finding 5: Explicit Credential Use Targeting Domain Controller
+
+**Evidence:** Event #19 (EventID 4648)
+
+| Attribute | Value |
+|-----------|-------|
+| Subject Account | `jsmith` |
+| Target Account | `admin.jsmith` |
+| Source IP | `198.51.100.7` |
+| Target Server | `DC01.corp.local` |
+| Time After Breach | 4 min 31 sec |
+
+EventID 4648 records an explicit credential logon — the attacker used `admin.jsmith` credentials (distinct from the compromised `jsmith` session) to authenticate to the primary domain controller. This indicates:
+
+1. The attacker possesses credentials for `admin.jsmith` — either from a credential dump on RDS-GW01 (using SeBackupPrivilege), cached credentials on WS-FINANCE04, or prior compromise
+2. The attacker knows the organization's admin account naming convention (`admin.<username>`)
+3. The attacker is targeting the domain controller directly — the crown jewel of the Windows domain
+
+**This is a domain compromise precursor event. If `admin.jsmith` authenticated successfully to DC01, assume full domain compromise.**
+
+**MITRE ATT&CK:** T1078.002 (Valid Accounts: Domain Accounts), T1003.003 (NTDS Credential Dumping)
+**NIST CSF 2.0:** DE.AE.06 (Adverse Event Reporting), RS.AN.03 (Incident Root Cause Analysis)
+
+---
+
+### Finding 6: Absent Account Lockout Policy
+
+**Evidence:** Absence of EventID 4740 (Account Lockout) across all 19 events
+
+Fifteen failed authentication attempts from a single IP address over 3 minutes did not trigger account lockout. Per NIST SP 800-53 control AC-7 (Unsuccessful Logon Attempts), an automated lockout or delay mechanism should activate after a configurable threshold. The absence of EventID 4740 indicates one or more of:
+
+- Lockout threshold set above 15 attempts
+- Lockout observation window longer than 3 minutes
+- Lockout policy not applied to RDS-GW01 or LogonType=10
+
+This is the **single most impactful control failure** in this incident. A lockout threshold of 5 would have prevented the breach entirely.
+
+**NIST CSF 2.0:** PR.AA.01 (Identity Management)
+
+---
+
+## 5. Indicators of Compromise (IOCs)
+
+### 5.1 Network Indicators
+
+| IOC | Type | Context | Action |
+|-----|------|---------|--------|
+| `203.0.113.42` | External IPv4 | Brute force origin, RDP gateway targeting | Block at perimeter, submit to threat intel feeds |
+| `198.51.100.7` | Internal IPv4 | Lateral movement pivot (WS-FINANCE04) | Investigate — determine if this is NATted RDS session or separate host |
+
+### 5.2 Account Indicators
+
+| IOC | Type | Context | Action |
+|-----|------|---------|--------|
+| `jsmith` | Compromised account | Brute-forced, RDP access, Backup Operators member | Disable immediately, reset after investigation |
+| `admin.jsmith` | Targeted admin account | Used in explicit credential logon to DC01 | Disable immediately, audit all DC01 activity |
+| `0x1A2B3C4D` | Logon Session ID | Attacker's session on RDS-GW01 | Trace through all event logs on RDS-GW01 |
+
+### 5.3 Host Indicators
+
+| IOC | Type | Context | Action |
+|-----|------|---------|--------|
+| `RDS-GW01` | Compromised gateway | Initial breach point, no lockout enforcement | Isolate for forensic imaging |
+| `WS-FINANCE04` | Compromised workstation | Lateral movement target, credential staging | Isolate for forensic imaging |
+| `DC01.corp.local` | Targeted domain controller | Explicit credential attempt by admin.jsmith | Verify auth success/failure, collect logs |
+
+### 5.4 Behavioral Indicators
+
+| Pattern | Detection Signature |
+|---------|-------------------|
+| 15 failed RDP auths + 1 success from single IP | EventID 4625 (count >= 5, LogonType=10) → EventID 4624 within 10 min |
+| SubStatus transition 0xC0000064 → 0xC000006A | Username enumeration via differentiated error responses |
+| NTLM auth to RDP gateway from external IP | EventID 4624, AuthPackage=NTLM, LogonType=10, non-RFC1918 source |
+| SeBackupPrivilege on RDP session | EventID 4672 with PrivilegeList containing SeBackupPrivilege, correlated to external logon |
+| EventID 4648 targeting domain controller | Explicit credential logon where TargetServerName matches DC hostname pattern |
+
+---
+
+## 6. MITRE ATT&CK Mapping
+
+| Tactic | Technique | ID | Evidence |
+|--------|----------|-----|----------|
+| Reconnaissance | Gather Victim Identity Information: Employee Names | T1589.003 | Targeted `jsmith` by name; corrected username after first attempt |
+| Credential Access | Brute Force: Password Guessing | T1110.001 | Events #1–15: 15 attempts, scripted 13-sec intervals |
+| Initial Access | Valid Accounts | T1078 | Event #16: Successful RDP logon with compromised credentials |
+| Initial Access | Remote Services: Remote Desktop Protocol | T1021.001 | LogonType=10, RDS-GW01 |
+| Privilege Escalation | Access Token Manipulation | T1134 | Event #17: SeBackupPrivilege + SeRestorePrivilege |
+| Credential Access | OS Credential Dumping: NTDS | T1003.003 | Intent inferred: SeBackupPrivilege + DC01 targeting |
+| Lateral Movement | Remote Services: SMB/Windows Admin Shares | T1021.002 | Event #18: LogonType=3 to WS-FINANCE04 |
+| Defense Evasion | Use Alternate Authentication Material | T1550 | Event #19: Explicit credentials (admin.jsmith) via 4648 |
+
+---
+
+## 7. NIST CSF 2.0 Gap Analysis
+
+| CSF Function | Category | Finding | Current State | Target State |
+|-------------|----------|---------|---------------|-------------|
+| **PROTECT** | PR.AA.01 — Identity Management | No account lockout after 15 failures | Tier 1 (Partial) | Tier 3 (Repeatable) |
+| **PROTECT** | PR.AA.05 — Access Permissions | SeBackupPrivilege on RDP-exposed user account | Tier 1 (Partial) | Tier 3 (Repeatable) |
+| **PROTECT** | PR.IR.01 — Network Protection | No segmentation between gateway, workstations, and DCs | Tier 1 (Partial) | Tier 3 (Repeatable) |
+| **DETECT** | DE.CM.01 — Continuous Monitoring | No brute force threshold alert fired | Tier 1 (Partial) | Tier 3 (Repeatable) |
+| **DETECT** | DE.AE.02 — Adverse Event Analysis | No post-brute-force success correlation | Not Implemented | Tier 3 (Repeatable) |
+| **DETECT** | DE.AE.06 — Adverse Event Reporting | No alert on 4648 targeting DC | Not Implemented | Tier 3 (Repeatable) |
+| **DETECT** | DE.CM.03 — Personnel Activity Monitoring | No privileged session anomaly detection | Tier 1 (Partial) | Tier 2 (Risk-Informed) |
+| **RESPOND** | RS.AN.03 — Incident Root Cause | Log sources insufficient for full reconstruction | Tier 1 (Partial) | Tier 3 (Repeatable) |
+
+---
+
+## 8. Impact Assessment
+
+### 8.1 Confirmed Impact
+
+| Asset | Impact | Severity |
+|-------|--------|----------|
+| `jsmith` account | Compromised — attacker has valid credentials | CRITICAL |
+| `RDS-GW01` | Attacker had interactive RDP session with backup privileges | HIGH |
+| `WS-FINANCE04` | Network logon from compromised account | HIGH |
+
+### 8.2 Potential Impact (Pending Investigation)
+
+| Scenario | Condition | Impact if Confirmed |
+|----------|-----------|-------------------|
+| Full domain compromise | `admin.jsmith` auth to DC01 succeeded | CRITICAL — all domain credentials at risk |
+| ntds.dit extraction | SeBackupPrivilege used on DC01 | CRITICAL — offline hash cracking of all accounts |
+| Financial data exfiltration | Files accessed on WS-FINANCE04 | HIGH — regulatory notification may be required |
+| Persistence installation | Scheduled tasks, services, or registry modifications | HIGH — attacker retains access after remediation |
+
+---
+
+## 9. Response Actions
+
+### 9.1 Immediate Actions (0–1 Hour)
+
+| # | Action | Owner | Status |
+|---|--------|-------|--------|
+| 1 | Disable `jsmith` and `admin.jsmith` accounts in Active Directory | AD Admin | PENDING |
+| 2 | Block `203.0.113.42` at perimeter firewall | Network Ops | PENDING |
+| 3 | Isolate `RDS-GW01` from network (preserve for forensics) | IR Team | PENDING |
+| 4 | Isolate `WS-FINANCE04` from network (preserve for forensics) | IR Team | PENDING |
+| 5 | Query DC01 security log: did `admin.jsmith` authenticate successfully? | IR Team | PENDING |
+| 6 | Terminate all active sessions for `jsmith` on all hosts | AD Admin | PENDING |
+
+### 9.2 Short-Term Actions (1–48 Hours)
+
+| # | Action | Owner | Status |
+|---|--------|-------|--------|
+| 7 | Forensic imaging of RDS-GW01 (memory + disk) | Forensics | PENDING |
+| 8 | Forensic imaging of WS-FINANCE04 (memory + disk) | Forensics | PENDING |
+| 9 | Enable account lockout policy: 5 failures / 30-min lockout | AD Admin | PENDING |
+| 10 | Deploy SIEM rule: successful auth after 5+ failures = CRITICAL alert | SIEM Team | PENDING |
+| 11 | Deploy SIEM rule: EventID 4648 targeting DC = CRITICAL alert | SIEM Team | PENDING |
+| 12 | Audit all members of Backup Operators group | AD Admin | PENDING |
+| 13 | Remove SeBackupPrivilege/SeRestorePrivilege from all non-service accounts | AD Admin | PENDING |
+| 14 | If admin.jsmith auth succeeded on DC01: initiate krbtgt double-reset | AD Admin | PENDING |
+| 15 | Force password reset for all accounts that authenticated from WS-FINANCE04 in past 7 days | AD Admin | PENDING |
+
+### 9.3 Long-Term Remediation (2–12 Weeks)
+
+| # | Action | Owner | Target Date |
+|---|--------|-------|-------------|
+| 16 | Enforce MFA on RDS-GW01 for all external connections | Identity Team | Week 2 |
+| 17 | Implement network segmentation: deny gateway-to-workstation lateral paths | Network Ops | Week 3 |
+| 18 | Deploy Sysmon + EventID 4688 command-line logging on Tier 1/2 systems | Endpoint Team | Week 3 |
+| 19 | Enable Kerberos event logging (4769) on DCs, forward to SIEM | AD/SIEM Team | Week 2 |
+| 20 | Add admin accounts to Protected Users security group | AD Admin | Week 1 |
+| 21 | Implement Privileged Access Workstations (PAWs) for Tier 0/1 admin accounts | Architecture | Week 8 |
+| 22 | Deploy PAM solution with JIT provisioning for admin accounts | Architecture | Week 12 |
+| 23 | Disable NTLM for RDP gateway authentication (enforce Kerberos/cert-based) | Identity Team | Week 4 |
+| 24 | Conduct purple team exercise validating new detection rules | Security Ops | Week 6 |
+
+---
+
+## 10. Detection Rules Required
+
+### Rule 1: RDP Brute Force Threshold (CRITICAL)
+
+```
+TRIGGER: EventID=4625 AND LogonType=10 AND count(TargetUserName) >= 5
+         within 5 minutes from same SourceIP
+ACTION:  CRITICAL alert, SOC page, automated firewall block on SourceIP
+SOURCE:  Security event log on all RDS gateway hosts
+```
+
+### Rule 2: Successful Auth After Brute Force (CRITICAL)
+
+```
+TRIGGER: EventID=4624 preceded by 5+ EventID=4625 events
+         for same TargetUserName within 10 minutes
+ACTION:  CRITICAL alert, immediate SOC page, automated session review
+SOURCE:  Security event log, SIEM correlation
+```
+
+### Rule 3: Username Enumeration via SubStatus Transition (HIGH)
+
+```
+TRIGGER: EventID=4625 SubStatus=0xC0000064 followed within 60 seconds
+         by EventID=4625 SubStatus=0xC000006A from same SourceIP
+ACTION:  HIGH alert, enrich with threat intel on SourceIP
+SOURCE:  Security event log on authentication endpoints
+```
+
+### Rule 4: Privileged Session from External Source (CRITICAL)
+
+```
+TRIGGER: EventID=4672 where parent logon (correlated via LogonID) has
+         SourceIP outside RFC1918 ranges
+ACTION:  CRITICAL alert, verify session legitimacy
+SOURCE:  Security event log, correlated in SIEM
+```
+
+### Rule 5: Explicit Credentials Targeting Domain Controller (CRITICAL)
+
+```
+TRIGGER: EventID=4648 where TargetServerName matches DC hostname pattern
+ACTION:  CRITICAL alert, automated isolation of source host, SOC page
+SOURCE:  Security event log on all domain-joined hosts
+```
+
+### Rule 6: Lateral Movement from RDP Gateway (HIGH)
+
+```
+TRIGGER: EventID=4624 LogonType=3 on destination host where
+         TargetUserName matches account seen on RDS gateway within 10 min
+ACTION:  HIGH alert, investigate source host
+SOURCE:  Security event logs, correlated across hosts
+```
+
+---
+
+## 11. Evidence Gaps and Additional Data Required
+
+| Priority | Data Source | Purpose | Expected Insight |
+|----------|-----------|---------|-----------------|
+| CRITICAL | DC01 Security Event Log | Determine if `admin.jsmith` authenticated successfully | Breach scope: pre-compromise vs. full domain compromise |
+| CRITICAL | RDS-GW01 full Security + Sysmon logs | Attacker post-exploitation activity | Tools executed, files accessed, persistence installed |
+| HIGH | WS-FINANCE04 Security + Sysmon logs | Lateral movement activity | Data staging, credential dumping, persistence |
+| HIGH | Perimeter firewall logs for `203.0.113.42` | Prior scanning activity, session duration, data volume | Timeline extension, exfiltration assessment |
+| HIGH | DNS query logs (internal resolver) | Resolution of DC01.corp.local from attacker-controlled hosts | Earlier detection point for DC targeting |
+| MEDIUM | NetFlow/IPFIX from perimeter | Byte counts and session duration for 203.0.113.42 | Exfiltration volume assessment |
+| MEDIUM | PowerShell Script Block Logging (EventID 4104) | Post-exploitation PowerShell commands | Tool identification (Mimikatz, etc.) |
+| MEDIUM | Kerberos logs (EventID 4768, 4769) on DC01 | TGT/TGS requests from attacker sessions | Kerberoasting detection, ticket anomalies |
+
+---
+
+## 12. Lessons Learned
+
+### 12.1 What Enabled This Attack
+
+1. **No account lockout policy** on internet-facing authentication endpoint — the single control that would have prevented this breach
+2. **Single-factor authentication** on RDP gateway — no MFA requirement for external access
+3. **Excessive standing privileges** — a user account with SeBackupPrivilege exposed to external RDP
+4. **Flat network architecture** — no segmentation preventing gateway-to-workstation-to-DC lateral movement
+5. **No real-time detection** — brute force pattern went undetected during the 3-minute attack window
+
+### 12.2 What Worked
+
+1. **Event logging was functional** — all 19 events were captured with full detail including SubStatus codes
+2. **Log granularity was sufficient** — differentiated SubStatus codes, LogonType, AuthPackage, and privilege lists enabled complete reconstruction
+
+### 12.3 Success Metrics for Remediation Validation
+
+| Metric | Current | Target | Measurement Method |
+|--------|---------|--------|--------------------|
+| Mean Time to Detect (MTTD) for RDP brute force | Undetected | < 5 minutes | SIEM rule fire time from first 4625 |
+| Account lockout threshold | None | 5 attempts / 30 min | Controlled test against test account |
+| Privileged non-service accounts with SeBackupPrivilege | >= 1 | 0 | Quarterly EventID 4672 audit |
+| External RDP connections requiring MFA | 0% | 100% | RDS Gateway CAP policy audit |
+| Detection rules covering this attack chain | 0 | 6 (Rules 1–6 above) | SIEM rule inventory |
+
+---
+
+## Appendix A: Complete Event Log Decode
+
+| # | Timestamp (UTC) | EventID | Description | Key Fields |
+|---|----------------|---------|-------------|------------|
+| 1 | 08:12:01 | 4625 | Failed logon — user not found | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC0000064 |
+| 2 | 08:12:14 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 3 | 08:12:28 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 4 | 08:12:39 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 5 | 08:12:52 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 6 | 08:13:05 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 7 | 08:13:18 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 8 | 08:13:30 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 9 | 08:13:44 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 10 | 08:13:57 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 11 | 08:14:10 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 12 | 08:14:22 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 13 | 08:14:35 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 14 | 08:14:48 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 15 | 08:15:01 | 4625 | Failed logon — wrong password | jsmith, 203.0.113.42, LogonType=10, SubStatus=0xC000006A |
+| 16 | 08:15:14 | 4624 | Successful logon (RDP) | jsmith, 203.0.113.42, LogonType=10, NTLM |
+| 17 | 08:15:16 | 4672 | Special privileges assigned | jsmith, Session=0x1A2B3C4D, SeBackupPrivilege+SeRestorePrivilege |
+| 18 | 08:19:22 | 4624 | Successful logon (Network) | jsmith, 198.51.100.7, LogonType=3, Kerberos, WS-FINANCE04 |
+| 19 | 08:19:45 | 4648 | Explicit credential logon | jsmith→admin.jsmith, 198.51.100.7, DC01.corp.local |
+
+---
+
+## Appendix B: References
+
+| Standard | Relevance |
+|----------|-----------|
+| NIST SP 800-61 Rev 3 | Incident Handling Guide — report structure and response phases |
+| NIST SP 800-92 | Guide to Computer Security Log Management — log analysis methodology |
+| NIST SP 800-53 Rev 5, AC-7 | Unsuccessful Logon Attempts — account lockout control |
+| NIST CSF 2.0 | Cybersecurity Framework — gap analysis and tier assessment |
+| MITRE ATT&CK v14 | Adversarial Tactics, Techniques, and Common Knowledge |
+
+---
+
+*Report generated by CASA (Cybersecurity Analysis Support Agent)*
+*Analysis performed using LogAnalyst and PurpleTeamMapper specialized agents*
+*NIST SP 800-61 Rev 3 aligned*
