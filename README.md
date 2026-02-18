@@ -12,36 +12,79 @@ Rather than fully autonomous threat detection, CASA guides investigative workflo
 
 ### Prerequisites
 
-- **Claude Code** — Anthropic's CLI ([install guide](https://docs.anthropic.com/en/docs/claude-code))
-  ```bash
-  npm install -g @anthropic-ai/claude-code
-  ```
-- **Bun** — TypeScript runtime (setup.sh will install this if missing)
-- **Python 3** — Used by setup.sh for JSON configuration (pre-installed on macOS/most Linux)
+Install these before running `setup.sh`:
 
-### Install
+| Tool | Required | Notes |
+|------|----------|-------|
+| **Claude Code** | Yes | [Install guide](https://docs.anthropic.com/en/docs/claude-code) — Anthropic's CLI |
+| **Python 3** | Yes | Pre-installed on macOS and most Linux |
+| **Bun** | Auto | `setup.sh` installs Bun automatically if missing |
+| **ElevenLabs API key** | Optional | Required only for voice synthesis — [elevenlabs.io](https://elevenlabs.io) |
+
+### 1. Clone
 
 ```bash
 gh repo clone CASA-Capstone-AI-Research-Project/CASA
 cd CASA
+```
+
+### 2. Validate (Recommended)
+
+Verify the repo is complete before installing:
+
+```bash
+bash setup.sh --validate
+```
+
+This runs all structural checks — agents, skills, hooks, workflows — without making any changes. All checks should show `✓` before proceeding.
+
+### 3. Install
+
+```bash
 bash setup.sh
 ```
 
 The setup script will:
-1. Verify prerequisites (Claude Code, Bun, Python 3)
+1. Check prerequisites (Claude Code, Python 3, Bun)
 2. Create a symlink: `~/.claude` → `<repo>/.claude/`
 3. Back up any existing `~/.claude/` if present
-4. Generate `settings.json` with your name, timezone, and preferences
-5. Validate all CASA agents, skills, and workflows
+4. Collect your name, timezone, AI assistant name, and voice preference
+5. Generate `settings.json` and a documented `.env` template
+6. Start the voice server automatically if an ElevenLabs key is provided
+7. Validate all CASA agents, skills, hooks, and workflows
 
-### Launch
+### 4. Configure (Optional)
+
+After install, open `.claude/.env` to configure optional features:
+
+```bash
+# .claude/.env — gitignored, stays local
+
+# Voice synthesis (get a free key at elevenlabs.io)
+ELEVENLABS_API_KEY=your_key_here
+
+# Timezone for log timestamps (IANA format — defaults to America/Los_Angeles)
+TIME_ZONE=America/New_York
+
+# Voice ID override (optional — overrides voice selected during setup)
+# Rachel (female): 21m00Tcm4TlvDq8ikWAM  |  Adam (male): pNInz6obpgDQGcFmaJgB
+PAI_VOICE_ID=
+```
+
+### 5. Launch
 
 ```bash
 claude
 ```
 
-Then try a query:
-> "Analyze these authentication logs for brute force indicators"
+Try a query to get started:
+
+```
+Analyze these auth logs for brute force indicators
+Investigate this PCAP for C2 beaconing activity
+Search OSINT for this IP address: 192.168.1.100
+Run a prompt injection assessment on this chatbot endpoint
+```
 
 ### Update
 
@@ -83,6 +126,7 @@ Built on [Daniel Miessler's Personal AI Infrastructure (PAI)](https://github.com
 | **LogAnalyst** | Guides log investigation with step-by-step reasoning | NIST SP 800-92 |
 | **NetworkAnalyst** | Assists with PCAP and network flow analysis | Network security best practices |
 | **PurpleTeamMapper** | Maps findings to detection/response improvements | NIST CSF 2.0, MITRE ATT&CK |
+| **Pentester** | Authorized vulnerability assessment and security testing | OWASP, PTES |
 
 ### Investigation Workflows
 
@@ -132,14 +176,15 @@ CASA/
 └── .claude/                          ← Symlinked to ~/.claude
     ├── settings.template.json        ← Default config (tracked)
     ├── settings.json                 ← Your config (gitignored)
-    ├── .env                          ← API keys (gitignored)
+    ├── .env                          ← API keys + timezone (gitignored)
     ├── CLAUDE.md                     ← Entry point for Claude
     ├── INSTALL.ts                    ← PAI personalization wizard
     ├── agents/
     │   ├── Overseer.md               ← Query routing orchestrator
     │   ├── LogAnalyst.md             ← NIST SP 800-92 log analysis
     │   ├── NetworkAnalyst.md         ← PCAP/flow analysis
-    │   └── PurpleTeamMapper.md       ← NIST CSF 2.0 mapping
+    │   ├── PurpleTeamMapper.md       ← NIST CSF 2.0 mapping
+    │   └── Pentester.md              ← Authorized vulnerability assessment
     ├── skills/
     │   ├── CyberAnalysis/
     │   │   ├── SKILL.md              ← Core investigation skill
@@ -149,9 +194,16 @@ CASA/
     │   │       ├── NetworkBeaconingDetection.md
     │   │       ├── DataExfiltrationAnalysis.md
     │   │       └── LateralMovementDetection.md
-    │   └── PAI/                      ← PAI framework skills
-    ├── hooks/                        ← Lifecycle event handlers
-    └── MEMORY/                       ← Learning and pattern storage (gitignored contents)
+    │   ├── PromptInjection/          ← AI/LLM security assessment
+    │   ├── Recon/                    ← Reconnaissance workflows
+    │   ├── WebAssessment/            ← Web application security
+    │   ├── OSINT/                    ← Open source intelligence
+    │   ├── SECUpdates/               ← Security news aggregation
+    │   ├── AnnualReports/            ← Threat report analysis
+    │   └── PAI/                      ← PAI framework core
+    ├── hooks/                        ← Lifecycle event handlers (10 active)
+    ├── VoiceServer/                  ← ElevenLabs TTS server
+    └── MEMORY/                       ← Learning and pattern storage (gitignored)
 ```
 
 ## Reconfiguring
