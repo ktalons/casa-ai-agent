@@ -22,7 +22,7 @@ Rather than fully autonomous threat detection, CASA guides investigative workflo
 ### Install
 
 ```bash
-git clone https://github.com/<your-username>/CASA.git
+gh repo clone CASA-Capstone-AI-Research-Project/CASA
 cd CASA
 bash setup.sh
 ```
