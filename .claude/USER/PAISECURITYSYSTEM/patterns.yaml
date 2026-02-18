@@ -1,17 +1,10 @@
-# PAI Security Patterns - EXAMPLE TEMPLATE
-# Single source of truth for security validation
-# Used by SecurityValidator.hook.ts
-#
-# INSTRUCTIONS:
-# 1. Copy this file to USER/PAISECURITYSYSTEM/patterns.yaml
-# 2. Customize patterns for your environment
-# 3. The hook will load USER patterns first, falling back to this example
+# PAI Security Patterns - kyle's configuration
+# Generated from patterns.example.yaml template
+# Loaded by SecurityValidator.hook.ts (USER patterns take priority over SYSTEM example)
 ---
 version: "1.0"
-last_updated: "2026-01-14"
+last_updated: "2026-02-18"
 
-# Philosophy: Safe but functional by default
-# Block catastrophic operations, confirm dangerous ones, allow everything else
 philosophy:
   mode: safe_functional
   principle: "Meaningful protection without friction that drives people to disable security"
@@ -20,10 +13,7 @@ philosophy:
 # BASH COMMAND PATTERNS
 # ========================================
 bash:
-  # BLOCKED - Catastrophic/irreversible (exit 2)
-  # These operations are NEVER allowed - they cause irreversible damage
   blocked:
-    # Filesystem destruction
     - pattern: "rm -rf /"
       reason: "Filesystem destruction"
     - pattern: "rm -rf ~"
@@ -32,8 +22,6 @@ bash:
       reason: "Filesystem destruction with sudo"
     - pattern: "sudo rm -rf ~"
       reason: "Home directory destruction with sudo"
-
-    # Disk operations
     - pattern: "diskutil eraseDisk"
       reason: "Disk destruction"
     - pattern: "diskutil zeroDisk"
@@ -48,17 +36,12 @@ bash:
       reason: "Disk overwrite"
     - pattern: "mkfs"
       reason: "Filesystem format"
-
-    # Repository operations
     - pattern: "gh repo delete"
       reason: "Repository deletion"
     - pattern: "gh repo edit --visibility public"
       reason: "Repository exposure"
 
-  # CONFIRM - Dangerous but sometimes legitimate (exit 0 + JSON prompt)
-  # User will be prompted to confirm before execution
   confirm:
-    # Git operations
     - pattern: "git push --force"
       reason: "Force push can lose commits"
     - pattern: "git push -f"
@@ -69,36 +52,26 @@ bash:
       reason: "Force push can lose commits"
     - pattern: "git reset --hard"
       reason: "Loses uncommitted changes"
-
-    # Cloud - AWS
     - pattern: "aws s3 rm.*--recursive"
       reason: "Bulk S3 deletion"
     - pattern: "aws ec2 terminate"
       reason: "EC2 instance termination"
     - pattern: "aws rds delete"
       reason: "RDS deletion"
-
-    # Cloud - GCP
     - pattern: "gcloud.*delete"
       reason: "GCP resource deletion"
-
-    # Infrastructure as Code
     - pattern: "terraform destroy"
       reason: "Infrastructure destruction"
     - pattern: "terraform apply.*-auto-approve"
       reason: "Auto-approve bypasses review"
     - pattern: "pulumi destroy"
       reason: "Infrastructure destruction"
-
-    # Containers
     - pattern: "docker system prune"
       reason: "Container/image cleanup"
     - pattern: "docker volume rm"
       reason: "Volume data deletion"
     - pattern: "kubectl delete namespace"
       reason: "Namespace deletion"
-
-    # Databases
     - pattern: "DELETE FROM.*WHERE"
       reason: "Database deletion (confirm scope)"
     - pattern: "DROP DATABASE"
@@ -108,8 +81,6 @@ bash:
     - pattern: "TRUNCATE"
       reason: "Table data destruction"
 
-  # ALERT - Suspicious but allowed (log only, no block)
-  # These are logged for security review but not blocked
   alert:
     - pattern: "curl.*\\|.*sh"
       reason: "Piping curl to shell"
@@ -124,8 +95,6 @@ bash:
 # PATH PROTECTION
 # ========================================
 paths:
-  # ZERO ACCESS - Complete denial for all operations (read/write/delete)
-  # These paths contain secrets that should never be accessed
   zeroAccess:
     - "~/.ssh/id_*"
     - "~/.ssh/*.pem"
@@ -134,18 +103,14 @@ paths:
     - "**/credentials.json"
     - "**/service-account*.json"
 
-  # READ ONLY - Can read but cannot modify or delete
   readOnly:
     - "/etc/**"
 
-  # CONFIRM WRITE - Can read freely, writing requires confirmation
   confirmWrite:
     - "**/.env"
     - "**/.env.*"
     - "~/.ssh/*"
 
-  # NO DELETE - Can read and modify but cannot delete
-  # Add paths to important configuration or infrastructure files
   noDelete:
     - ".git/**"
     - "LICENSE*"
@@ -154,31 +119,18 @@ paths:
 # ========================================
 # SPECIAL PROJECT RULES
 # ========================================
-# Add project-specific rules here
-# Example:
-# projects:
-#   my-project:
-#     path: "~/Projects/my-project"
-#     rules:
-#       - action: "block_git_push"
-#         reason: "Deploy via custom method only"
 projects: {}
 
 # ========================================
 # CASA SCOPE GUARD
 # ========================================
-# Paths always in-scope (no alerts). PAI_DIR and cwd are implicit.
-# Reads outside scope: warn + allow
-# Writes to existing files outside scope: warn + allow
-# Writes to NEW files/dirs outside scope: confirm with CASA Tree alternatives
+# kyle's full dev tree + CASA dirs are in scope
 casa_scope:
   allowedPaths:
-    - "~/.claude/**"            # PAI_DIR — always in scope
-    - "/tmp/**"                 # temp — no noise
-    - "~/dev/cc/repos/CASA/**"  # EXAMPLE — replace with your paths
-    - "~/dev/cc/sandboxes/**"   # EXAMPLE
+    - "~/.claude/**"
+    - "/tmp/**"
+    - "~/dev/cc/**"
 
-  # CASA Tree: standard workspace dirs offered when scope fires on new path
   casaTree:
     dirs:
       - name: "dropbox"
@@ -203,8 +155,6 @@ casa_scope:
 # ========================================
 # TOOL PATH ALLOWLIST
 # ========================================
-# Security tool binaries — reads allowed silently, writes blocked by path rules above
-# Add paths to security software that CASA should be able to invoke
 tool_paths:
   readAllowed:
     - "/usr/local/bin/**"
