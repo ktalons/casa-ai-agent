@@ -64,7 +64,7 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { parse as parseYaml } from 'yaml';
-import { paiPath } from './lib/paths';
+import { paiPath, getPaiDir } from './lib/paths';
 
 // ========================================
 // Security Event Logging
@@ -170,6 +170,15 @@ interface PatternsConfig {
     path: string;
     rules: Array<{ action: string; reason: string }>;
   }>;
+  casa_scope?: {
+    allowedPaths: string[];
+    casaTree?: {
+      dirs: Array<{ name: string; description: string }>;
+    };
+  };
+  tool_paths?: {
+    readAllowed: string[];
+  };
 }
 
 // ========================================
@@ -285,6 +294,64 @@ function matchesPathPattern(filePath: string, pattern: string): boolean {
   // Exact match or prefix match for directories
   return expandedPath === expandedPattern ||
          expandedPath.startsWith(expandedPattern.endsWith('/') ? expandedPattern : expandedPattern + '/');
+}
+
+// ========================================
+// CASA Scope Guard
+// ========================================
+
+// Returns true if filePath is within the configured workspace scope.
+// cwd and PAI_DIR are always in-scope implicitly.
+function isInScope(filePath: string, patterns: PatternsConfig): boolean {
+  const cwd = process.cwd();
+  const paiDir = getPaiDir();
+  const expandedPath = expandPath(filePath);
+
+  if (expandedPath.startsWith(cwd) || expandedPath.startsWith(paiDir)) return true;
+
+  return (patterns.casa_scope?.allowedPaths ?? [])
+    .some(p => matchesPathPattern(filePath, p));
+}
+
+// Returns true if filePath is a known security tool binary (read-allowed silently).
+function isToolPath(filePath: string, patterns: PatternsConfig): boolean {
+  return (patterns.tool_paths?.readAllowed ?? [])
+    .some(p => matchesPathPattern(filePath, p));
+}
+
+// Detect `mkdir` in a Bash command and return the target path, or null.
+function detectMkdir(command: string): string | null {
+  const match = command.match(/\bmkdir\b(?:\s+-[a-zA-Z0-9]+)*\s+["']?([^\s"';&|]+)/);
+  return match ? expandPath(match[1]) : null;
+}
+
+// Build the confirmation message shown when a new path falls outside scope.
+// Lists CASA Tree alternatives and offers the "initialize CASA Tree" tip.
+function buildScopeConfirmMessage(
+  targetPath: string,
+  patterns: PatternsConfig,
+  cwd: string
+): string {
+  const dirs = patterns.casa_scope?.casaTree?.dirs ?? [];
+  const suggestions = dirs
+    .map(d => `  • ${cwd}/${d.name}/   — ${d.description}`)
+    .join('\n');
+
+  return [
+    `[CASA SCOPE] 📁 New path outside configured workspace`,
+    ``,
+    `Target: ${targetPath}`,
+    ``,
+    suggestions.length
+      ? `Suggested CASA Tree locations:\n${suggestions}`
+      : '',
+    ``,
+    `─────────────────────────────────────`,
+    `💡 Tip: Say "initialize CASA Tree" to create the full workspace`,
+    `        structure in the current directory (${cwd}/)`,
+    `─────────────────────────────────────`,
+    `Proceed with original path?`
+  ].filter(Boolean).join('\n');
 }
 
 // ========================================
@@ -430,8 +497,29 @@ function handleBash(input: HookInput): void {
       console.log(JSON.stringify({ continue: true }));
       break;
 
-    default:
+    default: {
+      // Detect mkdir targeting an out-of-scope path → offer CASA Tree alternatives
+      const scopePatterns = loadPatterns();
+      const mkdirTarget = detectMkdir(command);
+      if (mkdirTarget && !isInScope(mkdirTarget, scopePatterns)) {
+        logSecurityEvent({
+          timestamp: new Date().toISOString(),
+          session_id: input.session_id,
+          event_type: 'confirm',
+          tool: 'Bash',
+          category: 'bash_command',
+          target: command.slice(0, 500),
+          reason: 'mkdir outside CASA scope',
+          action_taken: 'Prompted user with CASA Tree alternatives'
+        });
+        console.log(JSON.stringify({
+          decision: 'ask',
+          message: buildScopeConfirmMessage(mkdirTarget, scopePatterns, process.cwd())
+        }));
+        return;
+      }
       console.log(JSON.stringify({ continue: true }));
+    }
   }
 }
 
@@ -481,8 +569,44 @@ function handleEdit(input: HookInput): void {
       }));
       break;
 
-    default:
+    default: {
+      // Scope guard: check if path is within configured workspace
+      const editPatterns = loadPatterns();
+      if (!isInScope(filePath, editPatterns)) {
+        const isNewPath = !existsSync(filePath);
+        if (isNewPath) {
+          // New file outside scope → confirm with CASA Tree alternatives
+          logSecurityEvent({
+            timestamp: new Date().toISOString(),
+            session_id: input.session_id,
+            event_type: 'confirm',
+            tool: 'Edit',
+            category: 'path_access',
+            target: filePath,
+            reason: 'New file outside CASA scope',
+            action_taken: 'Prompted user with CASA Tree alternatives'
+          });
+          console.log(JSON.stringify({
+            decision: 'ask',
+            message: buildScopeConfirmMessage(filePath, editPatterns, process.cwd())
+          }));
+          return;
+        }
+        // Existing file outside scope → warn + allow
+        logSecurityEvent({
+          timestamp: new Date().toISOString(),
+          session_id: input.session_id,
+          event_type: 'alert',
+          tool: 'Edit',
+          category: 'path_access',
+          target: filePath,
+          reason: 'Write outside CASA scope',
+          action_taken: 'Logged alert, allowed write'
+        });
+        console.error(`[CASA SCOPE] ⚠️  Writing outside workspace: ${filePath}`);
+      }
       console.log(JSON.stringify({ continue: true }));
+    }
   }
 }
 
@@ -532,8 +656,44 @@ function handleWrite(input: HookInput): void {
       }));
       break;
 
-    default:
+    default: {
+      // Scope guard: check if path is within configured workspace
+      const writePatterns = loadPatterns();
+      if (!isInScope(filePath, writePatterns)) {
+        const isNewPath = !existsSync(filePath);
+        if (isNewPath) {
+          // New file outside scope → confirm with CASA Tree alternatives
+          logSecurityEvent({
+            timestamp: new Date().toISOString(),
+            session_id: input.session_id,
+            event_type: 'confirm',
+            tool: 'Write',
+            category: 'path_access',
+            target: filePath,
+            reason: 'New file outside CASA scope',
+            action_taken: 'Prompted user with CASA Tree alternatives'
+          });
+          console.log(JSON.stringify({
+            decision: 'ask',
+            message: buildScopeConfirmMessage(filePath, writePatterns, process.cwd())
+          }));
+          return;
+        }
+        // Existing file outside scope → warn + allow
+        logSecurityEvent({
+          timestamp: new Date().toISOString(),
+          session_id: input.session_id,
+          event_type: 'alert',
+          tool: 'Write',
+          category: 'path_access',
+          target: filePath,
+          reason: 'Write outside CASA scope',
+          action_taken: 'Logged alert, allowed write'
+        });
+        console.error(`[CASA SCOPE] ⚠️  Writing outside workspace: ${filePath}`);
+      }
       console.log(JSON.stringify({ continue: true }));
+    }
   }
 }
 
@@ -566,8 +726,29 @@ function handleRead(input: HookInput): void {
       process.exit(2);
       break;
 
-    default:
+    default: {
+      const readPatterns = loadPatterns();
+      // Tool path (security binaries) — always allow silently
+      if (isToolPath(filePath, readPatterns)) {
+        console.log(JSON.stringify({ continue: true }));
+        return;
+      }
+      // Out-of-scope read — alert + allow
+      if (!isInScope(filePath, readPatterns)) {
+        logSecurityEvent({
+          timestamp: new Date().toISOString(),
+          session_id: input.session_id,
+          event_type: 'alert',
+          tool: 'Read',
+          category: 'path_access',
+          target: filePath,
+          reason: 'Read outside CASA scope',
+          action_taken: 'Logged alert, allowed read'
+        });
+        console.error(`[CASA SCOPE] ⚠️  Reading outside workspace: ${filePath}`);
+      }
       console.log(JSON.stringify({ continue: true }));
+    }
   }
 }
 
