@@ -226,6 +226,10 @@ rm ~/.claude
 - **TypeScript / Bun** — PAI framework runtime
 - **Python** — Analysis scripting
 
+## Roadmap
+
+**TalonSocLab integration (future).** CASA is designed to reason over real SOC telemetry. The end-state is integration with [TalonSocLab](https://github.com/ktalons/talonsoclab) — a Wazuh + Suricata + Sysmon + honeynet home SOC stack — as the production telemetry feed for the 4 investigation workflows. Kept decoupled until CASA workflows are validated against representative log volume AND TalonSocLab reaches Phase D (honeynet + threat intel pipeline). No code dependencies between the repos until both gates clear.
+
 ## Status
 
 Senior Capstone Project — In Development
