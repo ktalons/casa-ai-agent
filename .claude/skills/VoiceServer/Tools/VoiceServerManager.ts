@@ -30,7 +30,7 @@
 import { $ } from "bun";
 import { join } from "path";
 
-const VOICE_SERVER_PATH = join(process.env.HOME || "", ".claude/VoiceServerV1");
+const VOICE_SERVER_PATH = join(process.env.HOME || "", ".claude/VoiceServer");
 const PORT = 8888;
 // Voice ID is read from settings.json via identity module
 // Fallback only used if settings not available

@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.pai.voiceserver-v1</string>
+    <string>com.casa.voiceserver</string>
 
     <key>ProgramArguments</key>
     <array>
         <string>__BUN__</string>
         <string>run</string>
-        <string>__HOME__/.claude/VoiceServerV1/server.ts</string>
+        <string>__HOME__/.claude/VoiceServer/server.ts</string>
     </array>
 
     <key>WorkingDirectory</key>
-    <string>__HOME__/.claude/VoiceServerV1</string>
+    <string>__HOME__/.claude/VoiceServer</string>
 
     <key>EnvironmentVariables</key>
     <dict>
@@ -37,10 +37,10 @@
     </dict>
 
     <key>StandardOutPath</key>
-    <string>__HOME__/.claude/VoiceServerV1/voice-server.log</string>
+    <string>__HOME__/.claude/VoiceServer/voice-server.log</string>
 
     <key>StandardErrorPath</key>
-    <string>__HOME__/.claude/VoiceServerV1/voice-server-error.log</string>
+    <string>__HOME__/.claude/VoiceServer/voice-server-error.log</string>
 
     <key>ThrottleInterval</key>
     <integer>10</integer>

@@ -4,7 +4,7 @@
  * Handles voice notifications via ElevenLabs API.
  * Reads ELEVENLABS_API_KEY from ~/.claude/.env or environment.
  *
- * Usage:  cd ~/.claude/VoiceServerV1 && bun run server.ts
+ * Usage:  cd ~/.claude/VoiceServer && bun run server.ts
  * Port:   8888
  */
 
