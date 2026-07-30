@@ -142,6 +142,7 @@ fi
 # ── install ─────────────────────────────────────────────────────────────────
 # If anything fails after we move an existing ~/.claude aside and before the
 # symlink exists, put the original back — never leave the user with nothing.
+# shellcheck disable=SC2329  # invoked indirectly via `trap ... EXIT`
 restore_on_failure() {
     local code=$?
     if [ "$code" -ne 0 ] && [ -n "$BACKUP_PATH" ] && [ "$SYMLINK_CREATED" -eq 0 ] && [ ! -e "$TARGET" ]; then
@@ -172,9 +173,9 @@ printf "\n${BOLD}Linking ~/.claude${RESET}\n"
 if [ -L "$TARGET" ]; then
     CURRENT_LINK="$(readlink "$TARGET")"
     if [ "$CURRENT_LINK" = "$CLAUDE_SRC" ]; then
-        ok "~/.claude already links to this repo — nothing to relink"
+        ok "Already linked to this repo — nothing to relink"
     else
-        bad "~/.claude is a symlink to another setup: ${CURRENT_LINK}"
+        bad "The Claude config symlink points elsewhere: ${CURRENT_LINK}"
         printf "    CASA will not overwrite it. Remove the link yourself if you want CASA here:\n"
         printf "    rm %s && bash setup.sh\n" "$TARGET"
         exit 1

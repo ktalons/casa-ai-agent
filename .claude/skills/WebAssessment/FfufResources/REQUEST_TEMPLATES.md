@@ -8,7 +8,7 @@ These are example `req.txt` templates for common authenticated fuzzing scenarios
 GET /api/v1/users/FUZZ HTTP/1.1
 Host: api.target.com
 User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+Authorization: Bearer <JWT_HERE>
 Accept: application/json
 Content-Type: application/json
 ```

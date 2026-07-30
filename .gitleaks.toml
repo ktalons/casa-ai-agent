@@ -1,0 +1,17 @@
+# gitleaks config for casa-ai-agent
+#
+# Extends the default rule set. The allowlist below covers the canonical
+# jwt.io demo token that appears in inherited WebAssessment example docs.
+# Its payload is {"sub":"1234567890","name":"John Doe"} and its signature is
+# produced with the published secret "your-256-bit-secret" — it is a public
+# placeholder, not a credential. HEAD no longer contains it; the allowlist
+# keeps history scans from failing CI on a known-public example.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "jwt.io demo token in example request templates (public placeholder, not a secret)"
+regexes = [
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJzdWIiOiIxMjM0NTY3ODkw''',
+]

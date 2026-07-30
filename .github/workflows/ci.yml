@@ -1,0 +1,76 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  shell:
+    name: shell — lint + syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash -n
+        run: bash -n setup.sh
+      - name: shellcheck
+        run: shellcheck setup.sh
+
+  validate:
+    name: validate — ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]   # macos-latest ships bash 3.2
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: structure + hook-path resolution
+        run: bash setup.sh --validate
+      - name: sandbox install is idempotent
+        shell: bash
+        run: |
+          set -euo pipefail
+          export HOME="$(mktemp -d)"
+          export CASA_ASSUME_DEFAULTS=1
+          bash setup.sh
+          # second run must be a clean no-op, not a crash
+          bash setup.sh
+          test -L "$HOME/.claude"
+
+  typecheck:
+    name: typecheck + fixtures
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - name: tsc --noEmit
+        run: bun x tsc --noEmit
+      - name: validate intake fixtures
+        run: bun intake/Validate.ts
+      - name: validator rejects a malformed intake
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad="$(mktemp).json"
+          echo '{"schema":"wrong"}' > "$bad"
+          if bun intake/Validate.ts "$bad"; then
+            echo "validator accepted a malformed intake" >&2
+            exit 1
+          fi
+          echo "ok — malformed intake rejected"
+
+  secrets:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
