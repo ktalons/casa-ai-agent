@@ -1,28 +1,22 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "projectVersion": "1.0.0",
-  "projectName": "Cybersecurity Analysis Agent",
+  "projectVersion": "4.0.0",
+  "projectName": "CASA - Cybersecurity Analysis Support Agent",
   "env": {
     "PAI_DIR": "$HOME/.claude",
-    "PROJECTS_DIR": "",
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "80000",
     "BASH_DEFAULT_TIMEOUT_MS": "600000"
   },
-  "contextFiles": [
-    "skills/PAI/SKILL.md",
-    "skills/PAI/SYSTEM/AISTEERINGRULES.md",
-    "agents/Overseer.md"
-  ],
   "daidentity": {
     "name": "CASA",
     "fullName": "Cybersecurity Analysis Support Agent",
     "displayName": "CASA",
     "color": "#10B981",
-    "voiceId": "21m00Tcm4TlvDq8ikWAM",
+    "voiceId": "",
     "voice": {
       "stability": 0.35,
-      "similarity_boost": 0.80,
-      "style": 0.90,
+      "similarity_boost": 0.8,
+      "style": 0.9,
       "speed": 1.0,
       "use_speaker_boost": true,
       "volume": 0.8
@@ -31,11 +25,11 @@
   },
   "principal": {
     "name": "Analyst",
-    "timezone": "America/Phoenix"
+    "timezone": "UTC"
   },
   "project": {
     "description": "AI-Assisted Cybersecurity Analysis Agent for SME/MSP security operations",
-    "version": "1.0.0",
+    "version": "4.0.0",
     "standards": [
       "NIST SP 800-92",
       "NIST SP 800-61",
@@ -64,37 +58,31 @@
         "name": "PurpleTeamMapper",
         "description": "Maps findings to NIST CSF 2.0 improvements",
         "file": "agents/PurpleTeamMapper.md"
+      },
+      {
+        "name": "Pentester",
+        "description": "Authorized vulnerability assessment and security testing",
+        "file": "agents/Pentester.md"
       }
     ]
   },
   "techStack": {
-    "terminal": "Ghostty",
     "packageManager": "bun",
-    "pythonPackageManager": "uv",
     "language": "TypeScript"
   },
   "permissions": {
     "allow": [
-      "Bash",
       "Read",
-      "Write",
-      "Edit",
-      "MultiEdit",
       "Glob",
       "Grep",
       "LS",
-      "WebFetch",
-      "WebSearch",
       "NotebookRead",
-      "NotebookEdit",
       "TodoWrite",
-      "ExitPlanMode",
       "Task",
       "Skill",
-      "mcp__*"
+      "ExitPlanMode"
     ],
-    "deny": [],
-    "ask": [
+    "deny": [
       "Bash(rm -rf /)",
       "Bash(rm -rf /:*)",
       "Bash(sudo rm -rf /)",
@@ -111,11 +99,12 @@
       "Bash(dd if=/dev/zero:*)",
       "Bash(mkfs:*)",
       "Bash(gh repo delete:*)",
-      "Bash(gh repo edit --visibility public:*)",
       "Bash(git push --force:*)",
       "Bash(git push -f:*)",
       "Bash(git push origin --force:*)",
-      "Bash(git push origin -f:*)",
+      "Bash(git push origin -f:*)"
+    ],
+    "ask": [
       "Read(~/.ssh/id_*)",
       "Read(~/.ssh/*.pem)",
       "Read(~/.aws/credentials)",
@@ -123,12 +112,12 @@
       "Write(~/.claude/settings.json)",
       "Edit(~/.claude/settings.json)",
       "Write(~/.ssh/*)",
-      "Edit(~/.ssh/*)"
+      "Edit(~/.ssh/*)",
+      "Bash(gh repo edit --visibility public:*)"
     ],
     "defaultMode": "default"
   },
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [],
+  "enableAllProjectMcpServers": false,
   "hooks": {
     "PreToolUse": [
       {
@@ -166,24 +155,14 @@
             "command": "${PAI_DIR}/hooks/SecurityValidator.hook.ts"
           }
         ]
-      },
-      {
-        "matcher": "AskUserQuestion",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${PAI_DIR}/hooks/SetQuestionTab.hook.ts"
-          }
-        ]
       }
     ],
-    "PostToolUse": [
+    "SessionStart": [
       {
-        "matcher": "AskUserQuestion",
         "hooks": [
           {
             "type": "command",
-            "command": "${PAI_DIR}/hooks/QuestionAnswered.hook.ts"
+            "command": "${PAI_DIR}/hooks/StartupGreeting.hook.ts"
           }
         ]
       }
@@ -193,55 +172,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${PAI_DIR}/hooks/WorkCompletionLearning.hook.ts"
-          },
-          {
-            "type": "command",
             "command": "${PAI_DIR}/hooks/SessionSummary.hook.ts"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${PAI_DIR}/hooks/FormatReminder.hook.ts"
-          },
-          {
-            "type": "command",
-            "command": "${PAI_DIR}/hooks/AutoWorkCreation.hook.ts"
-          },
-          {
-            "type": "command",
-            "command": "${PAI_DIR}/hooks/ExplicitRatingCapture.hook.ts"
-          },
-          {
-            "type": "command",
-            "command": "${PAI_DIR}/hooks/ImplicitSentimentCapture.hook.ts"
-          },
-          {
-            "type": "command",
-            "command": "${PAI_DIR}/hooks/UpdateTabTitle.hook.ts"
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${PAI_DIR}/hooks/StartupGreeting.hook.ts"
-          },
-          {
-            "type": "command",
-            "command": "${PAI_DIR}/hooks/LoadContext.hook.ts"
-          },
-          {
-            "type": "command",
-            "command": "${PAI_DIR}/hooks/CheckVersion.hook.ts"
           }
         ]
       }
@@ -267,20 +198,15 @@
       }
     ]
   },
-  "statusLine": {
-    "type": "command",
-    "command": "${PAI_DIR}/statusline-command.sh"
-  },
   "alwaysThinkingEnabled": true,
   "_docs": {
-    "_overview": "SETTINGS.JSON - Cybersecurity Analysis Agent configuration based on PAI v2.5 framework.",
+    "_overview": "settings.template.json - CASA default configuration. setup.sh copies this to settings.json, replaces ${PAI_DIR} in hook commands with the absolute install path, and fills in principal/voice choices. Do not put secrets here; those live in .claude/.env (gitignored).",
     "_sections": {
-      "contextFiles": "Files loaded at session start. Includes core skill and Overseer agent.",
-      "daidentity": "AI identity - CASA (Cybersecurity Analysis Support Agent).",
-      "principal": "Analyst identity. Customize name and timezone.",
-      "agents": "Custom cybersecurity agents: Overseer, LogAnalyst, NetworkAnalyst, PurpleTeamMapper.",
-      "project": "Project metadata including NIST standards alignment."
+      "daidentity": "AI identity - CASA. voiceId empty = voice disabled. Free-tier ElevenLabs verified voices: Sarah EXAVITQu4vr4xnSDxMaL, Adam pNInz6obpgDQGcFmaJgB.",
+      "principal": "Analyst identity. setup.sh sets name and IANA timezone (abbreviations like PST break timestamp code).",
+      "agents": "The five CASA agents: Overseer, LogAnalyst, NetworkAnalyst, PurpleTeamMapper, Pentester.",
+      "permissions": "Read-only tools allowed; destructive commands denied outright; sensitive reads ask. Write/Edit/Bash prompt by default - SecurityValidator.hook.ts is the second layer.",
+      "hooks": "Five hooks: SecurityValidator (PreToolUse gate), StartupGreeting, SessionSummary, StopOrchestrator (voice + capture), AgentOutputCapture (audit trail)."
     }
-  },
-  "max_tokens": 4096
+  }
 }

@@ -1,0 +1,19 @@
+{
+  "name": "casa-ai-agent",
+  "version": "4.0.0",
+  "description": "CASA — Cybersecurity Analysis Support Agent. AI-assisted SOC analysis with explainable, NIST-aligned reasoning.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "validate:fixtures": "bun intake/Validate.ts"
+  },
+  "dependencies": {
+    "yaml": "^2.8.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "@types/bun": "^1.2.0"
+  }
+}
