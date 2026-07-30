@@ -11,7 +11,8 @@
 useDefault = true
 
 [[allowlists]]
-description = "jwt.io demo token in example request templates (public placeholder, not a secret)"
+description = "jwt.io demo token and its truncated 'eyJ...' placeholder form in example docs (public placeholders, not secrets)"
 regexes = [
   '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJzdWIiOiIxMjM0NTY3ODkw''',
+  '''eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.\.\.''',
 ]
