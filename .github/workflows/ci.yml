@@ -17,8 +17,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: bash -n
         run: bash -n setup.sh
+      # Pinned to the upstream image so CI and local dev run the same checker —
+      # the runner's bundled version drifts and reports different codes for the
+      # same construct (SC2317 vs SC2329 on trap-invoked functions).
       - name: shellcheck
-        run: shellcheck setup.sh
+        run: docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.11.0 setup.sh
 
   validate:
     name: validate — ${{ matrix.os }}

@@ -142,7 +142,10 @@ fi
 # ── install ─────────────────────────────────────────────────────────────────
 # If anything fails after we move an existing ~/.claude aside and before the
 # symlink exists, put the original back — never leave the user with nothing.
-# shellcheck disable=SC2329  # invoked indirectly via `trap ... EXIT`
+# This runs via `trap ... EXIT` below, which shellcheck's reachability analysis
+# does not follow: 0.11+ reports SC2329 on the definition, older versions report
+# SC2317 on the body. Both are false positives; disable both so any version passes.
+# shellcheck disable=SC2329,SC2317
 restore_on_failure() {
     local code=$?
     if [ "$code" -ne 0 ] && [ -n "$BACKUP_PATH" ] && [ "$SYMLINK_CREATED" -eq 0 ] && [ ! -e "$TARGET" ]; then
