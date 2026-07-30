@@ -48,7 +48,7 @@ curl -X POST http://localhost:8888/notify \
     "message": "Your message here",
     "title": "Kai says",
     "voice_enabled": true,
-    "voice_id": "s3TPKV1kjDlVtZbl4Ksh",
+    "voice_id": "YOUR_ELEVENLABS_VOICE_ID",
     "voice_settings": {
       "stability": 0.35,
       "similarity_boost": 0.80,

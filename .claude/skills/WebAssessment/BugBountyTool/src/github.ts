@@ -21,7 +21,7 @@ export class GitHubClient {
         throw new Error(`GitHub API error: ${response.status}`);
       }
 
-      return await response.json();
+      return (await response.json()) as GitHubCommit[];
     } catch (error) {
       console.error('Failed to fetch commits:', error);
       return [];
