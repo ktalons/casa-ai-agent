@@ -1,892 +1,293 @@
 #!/usr/bin/env bash
-# CASA Setup Script
-# Links the Cybersecurity Analysis Support Agent (CASA) into ~/.claude/
+# CASA setup — links the Cybersecurity Analysis Support Agent into ~/.claude/
 #
-# This creates a symlink from ~/.claude → <repo>/.claude/ so that:
-#   - git pull updates CASA automatically
-#   - Your user config (settings.json, .env) stays local and gitignored
+# The install model: ~/.claude is a symlink to <repo>/.claude/, so `git pull`
+# is the update mechanism and user config (settings.json, .env) stays local
+# and gitignored.
 #
 # Usage:
-#   gh repo clone CASA-Capstone-AI-Research-Project/CASA
-#   cd CASA && bash setup.sh
+#   git clone https://github.com/ktalons/casa-ai-agent
+#   cd casa-ai-agent && bash setup.sh
 #
 # Flags:
-#   --validate    Check repo structure without making any changes (dry run)
+#   --validate    Check repo structure without making any changes
+#   --help        Show usage
+#
+# Non-interactive runs (no TTY, or CASA_ASSUME_DEFAULTS=1) take safe defaults:
+# analyst name "Analyst", autodetected IANA timezone, voice disabled.
+#
+# Compatible with macOS /bin/bash 3.2. Every variable is declared before use;
+# re-running is a safe no-op.
 
 set -euo pipefail
 
-# ─────────────────────────────────────────────────────────────
-# Flags
-# ─────────────────────────────────────────────────────────────
-VALIDATE_ONLY=false
-if [ "${1:-}" = "--validate" ]; then
-    VALIDATE_ONLY=true
-fi
-
-# ─────────────────────────────────────────────────────────────
-# Colors
-# ─────────────────────────────────────────────────────────────
-BOLD='\033[1m'
-RESET='\033[0m'
-GREEN='\033[0;32m'
-YELLOW='\033[0;33m'
-RED='\033[0;31m'
-CYAN='\033[0;36m'
-GRAY='\033[0;90m'
-
-ok()   { echo -e "  ${GREEN}✓${RESET} $1"; }
-warn() { echo -e "  ${YELLOW}!${RESET} $1"; }
-err()  { echo -e "  ${RED}✗${RESET} $1"; }
-info() { echo -e "  ${GRAY}→${RESET} $1"; }
-
-# ─────────────────────────────────────────────────────────────
-# Paths
-# ─────────────────────────────────────────────────────────────
-REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_CLAUDE_DIR="${REPO_DIR}/.claude"
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLAUDE_SRC="${REPO_DIR}/.claude"
 TARGET="${HOME}/.claude"
-BACKUP_DIR=""
+MODE="install"
+FAILURES=0
+BACKUP_PATH=""
+SYMLINK_CREATED=0
 
-# ─────────────────────────────────────────────────────────────
-# Helpers
-# ─────────────────────────────────────────────────────────────
+BOLD='\033[1m'
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+YELLOW='\033[0;33m'
+RESET='\033[0m'
 
-# Cross-platform check: is port 8888 already in use?
-port_in_use() {
-    if command -v lsof &>/dev/null; then
-        lsof -ti:8888 &>/dev/null 2>&1
-    elif command -v nc &>/dev/null; then
-        nc -z 127.0.0.1 8888 &>/dev/null 2>&1
-    else
-        return 1  # Can't determine; assume not running
-    fi
+ok()   { printf "  ${GREEN}✓${RESET} %s\n" "$1"; }
+bad()  { printf "  ${RED}✗${RESET} %s\n" "$1"; FAILURES=$((FAILURES + 1)); }
+note() { printf "  ${YELLOW}·${RESET} %s\n" "$1"; }
+
+usage() {
+    printf "Usage: bash setup.sh [--validate | --help]\n"
+    printf "  (no flags)   install: symlink ~/.claude and generate config\n"
+    printf "  --validate   check repo structure, change nothing\n"
+    printf "  --help       this message\n"
 }
 
-# ─────────────────────────────────────────────────────────────
-# Banner
-# ─────────────────────────────────────────────────────────────
-echo ""
-echo -e "${CYAN}${BOLD}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${RESET}"
-echo -e "${CYAN}${BOLD}┃${RESET}                   ${BOLD}CASA Setup${RESET}                                  ${CYAN}${BOLD}┃${RESET}"
-echo -e "${CYAN}${BOLD}┃${RESET}      ${GRAY}Cybersecurity Analysis Support Agent v3.0${RESET}               ${CYAN}${BOLD}┃${RESET}"
-echo -e "${CYAN}${BOLD}┃${RESET}      ${GRAY}Built on PAI Framework (Algorithm v1.2.0)${RESET}               ${CYAN}${BOLD}┃${RESET}"
-echo -e "${CYAN}${BOLD}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${RESET}"
-echo ""
-
-if [ "${VALIDATE_ONLY}" = true ]; then
-    echo -e "  ${YELLOW}${BOLD}[VALIDATE MODE]${RESET} ${YELLOW}Checking structure only — no changes will be made${RESET}"
-    echo ""
-fi
-
-# ─────────────────────────────────────────────────────────────
-# Step 1: Verify repo structure
-# ─────────────────────────────────────────────────────────────
-echo -e "${BOLD}Step 1/5 — Checking repository${RESET}"
-echo -e "${GRAY}─────────────────────────────────────────────────${RESET}"
-
-if [ ! -d "${REPO_CLAUDE_DIR}" ]; then
-    err "No .claude/ directory found in ${REPO_DIR}"
-    err "Are you running this from the CASA repository root?"
-    exit 1
-fi
-ok "Repository: ${REPO_DIR}"
-
-# Core CASA agents (v3.0: includes Pentester)
-for agent in Overseer LogAnalyst NetworkAnalyst PurpleTeamMapper Pentester; do
-    if [ -f "${REPO_CLAUDE_DIR}/agents/${agent}.md" ]; then
-        ok "Agent: ${agent}"
-    else
-        err "Missing agent: agents/${agent}.md"
-        exit 1
-    fi
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --validate) MODE="validate" ;;
+        -h|--help)  usage; exit 0 ;;
+        *)          printf "Unknown argument: %s\n" "$1"; usage; exit 1 ;;
+    esac
+    shift
 done
 
-if [ -d "${REPO_CLAUDE_DIR}/skills/CyberAnalysis" ]; then
-    ok "Skill: CyberAnalysis"
-else
-    err "Missing skill: skills/CyberAnalysis/"
-    exit 1
-fi
+# ── validation ──────────────────────────────────────────────────────────────
+check_file() { if [ -f "$1" ]; then ok "$2"; else bad "$2 (missing: $1)"; fi }
+check_dir()  { if [ -d "$1" ]; then ok "$2"; else bad "$2 (missing: $1)"; fi }
 
-# CyberAnalysis explainability doc (v3.0)
-if [ -f "${REPO_CLAUDE_DIR}/skills/CyberAnalysis/ExplainabilityStandards.md" ]; then
-    ok "CyberAnalysis: ExplainabilityStandards.md"
-else
-    err "Missing: skills/CyberAnalysis/ExplainabilityStandards.md"
-    exit 1
-fi
+validate_repo() {
+    printf "${BOLD}Validating CASA repo structure${RESET}\n"
 
-# Cybersecurity-specific skills (v3.0 additions — warn only)
-for skill in PromptInjection Recon WebAssessment SECUpdates OSINT AnnualReports; do
-    if [ -d "${REPO_CLAUDE_DIR}/skills/${skill}" ]; then
-        ok "Skill: ${skill}"
-    else
-        warn "Skill missing: skills/${skill}/ (expected in v3.0)"
-    fi
-done
-
-if [ -f "${REPO_CLAUDE_DIR}/settings.template.json" ]; then
-    ok "Settings template found"
-else
-    err "Missing settings.template.json"
-    exit 1
-fi
-
-# ─────────────────────────────────────────────────────────────
-# Step 2: Check prerequisites
-# ─────────────────────────────────────────────────────────────
-echo ""
-echo -e "${BOLD}Step 2/5 — Checking prerequisites${RESET}"
-echo -e "${GRAY}─────────────────────────────────────────────────${RESET}"
-
-# Check for Claude Code
-if command -v claude &> /dev/null; then
-    CLAUDE_VERSION=$(claude --version 2>/dev/null || echo "unknown")
-    ok "Claude Code: ${CLAUDE_VERSION}"
-else
-    err "Claude Code not found"
-    echo ""
-    info "Install Claude Code first:"
-    info "  See: https://docs.anthropic.com/en/docs/claude-code"
-    info "  or:  npm install -g @anthropic-ai/claude-code"
-    echo ""
-    exit 1
-fi
-
-# Check for Python 3 (used for JSON config generation)
-if command -v python3 &> /dev/null; then
-    PYTHON_VERSION=$(python3 --version 2>&1)
-    ok "Python 3: ${PYTHON_VERSION}"
-else
-    err "Python 3 not found (required for settings.json generation)"
-    info "Install python3 via your system package manager:"
-    info "  macOS:  brew install python3   (or it ships with Xcode CLI tools)"
-    info "  Debian: sudo apt install python3"
-    info "  RHEL:   sudo dnf install python3"
-    exit 1
-fi
-
-# Check for Bun (install if missing)
-if command -v bun &> /dev/null; then
-    BUN_VERSION=$(bun --version 2>/dev/null || echo "unknown")
-    ok "Bun: ${BUN_VERSION}"
-else
-    warn "Bun not found — installing..."
-    curl -fsSL https://bun.sh/install | bash
-    export PATH="${HOME}/.bun/bin:${PATH}"
-    if command -v bun &> /dev/null; then
-        ok "Bun: $(bun --version) (just installed)"
-    else
-        err "Bun installation failed"
-        info "Install manually: curl -fsSL https://bun.sh/install | bash"
-        exit 1
-    fi
-fi
-
-# Early exit for validate mode — Steps 3 & 4 are skipped
-if [ "${VALIDATE_ONLY}" = true ]; then
-    echo ""
-    info "Validate mode: skipping symlink and personalization (Steps 3–4)"
-    echo ""
-    # Jump directly to Step 5 validation
-    # (use current TARGET if it exists, otherwise check repo structure only)
-    EFFECTIVE_TARGET="${TARGET}"
-    if [ ! -L "${EFFECTIVE_TARGET}" ] && [ ! -d "${EFFECTIVE_TARGET}" ]; then
-        EFFECTIVE_TARGET="${REPO_CLAUDE_DIR}"
-    fi
-else
-    EFFECTIVE_TARGET="${TARGET}"
-fi
-
-# ─────────────────────────────────────────────────────────────
-# Step 3: Link ~/.claude → repo/.claude/
-# ─────────────────────────────────────────────────────────────
-if [ "${VALIDATE_ONLY}" = false ]; then
-    echo ""
-    echo -e "${BOLD}Step 3/5 — Linking ~/.claude${RESET}"
-    echo -e "${GRAY}─────────────────────────────────────────────────${RESET}"
-
-    NEEDS_LINK=true
-
-    # Check if already linked to this repo
-    if [ -L "${TARGET}" ]; then
-        CURRENT_LINK=$(readlink "${TARGET}")
-        if [ "${CURRENT_LINK}" = "${REPO_CLAUDE_DIR}" ]; then
-            ok "Already linked: ~/.claude → ${REPO_CLAUDE_DIR}"
-            NEEDS_LINK=false
-        else
-            warn "~/.claude is a symlink to: ${CURRENT_LINK}"
-            echo ""
-            echo -e "  ${BOLD}Options:${RESET}"
-            echo -e "    ${CYAN}1${RESET}) Re-link to this CASA repo (recommended)"
-            echo -e "    ${CYAN}2${RESET}) Abort — I'll handle it manually"
-            echo ""
-            read -rp "  Choose [1/2]: " CHOICE
-            case "${CHOICE}" in
-                1)
-                    rm "${TARGET}"
-                    ok "Removed old symlink"
-                    ;;
-                *)
-                    info "Aborting. Remove ~/.claude symlink and re-run setup.sh"
-                    exit 0
-                    ;;
-            esac
-        fi
-    elif [ -d "${TARGET}" ]; then
-        warn "Existing ~/.claude/ directory detected (not a symlink)"
-        echo ""
-        echo -e "  ${BOLD}Options:${RESET}"
-        echo -e "    ${CYAN}1${RESET}) Back up to ~/.claude-backup-<timestamp> and link (recommended)"
-        echo -e "    ${CYAN}2${RESET}) Remove existing ~/.claude and link"
-        echo -e "    ${CYAN}3${RESET}) Abort — I'll handle it manually"
-        echo ""
-        read -rp "  Choose [1/2/3]: " CHOICE
-        case "${CHOICE}" in
-            1)
-                BACKUP_DIR="${HOME}/.claude-backup-$(date +%Y%m%d-%H%M%S)"
-                mv "${TARGET}" "${BACKUP_DIR}"
-                ok "Backed up to ${BACKUP_DIR}"
-                ;;
-            2)
-                warn "Removing existing ~/.claude/"
-                rm -rf "${TARGET}"
-                ok "Removed"
-                ;;
-            3)
-                info "Aborting. Move or rename ~/.claude and re-run setup.sh"
-                exit 0
-                ;;
-            *)
-                err "Invalid choice. Aborting."
-                exit 1
-                ;;
-        esac
-    elif [ -e "${TARGET}" ]; then
-        err "~/.claude exists but is not a directory or symlink. Remove it and re-run."
-        exit 1
-    fi
-
-    if [ "${NEEDS_LINK}" = true ]; then
-        ln -s "${REPO_CLAUDE_DIR}" "${TARGET}"
-        ok "Linked: ~/.claude → ${REPO_CLAUDE_DIR}"
-    fi
-
-    info "Git pull will now update CASA automatically"
-fi
-
-# ─────────────────────────────────────────────────────────────
-# Step 4: Generate user config
-# ─────────────────────────────────────────────────────────────
-if [ "${VALIDATE_ONLY}" = false ]; then
-    echo ""
-    echo -e "${BOLD}Step 4/5 — Personalization${RESET}"
-    echo -e "${GRAY}─────────────────────────────────────────────────${RESET}"
-
-    # Ensure runtime directories exist (gitignored, user-specific)
-    for dir in MEMORY/STATE MEMORY/LEARNING MEMORY/WORK MEMORY/RESEARCH Plans WORK; do
-        mkdir -p "${REPO_CLAUDE_DIR}/${dir}"
+    printf "Agents\n"
+    local agent
+    for agent in Overseer LogAnalyst NetworkAnalyst PurpleTeamMapper Pentester; do
+        check_file "${CLAUDE_SRC}/agents/${agent}.md" "agents/${agent}.md"
     done
-    ok "Created runtime directories"
 
-    # Set permissions on scripts
-    find "${REPO_CLAUDE_DIR}" -name "*.ts" -exec chmod 755 {} +
-    find "${REPO_CLAUDE_DIR}" -name "*.sh" -exec chmod 755 {} +
-    ok "Set script permissions"
+    printf "Skills\n"
+    local skill
+    for skill in CyberAnalysis PromptInjection Recon WebAssessment OSINT SECUpdates AnnualReports VoiceServer; do
+        check_dir "${CLAUDE_SRC}/skills/${skill}" "skills/${skill}/"
+    done
 
-    # Generate settings.json if it doesn't exist
-    SETTINGS_FILE="${REPO_CLAUDE_DIR}/settings.json"
+    printf "Workflows\n"
+    local wf
+    for wf in AuthAnomalyInvestigation NetworkBeaconingDetection DataExfiltrationAnalysis LateralMovementDetection IntakeTriage; do
+        check_file "${CLAUDE_SRC}/skills/CyberAnalysis/Workflows/${wf}.md" "CyberAnalysis/Workflows/${wf}.md"
+    done
 
-    if [ -f "${SETTINGS_FILE}" ]; then
-        ok "settings.json already exists (keeping current config)"
-        info "To reconfigure: rm .claude/settings.json && bash setup.sh"
-    else
-        echo ""
-        echo -e "  ${BOLD}Let's personalize CASA for you.${RESET}"
-        echo ""
+    printf "Hooks\n"
+    local hook
+    for hook in SecurityValidator StartupGreeting SessionSummary StopOrchestrator AgentOutputCapture; do
+        check_file "${CLAUDE_SRC}/hooks/${hook}.hook.ts" "hooks/${hook}.hook.ts"
+    done
+    check_file "${CLAUDE_SRC}/hooks/lib/TranscriptParser.ts" "hooks/lib/TranscriptParser.ts"
+    check_file "${CLAUDE_SRC}/security/patterns.example.yaml" "security/patterns.example.yaml"
 
-        # Analyst name
-        read -rp "  Your name (for analyst identity) [Analyst]: " USER_NAME
-        USER_NAME="${USER_NAME:-Analyst}"
+    printf "Voice server\n"
+    check_file "${CLAUDE_SRC}/VoiceServer/server.ts" "VoiceServer/server.ts"
+    check_file "${CLAUDE_SRC}/VoiceServer/com.casa.voiceserver.plist" "VoiceServer/com.casa.voiceserver.plist"
 
-        # Timezone (auto-detect then confirm)
-        DETECTED_TZ=""
-        if command -v python3 &> /dev/null; then
-            DETECTED_TZ=$(python3 -c "import datetime; print(datetime.datetime.now().astimezone().tzinfo)" 2>/dev/null || echo "")
-        fi
-        if [ -z "${DETECTED_TZ}" ]; then
-            if [ -f /etc/timezone ]; then
-                DETECTED_TZ=$(cat /etc/timezone)
-            elif [ -L /etc/localtime ]; then
-                DETECTED_TZ=$(readlink /etc/localtime | sed 's|.*/zoneinfo/||')
-            else
-                DETECTED_TZ="UTC"
-            fi
-        fi
-        read -rp "  Timezone [${DETECTED_TZ}]: " USER_TZ
-        USER_TZ="${USER_TZ:-${DETECTED_TZ}}"
+    printf "Intake contract\n"
+    check_file "${REPO_DIR}/intake/schema/soc-intake.v1.schema.json" "intake/schema/soc-intake.v1.schema.json"
+    check_file "${REPO_DIR}/intake/Validate.ts" "intake/Validate.ts"
+    check_dir  "${REPO_DIR}/intake/fixtures" "intake/fixtures/"
 
-        # AI name
-        read -rp "  Name your AI assistant [CASA]: " AI_NAME
-        AI_NAME="${AI_NAME:-CASA}"
+    printf "Config\n"
+    check_file "${CLAUDE_SRC}/settings.template.json" "settings.template.json"
+    check_file "${CLAUDE_SRC}/CLAUDE.md" "CLAUDE.md"
+    check_file "${REPO_DIR}/package.json" "package.json"
 
-        # Voice type selection (v3.0 — ElevenLabs pre-made voices)
-        echo ""
-        echo -e "  ${BOLD}Voice Type${RESET} ${GRAY}(used when ElevenLabs is configured)${RESET}"
-        echo -e "    ${CYAN}1${RESET}) Female — Rachel (default)"
-        echo -e "    ${CYAN}2${RESET}) Male   — Adam"
-        echo -e "    ${CYAN}3${RESET}) Neutral — Antoni"
-        read -rp "  Choose [1/2/3]: " VOICE_CHOICE
-        case "${VOICE_CHOICE:-1}" in
-            2) VOICE_ID="pNInz6obpgDQGcFmaJgB" ; VOICE_NAME="Male (Adam)" ;;
-            3) VOICE_ID="ErXwobaYiN019PkySvjV" ; VOICE_NAME="Neutral (Antoni)" ;;
-            *) VOICE_ID="21m00Tcm4TlvDq8ikWAM" ; VOICE_NAME="Female (Rachel)" ;;
-        esac
-
-        # Collect additional workspace scope paths for CASA Scope Guard
-        echo ""
-        echo -e "  ${BOLD}Workspace Scope Guard${RESET} ${GRAY}(controls where CASA files land)${RESET}"
-        echo -e "  ${GRAY}~/.claude/ and /tmp/ are always in-scope. Add your project dirs below.${RESET}"
-        echo -e "  ${GRAY}Enter one path per line (Tab to expand). Blank line when done.${RESET}"
-        echo -e "  ${GRAY}Example: ~/dev/projects  or  /opt/security-work${RESET}"
-        echo ""
-        SCOPE_PATHS=()
-        while true; do
-            read -rp "  Add path [blank to finish]: " SCOPE_PATH
-            [ -z "${SCOPE_PATH}" ] && break
-            SCOPE_PATHS+=("${SCOPE_PATH}/**")
-        done
-
-        # Build settings.json from CASA template
-        cp "${REPO_CLAUDE_DIR}/settings.template.json" "${SETTINGS_FILE}"
-
-        # Patch user values into settings.json using env vars (safe for special chars)
-        SETUP_SETTINGS_FILE="${SETTINGS_FILE}" \
-        SETUP_PAI_DIR="${REPO_CLAUDE_DIR}" \
-        SETUP_USER_NAME="${USER_NAME}" \
-        SETUP_USER_TZ="${USER_TZ}" \
-        SETUP_AI_NAME="${AI_NAME}" \
-        SETUP_VOICE_ID="${VOICE_ID}" \
-        python3 << 'PYEOF'
-import json, os
-
-sf  = os.environ['SETUP_SETTINGS_FILE']
-with open(sf, 'r') as f:
-    s = json.load(f)
-
-ai = os.environ['SETUP_AI_NAME']
-
-s['env']['PAI_DIR']                      = os.environ['SETUP_PAI_DIR']
-s['principal']['name']                   = os.environ['SETUP_USER_NAME']
-s['principal']['timezone']               = os.environ['SETUP_USER_TZ']
-s['daidentity']['name']                  = ai
-s['daidentity']['fullName']              = f"{ai} - Cybersecurity Analysis Support Agent"
-s['daidentity']['displayName']           = ai
-s['daidentity']['voiceId']               = os.environ['SETUP_VOICE_ID']
-s['daidentity']['startupCatchphrase']    = f"{ai} ready. How can I assist your investigation?"
-
-with open(sf, 'w') as f:
-    json.dump(s, f, indent=2)
-    f.write('\n')
-PYEOF
-
-        # Validate the written file is valid JSON
-        if python3 -c "import json; json.load(open('${SETTINGS_FILE}'))" 2>/dev/null; then
-            ok "Generated settings.json (validated)"
+    if command -v bun >/dev/null 2>&1; then
+        # Template must parse, and every wired hook command must resolve to a
+        # real file once ${PAI_DIR} points at the repo's .claude/.
+        if bun -e '
+            const src = process.argv[1];
+            const s = JSON.parse(await Bun.file(src + "/settings.template.json").text());
+            const missing = [];
+            for (const event of Object.values(s.hooks ?? {})) {
+                for (const matcher of event) {
+                    for (const h of matcher.hooks ?? []) {
+                        const p = h.command.replace("${PAI_DIR}", src);
+                        if (!(await Bun.file(p).exists())) missing.push(h.command);
+                    }
+                }
+            }
+            if (missing.length) { console.error("unresolved hook commands:", missing.join(", ")); process.exit(1); }
+        ' "$CLAUDE_SRC" 2>&1; then
+            ok "settings.template.json parses; all hook commands resolve"
         else
-            err "settings.json write failed or produced invalid JSON"
-            rm -f "${SETTINGS_FILE}"
-            exit 1
-        fi
-
-        info "Analyst:  ${USER_NAME}"
-        info "AI Name:  ${AI_NAME}"
-        info "Timezone: ${USER_TZ}"
-        info "Voice:    ${VOICE_NAME}"
-        info "PAI_DIR:  ${REPO_CLAUDE_DIR}"
-    fi
-
-    # ── Scope guard: generate USER/PAISECURITYSYSTEM/patterns.yaml ──
-    PATTERNS_DIR="${REPO_CLAUDE_DIR}/USER/PAISECURITYSYSTEM"
-    PATTERNS_FILE="${PATTERNS_DIR}/patterns.yaml"
-
-    if [ -f "${PATTERNS_FILE}" ]; then
-        ok "Scope guard patterns.yaml already exists (keeping current config)"
-        info "To reconfigure: rm .claude/USER/PAISECURITYSYSTEM/patterns.yaml && bash setup.sh"
-    else
-        mkdir -p "${PATTERNS_DIR}"
-
-        # Build pipe-delimited path string for Python (env vars can't reliably carry newlines)
-        SCOPE_PATHS_STR=""
-        if [ ${#SCOPE_PATHS[@]} -gt 0 ]; then
-            for p in "${SCOPE_PATHS[@]}"; do
-                [ -n "${SCOPE_PATHS_STR}" ] && SCOPE_PATHS_STR="${SCOPE_PATHS_STR}|"
-                SCOPE_PATHS_STR="${SCOPE_PATHS_STR}${p}"
-            done
-        fi
-
-        SETUP_PATTERNS_FILE="${PATTERNS_FILE}" \
-        SETUP_SCOPE_PATHS="${SCOPE_PATHS_STR}" \
-        python3 << 'PYEOF'
-import os
-
-patterns_file = os.environ['SETUP_PATTERNS_FILE']
-scope_paths_raw = os.environ.get('SETUP_SCOPE_PATHS', '')
-
-# Split on pipe delimiter (safe across platforms, avoids \n-in-env issues)
-extra_paths = [p.strip() for p in scope_paths_raw.split('|') if p.strip()]
-
-# Build the allowedPaths block
-base_paths = ['~/.claude/**', '/tmp/**']
-all_paths = base_paths + extra_paths
-allowed_yaml = '\n'.join(f'    - "{p}"' for p in all_paths)
-
-content = f"""# PAI Security Patterns - generated by setup.sh
-# Loaded by SecurityValidator.hook.ts (USER patterns take priority over SYSTEM example)
-# To reconfigure: delete this file and re-run setup.sh
----
-version: "1.0"
-
-philosophy:
-  mode: safe_functional
-  principle: "Meaningful protection without friction that drives people to disable security"
-
-# ========================================
-# BASH COMMAND PATTERNS
-# ========================================
-bash:
-  blocked:
-    - pattern: "rm -rf /"
-      reason: "Filesystem destruction"
-    - pattern: "rm -rf ~"
-      reason: "Home directory destruction"
-    - pattern: "sudo rm -rf /"
-      reason: "Filesystem destruction with sudo"
-    - pattern: "sudo rm -rf ~"
-      reason: "Home directory destruction with sudo"
-    - pattern: "diskutil eraseDisk"
-      reason: "Disk destruction"
-    - pattern: "diskutil zeroDisk"
-      reason: "Disk destruction"
-    - pattern: "diskutil partitionDisk"
-      reason: "Disk partitioning"
-    - pattern: "diskutil apfs deleteContainer"
-      reason: "APFS container deletion"
-    - pattern: "diskutil apfs eraseVolume"
-      reason: "Volume destruction"
-    - pattern: "dd if=/dev/zero"
-      reason: "Disk overwrite"
-    - pattern: "mkfs"
-      reason: "Filesystem format"
-    - pattern: "gh repo delete"
-      reason: "Repository deletion"
-    - pattern: "gh repo edit --visibility public"
-      reason: "Repository exposure"
-
-  confirm:
-    - pattern: "git push --force"
-      reason: "Force push can lose commits"
-    - pattern: "git push -f"
-      reason: "Force push can lose commits"
-    - pattern: "git push origin --force"
-      reason: "Force push can lose commits"
-    - pattern: "git push origin -f"
-      reason: "Force push can lose commits"
-    - pattern: "git reset --hard"
-      reason: "Loses uncommitted changes"
-    - pattern: "aws s3 rm.*--recursive"
-      reason: "Bulk S3 deletion"
-    - pattern: "aws ec2 terminate"
-      reason: "EC2 instance termination"
-    - pattern: "aws rds delete"
-      reason: "RDS deletion"
-    - pattern: "gcloud.*delete"
-      reason: "GCP resource deletion"
-    - pattern: "terraform destroy"
-      reason: "Infrastructure destruction"
-    - pattern: "terraform apply.*-auto-approve"
-      reason: "Auto-approve bypasses review"
-    - pattern: "pulumi destroy"
-      reason: "Infrastructure destruction"
-    - pattern: "docker system prune"
-      reason: "Container/image cleanup"
-    - pattern: "docker volume rm"
-      reason: "Volume data deletion"
-    - pattern: "kubectl delete namespace"
-      reason: "Namespace deletion"
-    - pattern: "DELETE FROM.*WHERE"
-      reason: "Database deletion (confirm scope)"
-    - pattern: "DROP DATABASE"
-      reason: "Database destruction"
-    - pattern: "DROP TABLE"
-      reason: "Table destruction"
-    - pattern: "TRUNCATE"
-      reason: "Table data destruction"
-
-  alert:
-    - pattern: "curl.*\\\\|.*sh"
-      reason: "Piping curl to shell"
-    - pattern: "curl.*\\\\|.*bash"
-      reason: "Piping curl to bash"
-    - pattern: "wget.*\\\\|.*sh"
-      reason: "Piping wget to shell"
-    - pattern: "wget.*\\\\|.*bash"
-      reason: "Piping wget to bash"
-
-# ========================================
-# PATH PROTECTION
-# ========================================
-paths:
-  zeroAccess:
-    - "~/.ssh/id_*"
-    - "~/.ssh/*.pem"
-    - "~/.aws/credentials"
-    - "~/.gnupg/private*"
-    - "**/credentials.json"
-    - "**/service-account*.json"
-
-  readOnly:
-    - "/etc/**"
-
-  confirmWrite:
-    - "**/.env"
-    - "**/.env.*"
-    - "~/.ssh/*"
-
-  noDelete:
-    - ".git/**"
-    - "LICENSE*"
-    - "README.md"
-
-# ========================================
-# SPECIAL PROJECT RULES
-# ========================================
-projects: {{}}
-
-# ========================================
-# CASA SCOPE GUARD
-# ========================================
-# Paths always in-scope. cwd and PAI_DIR are implicit (always allowed).
-casa_scope:
-  allowedPaths:
-{allowed_yaml}
-
-  casaTree:
-    dirs:
-      - name: "dropbox"
-        description: "Intake - copy files from outside scope here first"
-      - name: "reports"
-        description: "Investigation findings and incident reports"
-      - name: "evidence"
-        description: "Raw logs, PCAPs, screenshots, original artifacts"
-      - name: "iocs"
-        description: "Indicators of compromise"
-      - name: "artifacts"
-        description: "Extracted malware, scripts, decoded payloads"
-      - name: "followup"
-        description: "Open items and next steps"
-      - name: "playbooks"
-        description: "Response playbooks"
-      - name: "timeline"
-        description: "Attack timeline reconstructions"
-      - name: "notes"
-        description: "Analyst working notes"
-
-# ========================================
-# TOOL PATH ALLOWLIST
-# ========================================
-tool_paths:
-  readAllowed:
-    - "/usr/local/bin/**"
-    - "/usr/bin/**"
-    - "/opt/homebrew/**"
-    - "/opt/homebrew/bin/**"
-"""
-
-with open(patterns_file, 'w') as f:
-    f.write(content)
-
-print("ok")
-PYEOF
-
-        if python3 -c "
-import sys
-with open('${PATTERNS_FILE}') as f:
-    content = f.read()
-if 'casa_scope' in content and 'allowedPaths' in content:
-    sys.exit(0)
-sys.exit(1)
-" 2>/dev/null; then
-            ok "Generated scope guard patterns.yaml"
-        else
-            err "patterns.yaml generation failed"
-            rm -f "${PATTERNS_FILE}"
-        fi
-
-        if [ ${#SCOPE_PATHS[@]} -gt 0 ]; then
-            for p in "${SCOPE_PATHS[@]}"; do
-                info "Scope: ${p}"
-            done
-        else
-            info "Scope: ~/.claude/** and /tmp/** (defaults only)"
-            info "Add paths later: .claude/USER/PAISECURITYSYSTEM/patterns.yaml"
-        fi
-    fi
-
-    # ── .env: create documented template for new users ─────────────
-    ENV_FILE="${REPO_CLAUDE_DIR}/.env"
-    ELEVENLABS_KEY=""
-
-    if [ ! -f "${ENV_FILE}" ]; then
-        echo ""
-        echo -e "  ${BOLD}Optional: Voice support (ElevenLabs)${RESET}"
-        echo -e "  ${GRAY}Voice is optional — press Enter to skip and configure later.${RESET}"
-        read -rp "  ElevenLabs API key [skip]: " ELEVENLABS_KEY
-
-        # Write documented .env template regardless of key entry
-        cat > "${ENV_FILE}" << ENVEOF
-# ─────────────────────────────────────────────────────────────────
-# CASA Environment Configuration
-# This file is gitignored. Set your personal API keys here.
-# Hooks and services load this file automatically.
-# ─────────────────────────────────────────────────────────────────
-
-# ElevenLabs API key for voice synthesis (optional)
-# Get yours at: https://elevenlabs.io
-ELEVENLABS_API_KEY=${ELEVENLABS_KEY}
-
-# Timezone for log timestamps in hooks
-# Use IANA format: America/New_York, Europe/London, Asia/Tokyo, UTC
-# Defaults to America/Los_Angeles if not set
-TIME_ZONE=
-
-# Voice ID override (optional — overrides the voice selected during setup)
-# Pre-made voices: Rachel=21m00Tcm4TlvDq8ikWAM  Adam=pNInz6obpgDQGcFmaJgB
-PAI_VOICE_ID=
-ENVEOF
-
-        if [ -n "${ELEVENLABS_KEY}" ]; then
-            ok "Created .claude/.env with ElevenLabs API key"
-        else
-            ok "Created .claude/.env template (gitignored)"
-            info "Add ELEVENLABS_API_KEY to .claude/.env when ready"
+            bad "settings.template.json hook commands do not all resolve"
         fi
     else
-        ok ".env already exists (keeping current config)"
-        # Read existing key for voice server startup below
-        if grep -q "^ELEVENLABS_API_KEY=." "${ENV_FILE}" 2>/dev/null; then
-            ELEVENLABS_KEY=$(grep "^ELEVENLABS_API_KEY=" "${ENV_FILE}" | cut -d'=' -f2 | tr -d '[:space:]')
-        fi
+        note "bun not installed — skipped settings JSON/hook-path checks"
     fi
 
-    # ── Voice server startup (v3.0) ─────────────────────────────────
-    VOICE_START="${REPO_CLAUDE_DIR}/VoiceServer/start.sh"
-    if [ -n "${ELEVENLABS_KEY}" ] && [ -f "${VOICE_START}" ]; then
-        echo ""
-        echo -e "  ${BOLD}Voice Server${RESET}"
-        if port_in_use; then
-            ok "Voice server already running on port 8888"
-        else
-            info "Starting voice server..."
-            chmod +x "${VOICE_START}"
-            bash "${VOICE_START}" &>/dev/null &
-            sleep 2
-            if port_in_use; then
-                ok "Voice server started on port 8888"
-            else
-                warn "Voice server may still be starting"
-                info "If voice isn't working: bash .claude/VoiceServer/start.sh"
-            fi
-        fi
-    elif [ -n "${ELEVENLABS_KEY}" ] && [ ! -f "${VOICE_START}" ]; then
-        warn "VoiceServer/start.sh not found — voice server not available"
-    fi
-fi  # end VALIDATE_ONLY=false
-
-# ─────────────────────────────────────────────────────────────
-# Step 5: Validate
-# ─────────────────────────────────────────────────────────────
-echo ""
-echo -e "${BOLD}Step 5/5 — Validating installation${RESET}"
-echo -e "${GRAY}─────────────────────────────────────────────────${RESET}"
-
-PASS=true
-
-# Symlink (skip check in validate mode if ~/.claude doesn't exist yet)
-if [ "${VALIDATE_ONLY}" = false ]; then
-    if [ -L "${TARGET}" ] && [ "$(readlink "${TARGET}")" = "${REPO_CLAUDE_DIR}" ]; then
-        ok "Symlink: ~/.claude → repo"
-    else
-        err "Symlink not set correctly"
-        PASS=false
-    fi
-else
-    info "Symlink: skipped (validate mode)"
-fi
-
-# Core files (check in repo dir directly in validate mode)
-CHECK_BASE="${REPO_CLAUDE_DIR}"
-for f in CLAUDE.md INSTALL.ts settings.template.json statusline-command.sh; do
-    if [ -f "${CHECK_BASE}/${f}" ]; then
-        ok "File: ${f}"
-    else
-        err "Missing: ${f}"
-        PASS=false
-    fi
-done
-
-# settings.json (only exists post-install, skip in validate mode)
-if [ "${VALIDATE_ONLY}" = false ]; then
-    if [ -f "${CHECK_BASE}/settings.json" ]; then
-        ok "File: settings.json"
-    else
-        err "Missing: settings.json"
-        PASS=false
-    fi
-else
-    info "File: settings.json (skipped — not yet generated)"
-fi
-
-# CASA agents (v3.0: includes Pentester)
-for agent in Overseer LogAnalyst NetworkAnalyst PurpleTeamMapper Pentester; do
-    if [ -f "${CHECK_BASE}/agents/${agent}.md" ]; then
-        ok "Agent: ${agent}"
-    else
-        err "Agent missing: ${agent}"
-        PASS=false
-    fi
-done
-
-# CyberAnalysis skill + core docs
-if [ -f "${CHECK_BASE}/skills/CyberAnalysis/SKILL.md" ]; then
-    ok "Skill: CyberAnalysis"
-else
-    err "Skill missing: CyberAnalysis"
-    PASS=false
-fi
-
-if [ -f "${CHECK_BASE}/skills/CyberAnalysis/ExplainabilityStandards.md" ]; then
-    ok "CyberAnalysis: ExplainabilityStandards.md"
-else
-    err "Missing: skills/CyberAnalysis/ExplainabilityStandards.md"
-    PASS=false
-fi
-
-# CyberAnalysis workflows
-for wf in AuthAnomalyInvestigation NetworkBeaconingDetection DataExfiltrationAnalysis LateralMovementDetection; do
-    if [ -f "${CHECK_BASE}/skills/CyberAnalysis/Workflows/${wf}.md" ]; then
-        ok "Workflow: ${wf}"
-    else
-        err "Workflow missing: ${wf}"
-        PASS=false
-    fi
-done
-
-# PAI framework
-if [ -f "${CHECK_BASE}/skills/PAI/SKILL.md" ]; then
-    ok "PAI framework: present"
-else
-    err "PAI framework: missing skills/PAI/SKILL.md"
-    PASS=false
-fi
-
-# Hooks referenced in settings.template.json (v3.0)
-for hook in FormatReminder AutoWorkCreation ExplicitRatingCapture ImplicitSentimentCapture \
-            UpdateTabTitle StartupGreeting LoadContext CheckVersion StopOrchestrator \
-            AgentOutputCapture; do
-    if [ -f "${CHECK_BASE}/hooks/${hook}.hook.ts" ]; then
-        ok "Hook: ${hook}"
-    else
-        err "Hook missing: hooks/${hook}.hook.ts"
-        PASS=false
-    fi
-done
-
-# Cybersecurity-specific skills (v3.0 — warn only)
-for skill in PromptInjection Recon WebAssessment SECUpdates OSINT AnnualReports; do
-    if [ -d "${CHECK_BASE}/skills/${skill}" ]; then
-        ok "Skill: ${skill}"
-    else
-        warn "Skill missing: skills/${skill}/"
-    fi
-done
-
-# Key directories
-for dir in skills agents hooks MEMORY; do
-    if [ -d "${CHECK_BASE}/${dir}" ]; then
-        ok "Directory: ${dir}/"
-    else
-        err "Directory missing: ${dir}/"
-        PASS=false
-    fi
-done
-
-# settings.json PAI_DIR check (only meaningful post-install)
-if [ "${VALIDATE_ONLY}" = false ] && [ -f "${CHECK_BASE}/settings.json" ]; then
-    PAI_DIR_VAL=$(python3 -c "
-import json
-with open('${CHECK_BASE}/settings.json') as f:
-    print(json.load(f).get('env', {}).get('PAI_DIR', ''))
-" 2>/dev/null || echo "")
-    if [ "${PAI_DIR_VAL}" = "${REPO_CLAUDE_DIR}" ]; then
-        ok "PAI_DIR points to repo"
-    else
-        warn "PAI_DIR in settings.json: ${PAI_DIR_VAL}"
-        warn "Expected: ${REPO_CLAUDE_DIR}"
-    fi
-fi
-
-# ─────────────────────────────────────────────────────────────
-# Summary
-# ─────────────────────────────────────────────────────────────
-echo ""
-if [ "${VALIDATE_ONLY}" = true ]; then
-    if [ "${PASS}" = true ]; then
-        echo -e "${GREEN}${BOLD}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${RESET}"
-        echo -e "${GREEN}${BOLD}┃${RESET}  ${GREEN}✓ CASA v3.0 repo is valid — ready to install!${RESET}               ${GREEN}${BOLD}┃${RESET}"
-        echo -e "${GREEN}${BOLD}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${RESET}"
-        echo ""
-        info "Run ${CYAN}bash setup.sh${RESET} to complete the full installation"
-    else
-        echo -e "${RED}${BOLD}✗ Repo validation failed — review errors above${RESET}"
+    if [ "$FAILURES" -gt 0 ]; then
+        printf "${RED}${BOLD}%d check(s) failed${RESET}\n" "$FAILURES"
         exit 1
     fi
-elif [ "${PASS}" = true ]; then
-    echo -e "${GREEN}${BOLD}┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓${RESET}"
-    echo -e "${GREEN}${BOLD}┃${RESET}  ${GREEN}✓ CASA v3.0 installed successfully!${RESET}                         ${GREEN}${BOLD}┃${RESET}"
-    echo -e "${GREEN}${BOLD}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛${RESET}"
-    echo ""
-    echo -e "  ${BOLD}How it works:${RESET}"
-    echo -e "    ~/.claude → ${REPO_CLAUDE_DIR}"
-    echo -e "    Updates:  ${CYAN}cd ${REPO_DIR} && git pull${RESET}"
-    echo ""
-    echo -e "  ${BOLD}Start CASA:${RESET}"
-    echo -e "    ${CYAN}claude${RESET}"
-    echo ""
-    echo -e "  ${BOLD}Example queries:${RESET}"
-    echo -e "    ${GRAY}\"Analyze these auth logs for brute force indicators\"${RESET}"
-    echo -e "    ${GRAY}\"Investigate this PCAP for C2 beaconing activity\"${RESET}"
-    echo -e "    ${GRAY}\"Check network flows for data exfiltration patterns\"${RESET}"
-    echo -e "    ${GRAY}\"Run a prompt injection assessment on this chatbot\"${RESET}"
-    echo -e "    ${GRAY}\"Search OSINT for this IP / domain\"${RESET}"
-    echo ""
-    echo -e "  ${BOLD}Agents available:${RESET}"
-    echo -e "    ${GREEN}Overseer${RESET}         — Routes queries to specialized agents"
-    echo -e "    ${CYAN}LogAnalyst${RESET}       — Log investigation (NIST SP 800-92)"
-    echo -e "    ${CYAN}NetworkAnalyst${RESET}   — PCAP and flow analysis"
-    echo -e "    ${CYAN}PurpleTeamMapper${RESET} — Maps findings to NIST CSF 2.0"
-    echo -e "    ${CYAN}Pentester${RESET}        — Authorized vulnerability assessment"
-    echo ""
-    echo -e "  ${BOLD}Configuration:${RESET}"
-    echo -e "    ${GRAY}API keys / voice:  ${CYAN}.claude/.env${RESET}"
-    echo -e "    ${GRAY}Reconfigure:       ${CYAN}rm .claude/settings.json && bash setup.sh${RESET}"
-    echo -e "    ${GRAY}Full PAI wizard:   ${CYAN}bun .claude/INSTALL.ts${RESET}"
-    echo -e "    ${GRAY}Voice server:      ${CYAN}bash .claude/VoiceServer/start.sh${RESET}"
-    echo ""
-    if [ -n "${BACKUP_DIR}" ] && [ -d "${BACKUP_DIR}" ]; then
-        info "Previous ~/.claude backed up to: ${BACKUP_DIR}"
+    printf "${GREEN}${BOLD}All checks passed${RESET}\n"
+}
+
+if [ "$MODE" = "validate" ]; then
+    validate_repo
+    exit 0
+fi
+
+# ── install ─────────────────────────────────────────────────────────────────
+# If anything fails after we move an existing ~/.claude aside and before the
+# symlink exists, put the original back — never leave the user with nothing.
+restore_on_failure() {
+    local code=$?
+    if [ "$code" -ne 0 ] && [ -n "$BACKUP_PATH" ] && [ "$SYMLINK_CREATED" -eq 0 ] && [ ! -e "$TARGET" ]; then
+        mv "$BACKUP_PATH" "$TARGET"
+        printf "${YELLOW}Setup failed — restored your previous ~/.claude from backup.${RESET}\n"
     fi
+    return "$code"
+}
+trap restore_on_failure EXIT
+
+printf "${BOLD}CASA setup${RESET} (repo: %s)\n\n" "$REPO_DIR"
+
+printf "${BOLD}Prerequisites${RESET}\n"
+if command -v bun >/dev/null 2>&1; then
+    ok "bun $(bun --version)"
 else
-    echo -e "${RED}${BOLD}✗ Installation has issues — review errors above${RESET}"
+    bad "bun is required. Install it from https://bun.sh (e.g. 'brew install oven-sh/bun/bun'), then re-run."
+fi
+if command -v git >/dev/null 2>&1; then ok "git"; else bad "git is required."; fi
+if command -v claude >/dev/null 2>&1; then
+    ok "claude"
+else
+    note "Claude Code CLI not found — install it before launching CASA: https://docs.anthropic.com/en/docs/claude-code"
+fi
+[ "$FAILURES" -gt 0 ] && exit 1
+
+printf "\n${BOLD}Linking ~/.claude${RESET}\n"
+if [ -L "$TARGET" ]; then
+    CURRENT_LINK="$(readlink "$TARGET")"
+    if [ "$CURRENT_LINK" = "$CLAUDE_SRC" ]; then
+        ok "~/.claude already links to this repo — nothing to relink"
+    else
+        bad "~/.claude is a symlink to another setup: ${CURRENT_LINK}"
+        printf "    CASA will not overwrite it. Remove the link yourself if you want CASA here:\n"
+        printf "    rm %s && bash setup.sh\n" "$TARGET"
+        exit 1
+    fi
+elif [ -e "$TARGET" ]; then
+    BACKUP_PATH="${HOME}/.claude.backup.$(date +%Y%m%d-%H%M%S)"
+    mv "$TARGET" "$BACKUP_PATH"
+    ok "existing ~/.claude backed up to ${BACKUP_PATH}"
+    ln -s "$CLAUDE_SRC" "$TARGET"
+    SYMLINK_CREATED=1
+    ok "linked ~/.claude → ${CLAUDE_SRC}"
+else
+    ln -s "$CLAUDE_SRC" "$TARGET"
+    SYMLINK_CREATED=1
+    ok "linked ~/.claude → ${CLAUDE_SRC}"
+fi
+
+# ── interactive answers (defaults when no TTY) ──────────────────────────────
+INTERACTIVE=1
+if [ ! -t 0 ] || [ "${CASA_ASSUME_DEFAULTS:-0}" = "1" ]; then
+    INTERACTIVE=0
+fi
+
+detect_timezone() {
+    # IANA name only. Abbreviations like MST/PDT crash the timestamp code.
+    local tz=""
+    if [ -L /etc/localtime ]; then
+        tz="$(readlink /etc/localtime | sed 's|.*zoneinfo/||')"
+    elif [ -r /etc/timezone ]; then
+        tz="$(cat /etc/timezone)"
+    fi
+    if [ -n "$tz" ] && command -v bun >/dev/null 2>&1; then
+        if ! bun -e 'new Intl.DateTimeFormat("en-US",{timeZone:process.argv[1]})' "$tz" 2>/dev/null; then
+            tz=""
+        fi
+    fi
+    printf "%s" "${tz:-UTC}"
+}
+
+printf "\n${BOLD}Configuration${RESET}\n"
+SETTINGS_JSON="${CLAUDE_SRC}/settings.json"
+if [ -f "$SETTINGS_JSON" ]; then
+    ok "settings.json already exists — keeping it (delete it and re-run to reconfigure)"
+else
+    ANALYST_NAME="Analyst"
+    DETECTED_TZ="$(detect_timezone)"
+    VOICE_ID=""
+    if [ "$INTERACTIVE" -eq 1 ]; then
+        printf "  Analyst name [Analyst]: "
+        read -r REPLY_NAME || REPLY_NAME=""
+        [ -n "$REPLY_NAME" ] && ANALYST_NAME="$REPLY_NAME"
+        printf "  Timezone (IANA) [%s]: " "$DETECTED_TZ"
+        read -r REPLY_TZ || REPLY_TZ=""
+        [ -n "$REPLY_TZ" ] && DETECTED_TZ="$REPLY_TZ"
+        printf "  Voice: 1) none  2) Sarah (female)  3) Adam (male)  [1]: "
+        read -r REPLY_VOICE || REPLY_VOICE=""
+        case "${REPLY_VOICE:-1}" in
+            2) VOICE_ID="EXAVITQu4vr4xnSDxMaL" ;;
+            3) VOICE_ID="pNInz6obpgDQGcFmaJgB" ;;
+            *) VOICE_ID="" ;;
+        esac
+    fi
+    bun -e '
+        const [templatePath, outPath, paiDir, name, tz, voiceId] = process.argv.slice(1);
+        const s = JSON.parse(await Bun.file(templatePath).text());
+        s.env = s.env ?? {};
+        s.env.PAI_DIR = paiDir;
+        s.principal = { ...(s.principal ?? {}), name, timezone: tz };
+        s.daidentity = { ...(s.daidentity ?? {}), voiceId };
+        for (const event of Object.values(s.hooks ?? {})) {
+            for (const matcher of event) {
+                for (const h of matcher.hooks ?? []) {
+                    h.command = h.command.replace("${PAI_DIR}", paiDir);
+                }
+            }
+        }
+        JSON.parse(JSON.stringify(s)); // final sanity parse before writing
+        await Bun.write(outPath, JSON.stringify(s, null, 2) + "\n");
+    ' "${CLAUDE_SRC}/settings.template.json" "$SETTINGS_JSON" "$TARGET" "$ANALYST_NAME" "$DETECTED_TZ" "$VOICE_ID"
+    ok "settings.json generated (analyst: ${ANALYST_NAME}, tz: ${DETECTED_TZ}, voice: ${VOICE_ID:-disabled})"
+fi
+
+ENV_FILE="${CLAUDE_SRC}/.env"
+if [ -f "$ENV_FILE" ]; then
+    ok ".env already exists — keeping it"
+else
+    printf '# CASA local secrets — gitignored, never committed\n\n# Voice synthesis (optional): https://elevenlabs.io\nELEVENLABS_API_KEY=\n' > "$ENV_FILE"
+    chmod 600 "$ENV_FILE"
+    ok ".env template created (add your ElevenLabs key to enable voice)"
+fi
+
+PATTERNS_FILE="${CLAUDE_SRC}/USER/PAISECURITYSYSTEM/patterns.yaml"
+if [ -f "$PATTERNS_FILE" ]; then
+    ok "security patterns.yaml already exists — keeping it"
+else
+    mkdir -p "${CLAUDE_SRC}/USER/PAISECURITYSYSTEM"
+    cp "${CLAUDE_SRC}/security/patterns.example.yaml" "$PATTERNS_FILE"
+    ok "security patterns.yaml generated from template (customize: ${PATTERNS_FILE})"
+fi
+
+printf "\n${BOLD}Dependencies${RESET}\n"
+if (cd "$REPO_DIR" && bun install --frozen-lockfile >/dev/null 2>&1); then
+    ok "bun install (yaml pinned via bun.lock)"
+else
+    bad "bun install failed — run 'bun install' in ${REPO_DIR} manually"
+fi
+
+printf "\n${BOLD}Done${RESET}\n"
+printf "  Launch:        claude\n"
+printf "  Validate:      bash setup.sh --validate\n"
+printf "  Update:        git pull\n"
+printf "  Voice server:  bun %s/VoiceServer/server.ts   (needs ELEVENLABS_API_KEY in .claude/.env)\n" "$TARGET"
+if [ "$FAILURES" -gt 0 ]; then
     exit 1
 fi
+exit 0
