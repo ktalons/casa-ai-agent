@@ -15,7 +15,7 @@ import { paiPath } from '../lib/paths';
 import { getIdentity, type VoicePersonality } from '../lib/identity';
 import { getISOTimestamp } from '../lib/time';
 import { isValidVoiceCompletion, getVoiceFallback } from '../lib/response-format';
-import type { ParsedTranscript } from '../../skills/PAI/Tools/TranscriptParser';
+import type { ParsedTranscript } from '../lib/TranscriptParser';
 
 const DA_IDENTITY = getIdentity();
 
@@ -89,7 +89,8 @@ function logVoiceEvent(event: VoiceEvent): void {
 }
 
 async function sendNotification(payload: ElevenLabsNotificationPayload, sessionId: string): Promise<void> {
-  const voiceId = payload.voice_id || DA_IDENTITY.voiceId || 's3TPKV1kjDlVtZbl4Ksh';
+  const voiceId = payload.voice_id || DA_IDENTITY.voiceId;
+  if (!voiceId) return; // No configured voice — voice notifications are disabled.
 
   const baseEvent: Omit<VoiceEvent, 'event_type' | 'status_code' | 'error'> = {
     timestamp: getISOTimestamp(),
@@ -152,8 +153,10 @@ export async function handleVoice(parsed: ParsedTranscript, sessionId: string): 
     return;
   }
 
-  // Get voice settings from DA identity in settings.json
-  const voiceId = DA_IDENTITY.voiceId || 's3TPKV1kjDlVtZbl4Ksh';
+  // Get voice settings from DA identity in settings.json.
+  // An empty voiceId disables voice entirely — never fall back to a stranger's voice.
+  const voiceId = DA_IDENTITY.voiceId;
+  if (!voiceId) return;
   const voiceSettings = DA_IDENTITY.voice;
 
   const payload: ElevenLabsNotificationPayload = {
