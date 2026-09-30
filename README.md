@@ -11,7 +11,7 @@ AI-assisted SOC analysis for SME/MSP environments. CASA guides log and network i
 | Intake-triage workflow (fixtures → reasoning → graded) | ✅ Working |
 | Live TalonSocLab telemetry feed | 🔴 Gated — needs the lab pipeline deployed and workflows validated against real log volume |
 
-Senior capstone project, actively iterating.
+Personal project, separate from my group senior capstone. Actively iterating.
 
 ## Two planes
 
@@ -62,7 +62,7 @@ Every recommendation carries a reasoning trace, a confidence level with justific
 
 ## Why
 
-I'm building the reasoning layer I want in a SOC: one that shows its work. CASA is my senior capstone and the place I'm studying where agentic AI actually helps a defender and where it fails. It's deliberately human-in-the-loop — the analyst decides, the agent explains.
+I'm building the reasoning layer I want in a SOC: one that shows its work. CASA is a personal project that grew out of my senior capstone research. It's where I study when agentic AI actually helps a defender and when it fails. It's deliberately human-in-the-loop — the analyst decides, the agent explains.
 
 ## Follow along
 
