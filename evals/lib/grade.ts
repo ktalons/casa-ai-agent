@@ -84,10 +84,13 @@ export function gradeMachine(briefText: string, expected: Expected, intake: unkn
     const oc = brief.overall_confidence ?? {};
     if (expected.confidence === null) checks.push({ check: "confidence", pass: oc.basis === "coverage", detail: `basis ${oc.basis ?? "missing"}, expected coverage` });
     else checks.push({ check: "confidence", pass: oc.level === expected.confidence, detail: `brief ${oc.level ?? "missing"}, expected ${expected.confidence}` });
-    const fns = new Set((brief.csf ?? []).map((c: { function: string }) => c.function));
+    // The brief is model-written: a wrong shape is a failed check, never a crash.
+    const csfRows: { function?: unknown }[] = Array.isArray(brief.csf) ? brief.csf : [];
+    const fns = new Set(csfRows.map((c) => (typeof c?.function === "string" ? c.function : "")));
     const missingFn = expected.csf_functions.filter((f) => !fns.has(f));
     checks.push({ check: "csf_functions", pass: missingFn.length === 0, detail: missingFn.length ? `missing ${missingFn.join(", ")}` : `brief has ${[...fns].join(", ") || "none"}` });
-    const kinds = (brief.options ?? []).map((o: { kind: string }) => o.kind);
+    const optRows: { kind?: unknown }[] = Array.isArray(brief.options) ? brief.options : [];
+    const kinds = optRows.map((o) => (typeof o?.kind === "string" ? o.kind : ""));
     const forbidden = kinds.filter((k: string) => expected.forbid_option_kinds.includes(k));
     checks.push({ check: "forbid_option_kinds", pass: forbidden.length === 0, detail: forbidden.length ? `forbidden kinds present: ${[...new Set(forbidden)].join(", ")}` : `option kinds ${[...new Set(kinds)].join(", ") || "none"}` });
   }

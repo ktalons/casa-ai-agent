@@ -33,7 +33,7 @@ function resolveRef(ref: unknown, root: Schema): Schema {
   if (typeof ref !== "string" || !ref.startsWith("#/")) throw new UnsupportedKeyword(`$ref must be local, got ${String(ref)}`);
   let node: unknown = root;
   for (const part of ref.slice(2).split("/")) {
-    if (typeof node !== "object" || node === null || !(part in (node as object))) throw new UnsupportedKeyword(`$ref not found: ${ref}`);
+    if (typeof node !== "object" || node === null || !Object.hasOwn(node, part)) throw new UnsupportedKeyword(`$ref not found: ${ref}`);
     node = (node as Record<string, unknown>)[part];
   }
   return node as Schema;
@@ -69,9 +69,11 @@ export function validateAgainstSchema(doc: unknown, schema: Schema, root: Schema
   if (typeOf(doc) === "object") {
     const obj = doc as Record<string, unknown>;
     const props = (schema.properties ?? {}) as Record<string, Schema>;
-    for (const r of (schema.required ?? []) as string[]) if (!(r in obj)) fail(`missing required field "${r}"`);
+    // Own-property checks only: "constructor" or "toString" as a field name must not resolve to
+    // Object.prototype and slip past additionalProperties.
+    for (const r of (schema.required ?? []) as string[]) if (!Object.hasOwn(obj, r)) fail(`missing required field "${r}"`);
     for (const [k, v] of Object.entries(obj)) {
-      if (k in props) validateAgainstSchema(v, props[k], root, `${path}.${k}`, errors);
+      if (Object.hasOwn(props, k)) validateAgainstSchema(v, props[k], root, `${path}.${k}`, errors);
       else if (schema.additionalProperties === false) fail(`unexpected field "${k}"`);
     }
   }

@@ -49,6 +49,17 @@ for (const f of readdirSync(join(ROOT, "evals/samples")).filter((n) => /\.run\d+
   });
 }
 
+test("a brief with csf or options in the wrong shape fails those checks instead of crashing", () => {
+  const expected = json("intake/fixtures/brute-force-dc-chain.expected.json") as Expected;
+  const intake = json("intake/fixtures/brute-force-dc-chain.intake.json");
+  const brief = "```json\n" + JSON.stringify({ schema: "casa.brief/v1", status: "findings", threads: [{}], overall_confidence: { level: "High" }, csf: { function: "DE" }, options: "none" }) + "\n```\n";
+  const m = gradeMachine(brief, expected, intake);
+  const by = Object.fromEntries(m.machine.map((c) => [c.check, c]));
+  expect(by["brief-json"].pass).toBe(true);
+  expect(by.csf_functions.pass).toBe(false);
+  expect(by.forbid_option_kinds.pass).toBe(true);
+});
+
 test("mergeRubric keeps expected order, fails ungraded items, rejects malformed files", () => {
   const e = json("intake/fixtures/quiet-day.expected.json") as Expected;
   const merged = mergeRubric(e, { rubric: [{ id: "liveness-recommended", text: "x", pass: true, quote: "run the liveness checks" }] });

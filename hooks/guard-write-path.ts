@@ -11,6 +11,10 @@
  *   any other casa:* agent      denied (they have no Write tool; this is defence in depth)
  *   non-casa agents             no decision
  *
+ * Scope: this hook sees the Write, Edit, MultiEdit and NotebookEdit tools. Bash is not a file
+ * tool; the analysts that carry it are confined by the permission allowlist (read-only analysis
+ * commands), which lives in settings, not in the plugin. See SECURITY.md.
+ *
  * Deny is a JSON permissionDecision with a reason and exit 0. Anything unexpected (unreadable
  * input, missing path, a path that escapes cwd, a symlink in the way) exits 2: fail closed.
  * Zero dependencies.

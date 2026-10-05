@@ -30,7 +30,12 @@ export interface Knowledge {
 export const DEFAULT_HOST_PATTERN = "^talon[a-z0-9-]+$";
 
 const RE_HEX_BLOB = /\b[0-9a-f]{32,}\b/gi; // sha256 and friends: never rule IDs
+// Rule IDs: five or six digits. Four-digit numbers are deliberately out of range, because
+// Windows event IDs (4624, 4662) and years share that shape; a four-digit built-in Wazuh rule is
+// therefore not lint-checked. Port notations ("port 49152", "49152/tcp", "host:49152") are
+// stripped before this pass so a high port is not read as a rule ID.
 const RE_RULE_ID = /\b\d{5,6}\b/g;
+const RE_PORT = /\b(?:ports?\s+\d{1,5}|\d{1,5}\/(?:tcp|udp))\b/gi;
 const RE_ATTACK = /\bT\d{4}(?:\.\d{3})?\b/g;
 // Catches both CSF 2.0 (DE.AE-03) and CSF 1.1 (PR.AC-4) shapes so 1.1 leftovers fail.
 const RE_CSF = /\b(?:GV|ID|PR|DE|RS|RC)\.[A-Z]{2}-\d{1,2}\b/g;
@@ -46,8 +51,9 @@ export function extractTokens(text: string, hostPattern = DEFAULT_HOST_PATTERN):
   const cleaned = text.replace(RE_HEX_BLOB, " ");
   const grab = (re: RegExp) => new Set((cleaned.match(re) ?? []).map((s) => s.trim()));
   const ips = grab(RE_IPV4);
-  // Strip IPv4 literals before the rule-ID pass so "10.0.0.50" never yields a 5-digit run.
-  const noIps = cleaned.replace(RE_IPV4, " ");
+  // Strip IPv4 literals and port notations before the rule-ID pass so "10.0.0.50" never
+  // yields a 5-digit run and "port 49152" is not a rule.
+  const noIps = cleaned.replace(RE_IPV4, " ").replace(RE_PORT, " ");
   return {
     rule_id: new Set((noIps.match(RE_RULE_ID) ?? [])),
     host: grab(hostRegex(hostPattern)),

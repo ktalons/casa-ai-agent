@@ -55,3 +55,32 @@ test("real instants and dates: Feb 30 and bare dates are rejected", () => {
 test("a wrong schema identifier is rejected before any other check", () => {
   expect(validateIntake({ schema: "wrong" }).errors[0]).toContain("expected one of");
 });
+
+test("field names that live on Object.prototype do not slip past the schema", () => {
+  const schema = { type: "object", additionalProperties: false, required: ["id"], properties: { id: { type: "string" } } };
+  const errs = validateAgainstSchema({ id: "x", constructor: "y", toString: 5 }, schema).map((e) => e.message);
+  expect(errs).toContain('unexpected field "constructor"');
+  expect(errs).toContain('unexpected field "toString"');
+  expect(validateAgainstSchema({ constructor: "x" }, schema).map((e) => e.message)).toContain('missing required field "id"');
+  expect(validateIntake({ schema: "constructor" }).errors[0]).toContain("expected one of");
+});
+
+test("v2 truncation: true needs exactly cap entries, false allows a list that happens to be cap long", () => {
+  const v2 = json("fixtures/brute-force-dc-chain.v2.intake.json");
+  const n = v2.detections.length;
+  const at = (truncated: boolean, cap: number) => validateIntake({ ...v2, truncated, filter: { ...v2.filter, cap } }).errors;
+  expect(at(false, n)).toEqual([]);
+  expect(at(true, n)).toEqual([]);
+  expect(at(true, n + 1).join("\n")).toContain("is below the cap");
+  const over = at(true, n - 1).join("\n");
+  expect(over).toContain("exceeds the cap");
+  expect(over).not.toContain("is below the cap");
+});
+
+test("v1 has no floor field, so a level under the default floor is a warning, not an error", () => {
+  const v1 = json("fixtures/brute-force-dc-chain.intake.json");
+  const low = { ...v1, detections: v1.detections.map((d: { level: number }, i: number) => (i === v1.detections.length - 1 ? { ...d, level: 10 } : d)) };
+  const r = validateIntake(low);
+  expect(r.errors).toEqual([]);
+  expect(r.warnings.join("\n")).toContain("below the level floor 12");
+});

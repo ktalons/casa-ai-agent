@@ -45,7 +45,7 @@ validator accepts both.
 | `generated` | ISO 8601 UTC datetime | when the intake was built (v1 used a date) |
 | `window` | `{start, end, lookback_hours}` | the interval the detections were pulled from |
 | `filter` | `{min_level, cap, order}` | the floor, the cap and `newest_first` |
-| `truncated` | boolean | true when the cap cut the list; must agree with `detections.length == cap` |
+| `truncated` | boolean | true when the cap cut the list, which then has exactly `cap` entries |
 | `pipeline` | `{collector_ok, agents_reporting, last_event_seen}` | lets a quiet window be distinguished from a dead pipeline |
 | `recon_delta` | `{markdown, baseline, changes[]}` | the prose plus one `{host, port, proto, status}` per change |
 
@@ -64,9 +64,10 @@ hand-authored twins of the v1 ones (`*.v2.intake.json`) and share their ground t
 `lib/schema.ts` evaluates the JSON Schema itself and refuses any keyword it does not implement,
 so the schema file and the validator cannot drift apart. `lib/semantic.ts` adds what a schema
 cannot say: timestamps must be real UTC instants (no 30 February), detections newest-first,
-every `level` at or above the floor (12 for v1, `filter.min_level` for v2), no more entries than
-the cap, no duplicates (`rule_id`+`agent`+`timestamp` for v1, `alert_id` for v2), v2 timestamps
-inside the window, and `truncated` agreeing with the cap. `fixtures-invalid/` holds one file per
+every `level` at or above the floor (`filter.min_level` for v2; for v1 the default floor of 12
+is a warning, since the frozen contract has no floor field), no more entries than the cap, no
+duplicates (`rule_id`+`agent`+`timestamp` for v1, `alert_id` for v2), v2 timestamps inside the
+window, and a `truncated: true` list exactly `cap` long. `fixtures-invalid/` holds one file per
 rule with `manifest.json` naming the expected error; `Validate.test.ts` runs them all.
 
 ## Layout

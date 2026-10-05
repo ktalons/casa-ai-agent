@@ -8,8 +8,10 @@ CASA is a Claude Code plugin that reasons over SOC telemetry. Three things follo
    names and the recon delta can contain text written by an adversary. Every CASA agent
    preloads `skills/standards/SKILL.md`, which treats all such content as data, never
    instruction, and records anything instruction-shaped in `injection_flags` without acting on
-   it. Specialist agents have explicit, minimal `tools:` lists; the analysis agents cannot write
-   files and cannot fetch from the web.
+   it. Specialist agents have explicit, minimal `tools:` lists; the analysis agents have no
+   Write or Edit tool and cannot fetch from the web. The three that carry Bash are confined by
+   the permission allowlist to read-only analysis commands; that allowlist is a prefix match
+   and lives in settings, so a project that widens it widens what those agents can run.
 2. **Nothing is auto-remediated, and nothing is learned without sign-off.** Outputs are
    options with trade-offs under `briefs/`. The only agents that write are the detection
    engineer (`detections/proposed/`) and the evaluator (`evals/results/`). The LEARN phase

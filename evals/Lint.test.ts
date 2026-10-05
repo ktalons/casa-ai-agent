@@ -65,3 +65,8 @@ for (const f of readdirSync(join(ROOT, "evals/samples")).filter((n) => /\.run\d+
     expect(r.pass).toBe(true);
   });
 }
+
+test("port notations are not rule IDs; a bare five-digit number still is", () => {
+  const t = extractTokens("port 49152 open, talonmacbook:8443/tcp listening, ports 50000 and 60122/udp, rule 60122 fired, 12345 seen");
+  expect([...t.rule_id].sort()).toEqual(["12345", "60122"]);
+});

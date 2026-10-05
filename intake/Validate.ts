@@ -34,7 +34,8 @@ function loadSchema(file: string): Schema {
 export function validateIntake(doc: unknown): { errors: string[]; warnings: string[] } {
   const errors: string[] = [], warnings: string[] = [];
   if (typeof doc !== "object" || doc === null || Array.isArray(doc)) return { errors: ["root: not a JSON object"], warnings };
-  const version = VERSIONS[String((doc as { schema?: unknown }).schema)];
+  const id = String((doc as { schema?: unknown }).schema);
+  const version = Object.hasOwn(VERSIONS, id) ? VERSIONS[id] : undefined;
   if (!version) return { errors: [`schema: expected one of ${Object.keys(VERSIONS).join(", ")}, got ${JSON.stringify((doc as { schema?: unknown }).schema)}`], warnings };
   for (const e of validateAgainstSchema(doc, loadSchema(version.schema))) errors.push(`${e.path}: ${e.message}`);
   if (errors.length) return { errors, warnings };

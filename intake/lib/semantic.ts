@@ -1,6 +1,7 @@
 /**
  * semantic.ts — the rules a JSON Schema cannot express: timestamps that are real instants,
- * ordering, severity floor, cap and truncation agreement, duplicates, window containment.
+ * ordering, severity floor (an error for v2, a warning for the frozen v1), cap and truncation
+ * agreement, duplicates, window containment.
  * Pure functions; Validate.ts runs them after the schema pass. Zero dependencies.
  */
 import { readFileSync } from "node:fs";
@@ -38,7 +39,7 @@ function knownTechniques(): Set<string> {
 
 type Det = { level: number; rule_id: string; agent: string; mitre: string[]; timestamp: string; alert_id?: string };
 
-function checkDetections(dets: Det[], floor: number, cap: number, dupKey: (d: Det) => string, r: SemanticResult): void {
+function checkDetections(dets: Det[], floor: number, floorIs: "error" | "warning", cap: number, dupKey: (d: Det) => string, r: SemanticResult): void {
   const seen = new Set<string>();
   let prev: number | null = null;
   dets.forEach((d, i) => {
@@ -49,7 +50,7 @@ function checkDetections(dets: Det[], floor: number, cap: number, dupKey: (d: De
       if (prev !== null && t > prev) r.errors.push(`${where}: not newest-first (later than detections[${i - 1}])`);
       prev = t;
     }
-    if (d.level < floor) r.errors.push(`${where}.level: ${d.level} is below the level floor ${floor}`);
+    if (d.level < floor) r[floorIs === "error" ? "errors" : "warnings"].push(`${where}.level: ${d.level} is below the level floor ${floor}`);
     const key = dupKey(d);
     if (seen.has(key)) r.errors.push(`${where}: duplicate of an earlier detection (${key})`);
     seen.add(key);
@@ -62,7 +63,8 @@ function checkDetections(dets: Det[], floor: number, cap: number, dupKey: (d: De
 export function semanticV1(doc: any): SemanticResult {
   const r: SemanticResult = { errors: [], warnings: [] };
   if (!isRealDate(doc.generated)) r.errors.push(`generated: "${doc.generated}" is not a real date`);
-  checkDetections(doc.detections, V1_FLOOR, V1_CAP, (d) => `${d.rule_id}|${d.agent}|${d.timestamp}`, r);
+  // v1 is frozen and carries no floor field; 12 is the producer default, so a lower level is a warning.
+  checkDetections(doc.detections, V1_FLOOR, "warning", V1_CAP, (d) => `${d.rule_id}|${d.agent}|${d.timestamp}`, r);
   return r;
 }
 
@@ -81,14 +83,16 @@ export function semanticV2(doc: any): SemanticResult {
   const hours = (end - start) / 3_600_000;
   if (Math.abs(hours - doc.window.lookback_hours) > 1) r.warnings.push(`window: spans ${hours.toFixed(1)}h but lookback_hours is ${doc.window.lookback_hours}`);
 
-  checkDetections(doc.detections, doc.filter.min_level, doc.filter.cap, (d) => String(d.alert_id), r);
+  checkDetections(doc.detections, doc.filter.min_level, "error", doc.filter.cap, (d) => String(d.alert_id), r);
   doc.detections.forEach((d: Det, i: number) => {
     if (isRealInstant(d.timestamp)) {
       const t = Date.parse(d.timestamp);
       if (t < start || t > end) r.errors.push(`detections[${i}].timestamp: outside window ${doc.window.start}..${doc.window.end}`);
     }
   });
-  const atCap = doc.detections.length === doc.filter.cap;
-  if (doc.truncated !== atCap) r.errors.push(`truncated: ${doc.truncated} but detections.length (${doc.detections.length}) ${atCap ? "equals" : "is below"} the cap ${doc.filter.cap}`);
+  // truncated means the cap cut the list, so the list must be exactly cap long. A list that
+  // happens to be cap long without being cut is honest with truncated: false.
+  const n = doc.detections.length, cap = doc.filter.cap;
+  if (doc.truncated && n !== cap) r.errors.push(`truncated: true but detections.length (${n}) ${n < cap ? "is below" : "exceeds"} the cap ${cap}`);
   return r;
 }
