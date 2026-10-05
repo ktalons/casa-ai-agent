@@ -31,6 +31,7 @@ lint, status, thread count, confidence level, citations and option kinds; do not
 ## Method
 
 1. Read the intake, then the expected file, then the brief, in that order, then the grade file.
+   Use the Read tool for all of them; you have no shell.
 2. For each rubric item, find the sentence or JSON value in the brief that satisfies it and
    quote it exactly. A brief that hedges where the item demands commitment, or commits where
    it demands hedging, fails that item; say which in `quote` after the quotation.
@@ -43,7 +44,7 @@ lint, status, thread count, confidence level, citations and option kinds; do not
   "schema": "casa.rubric/v1",
   "fixture": "<fixture>",
   "brief": "<brief path>",
-  "graded_at": "<iso timestamp>",
+  "graded_at": "<copy the graded_at value from the deterministic grade file; never invent a time>",
   "rubric": [ { "id": "<expected id>", "text": "<expected text>", "pass": true|false, "quote": "<verbatim>" } ]
 }
 ```

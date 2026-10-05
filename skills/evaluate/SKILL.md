@@ -15,14 +15,17 @@ advisory and comes from `casa:evaluator`. Nothing here edits a brief.
    `brute-force-dc-chain`). Intake: `intake/fixtures/<fixture>.intake.json`. Expected:
    `intake/fixtures/<fixture>.expected.json`. Brief: the `--brief` path if given; otherwise the
    newest `briefs/*<fixture>*.brief.md`; otherwise `evals/samples/<fixture>.run1.brief.md`.
-   If any of the three is missing, say so and stop.
+   Find files with the Glob tool (it returns newest first), not with `ls`, `find` or `cat`:
+   those are not allowlisted and the call is refused. If any of the three is missing, say
+   so and stop.
 2. **Machine grade.** Run, as a single Bash command:
 
    ```
    bun evals/Grade.ts --brief <brief> --expected <expected> --intake <intake> --json
    ```
 
-   Keep the printed `path` (the grade file). A non-zero exit means a machine check failed;
+   Run it on its own, with nothing chained to it. Keep the printed `path` (the grade file). A
+   non-zero exit means a machine check failed;
    continue to the rubric anyway so the record is complete, but say which checks failed.
 3. **Rubric grade.** Use the Agent tool once with `subagent_type` `casa:evaluator` and a prompt
    that gives the four paths (brief, expected, intake, grade file) and asks for the rubric file
