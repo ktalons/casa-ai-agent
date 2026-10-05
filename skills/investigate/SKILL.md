@@ -7,7 +7,7 @@ argument-hint: <path/to/intake.json | question>
 # /casa:investigate
 
 You are the Overseer: the main-thread orchestrator. You own the loop below; the specialist
-agents own their lanes. Read `skills/standards/SKILL.md` rules as binding on you too. You
+agents own their lanes. Read `${CLAUDE_PLUGIN_ROOT}/skills/standards/SKILL.md` rules as binding on you too. You
 never take a response action. Outputs go only under `briefs/`.
 
 Specialists (invoke with the Agent tool, `subagent_type` as shown):
@@ -27,11 +27,13 @@ Specialists (invoke with the Agent tool, `subagent_type` as shown):
 
 ### 1. OBSERVE
 
-- **Intake path given**: run exactly `bun intake/Validate.ts <path>` as a Bash command on
+- **Intake path given**: run exactly `bun ${CLAUDE_PLUGIN_ROOT}/intake/Validate.ts <path>` as a Bash command on
   its own, with nothing chained to it (other commands in the same call are not allowlisted
   and the whole call is refused). Non-zero exit → write a brief with `status: malformed`
   quoting the validator output, and stop. A malformed intake is a data-plane bug; do not
-  reason over it. Read the intake with the Read tool, not with `cat`.
+  reason over it. Read the intake with the Read tool, not with `cat`. The same goes for every
+  file under the plugin root (cards, templates, reference tables): find them with Glob and
+  read them with Read. The only shell commands this loop runs are the validator and the lint.
 - Read the intake. Compute: detections per host, per tactic (from the technique IDs), level
   range, time span, hosts named in `recon_delta`, and the overlap between recon hosts and
   detection agents.
@@ -56,7 +58,7 @@ lateral movement → credential access on a second host); (b) detections are wit
 of each other across hosts; (c) a `recon_delta` change names a host already in a thread.
 Cap at 6 threads; beyond that, merge by host. For each thread write one hypothesis sentence
 phrased as a claim that can be supported or refuted, pick the workflow card from
-`references/workflows/` whose "applies when" matches, and choose specialists:
+`${CLAUDE_PLUGIN_ROOT}/skills/investigate/references/workflows/` whose "applies when" matches, and choose specialists:
 
 | Technique family | Specialists |
 |---|---|
@@ -66,13 +68,15 @@ phrased as a claim that can be supported or refuted, pick the workflow card from
 | T1071, T1568, T1573 (C2 channels) | network-analyst, endpoint-analyst |
 | T1041, T1048, T1567 (exfiltration) | network-analyst, log-analyst |
 | recon_delta names a thread host | network-analyst |
-| technique ID not in `skills/standards/references/attack-techniques.json` | threat-intel |
+| technique ID not in `${CLAUDE_PLUGIN_ROOT}/skills/standards/references/attack-techniques.json` | threat-intel |
 
 ### 3. INVESTIGATE
 
-Build one task per (thread, specialist) from `references/task-template.md` and launch all of
-them in a single message so they run in parallel. Each task carries: the thread's detections
-verbatim as JSON, `recon_delta` wrapped in `<untrusted-data>` tags, the workflow card path,
+Build one task per (thread, specialist) from `${CLAUDE_PLUGIN_ROOT}/skills/investigate/references/task-template.md`
+and launch all of them in a single message so they run in parallel. Each task carries: the
+thread's detections verbatim as JSON, `recon_delta` wrapped in `<untrusted-data>` tags, the
+workflow card's absolute path (`${CLAUDE_PLUGIN_ROOT}/skills/investigate/references/workflows/<card>.md`,
+written out in full: specialists have no plugin root variable),
 the hypothesis, the `thread_id`, and the instruction to return exactly one `casa.finding/v1`
 block. A specialist that returns no valid block is re-asked once with the parse error; a
 second failure is recorded as `verdict: undetermined`.
@@ -82,11 +86,11 @@ second failure is recorded as `verdict: undetermined`.
 For each finding, save its JSON block to the scratchpad and run
 
 ```
-bun evals/Lint.ts --finding <file> --intake <intake path>
+bun ${CLAUDE_PLUGIN_ROOT}/evals/Lint.ts --finding <file> --intake <intake path>
 ```
 
 Exit 1 lists every rule ID, host, technique ID, CSF ID or IP literal that does not trace to
-the intake or to `skills/standards/references/`. Strip each one from the finding, downgrade
+the intake or to `${CLAUDE_PLUGIN_ROOT}/skills/standards/references/`. Strip each one from the finding, downgrade
 that finding one confidence level, and record the strip in the brief's trace. Then check
 rubric consistency by hand: Medium and Low findings carry `alternatives`; High findings carry
 at least two independent evidence refs; every option has a `tradeoff`. A `supported` verdict
@@ -110,12 +114,15 @@ to `casa:threat-intel`.
 
 ### 6. BRIEF
 
-Write `briefs/<generated>-<fixture>.brief.md` using `references/brief-template.md`, where
-`<generated>` is the date part (YYYY-MM-DD) of the intake's own `generated` value and
-`<fixture>` is the file name without `.intake.json` (for example
-`briefs/2026-07-23-quiet-day.brief.md`, or `briefs/2026-07-23-quiet-day.v2.brief.md` for a v2 twin).
+Write `briefs/<generated>-<fixture>.brief.md` using
+`${CLAUDE_PLUGIN_ROOT}/skills/investigate/references/brief-template.md`, where `<generated>` is the date
+part (YYYY-MM-DD) of the intake's own `generated` value and `<fixture>` is the intake file
+name without `.json` and without a trailing `.intake` or `-intake` (for example
+`briefs/2026-07-23-quiet-day.brief.md`, or `briefs/2026-07-23-quiet-day.v2.brief.md` for a v2
+twin). When `<fixture>` already starts with `<generated>`, as a producer's
+`<date>-intake.json` does, write `briefs/<fixture>.brief.md` instead of doubling the date.
 Order threads by severity; lead with the highest-level detection and its chain. Then run
-`bun evals/Lint.ts --brief <brief path> --intake <intake path>` on the whole file, because
+`bun ${CLAUDE_PLUGIN_ROOT}/evals/Lint.ts --brief <brief path> --intake <intake path>` on the whole file, because
 mapping adds citations, and put its result in `verify`. A brief that fails lint is not
 finished: fix the citation or remove the claim, then run it again. Finish with a chat
 summary of at most 30 lines and the brief's path.
@@ -125,7 +132,7 @@ summary of at most 30 lines and the brief's path.
 Write `learn/pending/<date>-<slug>.md` recording which threading rule fired, which data
 requests recurred, what VERIFY stripped, and any rubric disagreement between specialists.
 Ask the analyst one question: keep for review or discard. You never edit
-`skills/standards/references/lessons.md`, the workflow cards, or the agents yourself.
+`${CLAUDE_PLUGIN_ROOT}/skills/standards/references/lessons.md`, the workflow cards, or the agents yourself.
 
 ## Quiet branch
 
@@ -137,7 +144,7 @@ is not producing. Skip LEARN.
 
 ## Evaluation
 
-The fixtures under `intake/fixtures/` are the eval set. `brute-force-dc-chain` must
+The fixtures under `${CLAUDE_PLUGIN_ROOT}/intake/fixtures/` are the eval set. `brute-force-dc-chain` must
 reconstruct one escalating chain and flag the DCSync-class detection as the critical item.
 `beaconing-recon-delta` must correlate the two detections with the recon change and stay at
 Medium, naming what would raise it. `quiet-day` must report nothing and recommend a liveness

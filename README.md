@@ -81,12 +81,16 @@ reasoning trace. The rules live in [`skills/standards/SKILL.md`](skills/standard
 
 ## Running CASA elsewhere
 
-Install from the marketplace into the project where the telemetry lives (a TalonSocLab
-checkout, or an empty working directory), merge `docs/settings.recommended.json` into that
-project's `.claude/settings.json`, and run `/casa:investigate <path to intake.json>`. Briefs,
-proposed detections, grades and learn candidates are written under that project, never into
-the plugin. The write guard that limits what agents may write travels with the plugin; the
-Bash allowlist does not, which is why the settings snippet exists.
+Install into the project where the telemetry lives (a TalonSocLab checkout, or an empty
+working directory) with `scripts/install-into-project.sh`, run from that project's root. It
+adds the marketplace, installs `casa@casa`, merges `docs/settings.recommended.json` into that
+project's `.claude/settings.json` and creates the output directories. Then run
+`/casa:investigate <path to intake.json>` there. Briefs, proposed detections, grades and learn
+candidates are written under that project, never into the plugin; the skills reach the
+plugin's own validator, lint and reference tables through `${CLAUDE_PLUGIN_ROOT}`. The write
+guard travels with the plugin; the Bash allowlist does not, which is why the settings snippet
+exists. The full runbook for the lab, including the v2 digest producer, is
+[`docs/talonsoclab-integration.md`](docs/talonsoclab-integration.md).
 
 ## Development
 

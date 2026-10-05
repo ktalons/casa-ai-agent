@@ -1,13 +1,17 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "_comment": "Permissions do not travel with a Claude Code plugin. Merge this block into the .claude/settings.json of any project where CASA is installed. It allows the read-only analysis commands the specialists use, denies destructive commands and network tools in Bash, and keeps secrets unreadable.",
+  "_comment": "Permissions do not travel with a Claude Code plugin. Merge this block into the .claude/settings.json of any project where CASA is installed. It allows the read-only analysis commands the specialists use, denies destructive commands and network tools in Bash, and keeps secrets unreadable. It also allows reads under ~/.claude/plugins, where the skills' templates and reference tables live after a marketplace install; a checkout-path install needs that checkout's path allowed too, which scripts/install-into-project.sh adds.",
   "permissions": {
     "allow": [
       "Bash(jq *)",
       "Bash(tshark *)",
       "Bash(zeek-cut *)",
       "Bash(bun intake/Validate.ts *)",
-      "Bash(bun evals/*)"
+      "Bash(bun evals/*)",
+      "Bash(bun */intake/Validate.ts *)",
+      "Bash(bun */evals/Lint.ts *)",
+      "Bash(bun */evals/Grade.ts *)",
+      "Read(~/.claude/plugins/**)"
     ],
     "ask": [
       "Bash(rm *)",
