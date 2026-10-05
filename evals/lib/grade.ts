@@ -2,7 +2,7 @@
  * grade.ts — the deterministic half of grading a CASA brief against a fixture's ground truth
  * (casa.expected/v1). Pure functions; evals/Grade.ts is the CLI. Zero dependencies.
  */
-import { extractTokens, firstJsonBlock, lint, stripProducerStrings, DEFAULT_HOST_PATTERN, type Kind, type LintResult } from "./extract.ts";
+import { extractTokens, firstJsonBlock, lint, stripProducerStrings, DEFAULT_HOST_PREFIX, type Kind, type LintResult } from "./extract.ts";
 
 export type Level = "High" | "Medium" | "Low";
 export interface Expected {
@@ -63,15 +63,15 @@ function parseBrief(text: string): Record<string, any> | null {
   }
 }
 
-export function gradeMachine(briefText: string, expected: Expected, intake: unknown, hostPattern = DEFAULT_HOST_PATTERN): { lint: LintResult; machine: MachineCheck[]; fabrication: Fabrication[]; brief: Record<string, any> | null } {
+export function gradeMachine(briefText: string, expected: Expected, intake: unknown, hostPrefix = DEFAULT_HOST_PREFIX): { lint: LintResult; machine: MachineCheck[]; fabrication: Fabrication[]; brief: Record<string, any> | null } {
   const checks: MachineCheck[] = [];
   const brief = parseBrief(briefText);
   checks.push({ check: "brief-json", pass: brief !== null, detail: brief ? "first json block parses as casa.brief/v1" : "no parseable casa.brief/v1 block" });
 
-  const l = lint(briefText, intake, hostPattern);
+  const l = lint(briefText, intake, hostPrefix);
   checks.push({ check: "lint", pass: l.pass, detail: l.pass ? "every citation traces to the intake or a reference table" : l.unknown.map((u) => `${u.kind}:${u.token}`).join(", ") });
 
-  const tokens = extractTokens(stripProducerStrings(briefText, intake), hostPattern);
+  const tokens = extractTokens(stripProducerStrings(briefText, intake), hostPrefix);
   const intakeText = JSON.stringify(intake);
   const fabrication: Fabrication[] = [];
   const known = new Set(l.unknown.map((u) => `${u.kind}:${u.token}`));

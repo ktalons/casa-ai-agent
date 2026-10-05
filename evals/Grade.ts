@@ -3,7 +3,7 @@
  * Grade.ts — grade a brief against a fixture's machine-checkable ground truth.
  *
  *   bun evals/Grade.ts --brief <md> --expected <expected.json> --intake <intake.json>
- *                      [--rubric <evaluator rubric json>] [--out <dir>] [--json]
+ *                      [--rubric <evaluator rubric json>] [--out <dir>] [--host-prefix <prefix>] [--json]
  *
  * Runs the lint and every machine check in casa.expected/v1, writes a casa.grade/v1 record to
  * <out>/<fixture>/<iso>.grade.json (default out: evals/results), merges the evaluator's rubric
@@ -12,7 +12,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assertExpected, buildGrade, gradeMachine, mergeRubric } from "./lib/grade.ts";
-import { DEFAULT_HOST_PATTERN } from "./lib/extract.ts";
+import { assertHostPrefix, DEFAULT_HOST_PREFIX } from "./lib/extract.ts";
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(name);
@@ -21,18 +21,19 @@ function arg(name: string): string | undefined {
 const briefPath = arg("--brief"), expectedPath = arg("--expected"), intakePath = arg("--intake");
 const rubricPath = arg("--rubric");
 const outDir = arg("--out") ?? join(import.meta.dir, "results");
-const hostPattern = arg("--host-pattern") ?? DEFAULT_HOST_PATTERN;
+const hostPrefix = arg("--host-prefix") ?? DEFAULT_HOST_PREFIX;
 if (!briefPath || !expectedPath || !intakePath) {
-  console.error("usage: bun evals/Grade.ts --brief <md> --expected <json> --intake <json> [--rubric <json>] [--out <dir>] [--json]");
+  console.error("usage: bun evals/Grade.ts --brief <md> --expected <json> --intake <json> [--rubric <json>] [--out <dir>] [--host-prefix <prefix>] [--json]");
   process.exit(2);
 }
+try { assertHostPrefix(hostPrefix); } catch (e) { console.error(`--host-prefix: ${(e as Error).message}`); process.exit(2); }
 
 const expected = JSON.parse(readFileSync(expectedPath, "utf8"));
 assertExpected(expected);
 const intake = JSON.parse(readFileSync(intakePath, "utf8"));
 const briefText = readFileSync(briefPath, "utf8");
 
-const m = gradeMachine(briefText, expected, intake, hostPattern);
+const m = gradeMachine(briefText, expected, intake, hostPrefix);
 const rubric = rubricPath ? mergeRubric(expected, JSON.parse(readFileSync(rubricPath, "utf8"))) : null;
 const grade = buildGrade(expected.fixture, briefPath, m, rubric);
 

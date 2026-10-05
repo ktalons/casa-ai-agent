@@ -70,3 +70,12 @@ test("port notations are not rule IDs; a bare five-digit number still is", () =>
   const t = extractTokens("port 49152 open, talonmacbook:8443/tcp listening, ports 50000 and 60122/udp, rule 60122 fired, 12345 seen");
   expect([...t.rule_id].sort()).toEqual(["12345", "60122"]);
 });
+
+test("the host prefix is a literal, not a regex: metacharacters are refused, the rest escaped", () => {
+  expect(() => extractTokens("x", "ta(lon")).toThrow("host prefix");
+  expect(() => extractTokens("x", ".*")).toThrow("host prefix");
+  expect(() => extractTokens("x", "")).toThrow("host prefix");
+  const t = extractTokens("lab-dc01 and lab-ws02 and lab- and labx and slab-dc01", "lab-");
+  expect([...t.host].sort()).toEqual(["lab-dc01", "lab-ws02"]);
+  expect([...extractTokens("talondc01 talon talonx", "talon").host].sort()).toEqual(["talondc01", "talonx"]);
+});
