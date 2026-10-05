@@ -1,7 +1,7 @@
 {
   "name": "casa-ai-agent",
   "version": "5.0.0-alpha.1",
-  "description": "CASA — Cybersecurity Analysis Support Agent. A Claude Code plugin for explainable, human-in-the-loop SOC investigation.",
+  "description": "CASA \u2014 Cybersecurity Analysis Support Agent. A Claude Code plugin for explainable, human-in-the-loop SOC investigation.",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "validate:fixtures": "bun intake/Validate.ts",
-    "validate:plugin": "claude plugin validate --strict ."
+    "validate:plugin": "claude plugin validate --strict .",
+    "plugin:link": "claude plugin marketplace add . --scope local && claude plugin install casa@casa --scope local"
   },
   "devDependencies": {
     "typescript": "^5.9.0",

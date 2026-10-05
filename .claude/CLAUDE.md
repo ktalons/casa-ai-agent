@@ -7,8 +7,15 @@ is loaded; they are not project-scope components. The SOC non-negotiables live i
 
 ## Working on CASA
 
-- `bun run dev` — start Claude Code with this checkout loaded as the plugin (`--plugin-dir .`).
-  If you also have `casa` installed from the marketplace, run `claude plugin disable casa` first.
+- Two ways to load this checkout as the plugin:
+  - `bun run plugin:link` once (adds this directory as a local-scope marketplace and installs
+    `casa@casa` in place; both land in the gitignored `.claude/settings.local.json`). Claude Code
+    then reads agents and skills live from the checkout. Use this for fixture runs and for
+    headless `claude -p` evals.
+  - `bun run dev` (`claude --plugin-dir .`). Claude Code protects a `--plugin-dir` directory, so
+    every write into the repo prompts and headless runs cannot write `briefs/`. Fine for a
+    quick interactive check, wrong for evals. Do not combine the two: run
+    `claude plugin disable casa` first.
 - `bun run validate:plugin` — `claude plugin validate --strict .` (CI runs this).
 - `bun run typecheck` · `bun test` · `bun run validate:fixtures` — the fast checks; run all before pushing.
 - Plugin components are namespaced: agents are `casa:log-analyst` etc., skills are `/casa:investigate`.

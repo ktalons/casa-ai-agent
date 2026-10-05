@@ -27,9 +27,11 @@ Specialists (invoke with the Agent tool, `subagent_type` as shown):
 
 ### 1. OBSERVE
 
-- **Intake path given**: run `bun intake/Validate.ts <path>`. Non-zero exit → write a brief
-  with `status: malformed` quoting the validator output, and stop. A malformed intake is a
-  data-plane bug; do not reason over it.
+- **Intake path given**: run exactly `bun intake/Validate.ts <path>` as a Bash command on
+  its own, with nothing chained to it (other commands in the same call are not allowlisted
+  and the whole call is refused). Non-zero exit → write a brief with `status: malformed`
+  quoting the validator output, and stop. A malformed intake is a data-plane bug; do not
+  reason over it. Read the intake with the Read tool, not with `cat`.
 - Read the intake. Compute: detections per host, per tactic (from the technique IDs), level
   range, time span, hosts named in `recon_delta`, and the overlap between recon hosts and
   detection agents.
@@ -93,7 +95,9 @@ to `casa:threat-intel`.
 
 ### 6. BRIEF
 
-Write `briefs/<generated>-<intake basename>.brief.md` using `references/brief-template.md`.
+Write `briefs/<generated>-<fixture>.brief.md` using `references/brief-template.md`, where
+`<generated>` is the intake's own `generated` date and `<fixture>` is the file name without
+`.intake.json` (for example `briefs/2026-07-23-quiet-day.brief.md`).
 Order threads by severity; lead with the highest-level detection and its chain. Then run
 `bun evals/Lint.ts --brief <brief path> --intake <intake path>` on the whole file, because
 mapping adds citations, and put its result in `verify`. A brief that fails lint is not
