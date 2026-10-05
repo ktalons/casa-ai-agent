@@ -15,7 +15,7 @@ the prose after it is for the analyst. Both must agree.
     {
       "id": "T1", "title": "...", "hosts": [], "rule_ids": [], "attack": [], "tactic_sequence": [],
       "hypothesis": "...", "verdict": "supported|refuted|undetermined",
-      "confidence": { "level": "High|Medium|Low", "justification": "...", "would_raise": [] },
+      "confidence": { "level": "High|Medium|Low", "justification": "enumerate each independent reference the level rests on, e.g. a rule_id chain across <host A> and <host B>, a rule description that asserts the source relation, recon:<host A>:<port>/<proto>", "would_raise": [] },
       "findings_from": ["casa:log-analyst", "..."], "summary": "..."
     }
   ],

@@ -33,16 +33,57 @@ Each `detections[]` entry:
 
 **v1 is frozen.** Any field addition, removal, or rename is a `v2` schema with its own fixtures — never a silent change to v1. `Validate.ts` rejects unexpected fields for exactly this reason.
 
+## The `soc-intake/v2` artifact
+
+v2 (`schema/soc-intake.v2.schema.json`) keeps every v1 field and adds what v1 could not carry:
+the window and filter the producer applied, whether the list was truncated, pipeline liveness,
+per-detection correlation fields, and a structured recon delta. A producer emits v1 or v2; the
+validator accepts both.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `generated` | ISO 8601 UTC datetime | when the intake was built (v1 used a date) |
+| `window` | `{start, end, lookback_hours}` | the interval the detections were pulled from |
+| `filter` | `{min_level, cap, order}` | the floor, the cap and `newest_first` |
+| `truncated` | boolean | true when the cap cut the list; must agree with `detections.length == cap` |
+| `pipeline` | `{collector_ok, agents_reporting, last_event_seen}` | lets a quiet window be distinguished from a dead pipeline |
+| `recon_delta` | `{markdown, baseline, changes[]}` | the prose plus one `{host, port, proto, status}` per change |
+
+Each `detections[]` entry adds, all required and nullable: `alert_id`, `src_ip`, `dst_ip`,
+`user`, `event_id`, `tactic[]`, `groups[]`. `src_ip` and `user` are what make a cross-host chain
+data rather than inference.
+
+**Producer change (TalonSocLab).** `build_intake` / `normalize_alert` need to emit the new
+top-level blocks and copy `id`, `data.srcip`/`data.win.eventdata.IpAddress`, `data.dstip`,
+`data.srcuser`/`data.win.eventdata.TargetUserName`, `data.win.system.eventID`,
+`rule.mitre.tactic` and `rule.groups` into each detection. Until then the v2 fixtures here are
+hand-authored twins of the v1 ones (`*.v2.intake.json`) and share their ground truth.
+
+## Validation rules beyond the schema
+
+`lib/schema.ts` evaluates the JSON Schema itself and refuses any keyword it does not implement,
+so the schema file and the validator cannot drift apart. `lib/semantic.ts` adds what a schema
+cannot say: timestamps must be real UTC instants (no 30 February), detections newest-first,
+every `level` at or above the floor (12 for v1, `filter.min_level` for v2), no more entries than
+the cap, no duplicates (`rule_id`+`agent`+`timestamp` for v1, `alert_id` for v2), v2 timestamps
+inside the window, and `truncated` agreeing with the cap. `fixtures-invalid/` holds one file per
+rule with `manifest.json` naming the expected error; `Validate.test.ts` runs them all.
+
 ## Layout
 
 ```
 intake/
 ├── schema/soc-intake.v1.schema.json   JSON Schema (draft-07) — the human/tooling contract
-├── Validate.ts                        zero-dependency structural validator (CI-run)
+├── schema/soc-intake.v2.schema.json   v2: window, filter, pipeline, correlation fields, structured recon delta
+├── lib/schema.ts, lib/semantic.ts     the two validation passes (zero dependencies)
+├── Validate.ts                        CLI: schema pass then semantic pass, v1 and v2
+├── Validate.test.ts                   every fixture passes; every fixtures-invalid/* fails for its reason
 ├── fixtures/                          representative intakes + paired ground truth
-│   ├── brute-force-dc-chain.intake.json / .expected.md
-│   ├── beaconing-recon-delta.intake.json / .expected.md
-│   └── quiet-day.intake.json / .expected.md   (negative control)
+│   ├── <name>.intake.json             v1 intake
+│   ├── <name>.v2.intake.json          v2 twin, same ground truth
+│   ├── <name>.expected.md             human checklist
+│   └── <name>.expected.json           machine-checkable ground truth (casa.expected/v1)
+├── fixtures-invalid/ + manifest.json  one bad intake per semantic rule
 └── raw/
     └── brute-force-dc-chain.alerts.jsonl   raw Wazuh alerts, replayable in the lab
 ```

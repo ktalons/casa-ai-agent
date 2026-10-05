@@ -12,8 +12,10 @@ advisory and comes from `casa:evaluator`. Nothing here edits a brief.
 ## Steps
 
 1. **Resolve inputs.** `<fixture>` is a name under `intake/fixtures/` (for example
-   `brute-force-dc-chain`). Intake: `intake/fixtures/<fixture>.intake.json`. Expected:
-   `intake/fixtures/<fixture>.expected.json`. Brief: the `--brief` path if given; otherwise the
+   `brute-force-dc-chain`, or `brute-force-dc-chain.v2` for the v2 twin). Intake:
+   `intake/fixtures/<fixture>.intake.json`. Expected: the base name's
+   `intake/fixtures/<base>.expected.json`, where `<base>` is `<fixture>` without a `.v2` suffix;
+   the ground truth is the same for both intake versions. Brief: the `--brief` path if given; otherwise the
    newest `briefs/*<fixture>*.brief.md`; otherwise `evals/samples/<fixture>.run1.brief.md`.
    Find files with the Glob tool (it returns newest first), not with `ls`, `find` or `cat`:
    those are not allowlisted and the call is refused. If any of the three is missing, say

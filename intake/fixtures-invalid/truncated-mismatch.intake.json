@@ -1,0 +1,143 @@
+{
+  "schema": "talonsoclab.soc-intake/v2",
+  "generated": "2026-07-20T03:00:00Z",
+  "source": "talonsoclab",
+  "consumer": "casa-ai-agent (github.com/ktalons/casa-ai-agent)",
+  "window": {
+    "start": "2026-07-19T03:00:00Z",
+    "end": "2026-07-20T03:00:00Z",
+    "lookback_hours": 24
+  },
+  "filter": {
+    "min_level": 12,
+    "cap": 200,
+    "order": "newest_first"
+  },
+  "truncated": true,
+  "pipeline": {
+    "collector_ok": true,
+    "agents_reporting": 3,
+    "last_event_seen": "2026-07-20T02:58:11.004Z"
+  },
+  "detections": [
+    {
+      "level": 15,
+      "description": "Directory replication (DRSUAPI GetNCChanges) requested from a host that is not a domain controller",
+      "rule_id": "100220",
+      "agent": "talondc01",
+      "mitre": [
+        "T1003.006"
+      ],
+      "timestamp": "2026-07-20T02:19:47.418Z",
+      "alert_id": "1784600387.418001",
+      "src_ip": "10.10.30.14",
+      "dst_ip": null,
+      "user": "svc-backup",
+      "event_id": "4662",
+      "tactic": [
+        "credential-access"
+      ],
+      "groups": [
+        "windows",
+        "active_directory",
+        "replication"
+      ]
+    },
+    {
+      "level": 13,
+      "description": "Successful network logon to domain controller from a source with a preceding failed-auth burst",
+      "rule_id": "100215",
+      "agent": "talondc01",
+      "mitre": [
+        "T1021.002",
+        "T1078"
+      ],
+      "timestamp": "2026-07-20T02:18:22.905Z",
+      "alert_id": "1784600302.905002",
+      "src_ip": "10.10.30.14",
+      "dst_ip": null,
+      "user": "svc-backup",
+      "event_id": "4624",
+      "tactic": [
+        "lateral-movement",
+        "persistence"
+      ],
+      "groups": [
+        "windows",
+        "authentication_success",
+        "lateral_movement"
+      ]
+    },
+    {
+      "level": 12,
+      "description": "Multiple authentication failures followed by a success from the same source",
+      "rule_id": "100210",
+      "agent": "talondellbox",
+      "mitre": [
+        "T1110.001"
+      ],
+      "timestamp": "2026-07-20T02:17:05.223Z",
+      "alert_id": "1784600225.223003",
+      "src_ip": "10.10.20.77",
+      "dst_ip": null,
+      "user": "svc-backup",
+      "event_id": "4624",
+      "tactic": [
+        "credential-access"
+      ],
+      "groups": [
+        "windows",
+        "authentication_success",
+        "brute_force"
+      ]
+    },
+    {
+      "level": 12,
+      "description": "Multiple authentication failures from a single source (>= 20 in 60s)",
+      "rule_id": "100200",
+      "agent": "talondellbox",
+      "mitre": [
+        "T1110"
+      ],
+      "timestamp": "2026-07-20T02:14:31.671Z",
+      "alert_id": "1784600071.671004",
+      "src_ip": "10.10.20.77",
+      "dst_ip": null,
+      "user": null,
+      "event_id": "4625",
+      "tactic": [
+        "credential-access"
+      ],
+      "groups": [
+        "windows",
+        "authentication_failed",
+        "brute_force"
+      ]
+    }
+  ],
+  "recon_delta": {
+    "markdown": "## Recon delta — 2026-07-20\n\n- **NEW** `talondellbox:3389/tcp` (RDP) reachable from the workstation VLAN — was filtered in the 2026-07-13 baseline.\n- Unchanged: `talondc01:445/tcp`, `talondc01:389/tcp`.\n",
+    "baseline": "2026-07-13",
+    "changes": [
+      {
+        "host": "talondellbox",
+        "port": 3389,
+        "proto": "tcp",
+        "status": "new"
+      },
+      {
+        "host": "talondc01",
+        "port": 445,
+        "proto": "tcp",
+        "status": "unchanged"
+      },
+      {
+        "host": "talondc01",
+        "port": 389,
+        "proto": "tcp",
+        "status": "unchanged"
+      }
+    ]
+  },
+  "note": "Deterministic intake. Reasoning happens in CASA, not here."
+}

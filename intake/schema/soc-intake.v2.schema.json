@@ -1,0 +1,80 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/ktalons/casa-ai-agent/intake/schema/soc-intake.v2.schema.json",
+  "title": "talonsoclab.soc-intake/v2",
+  "description": "Structured handoff from the TalonSocLab data plane to the CASA reasoning plane, version 2. Adds window, filter and pipeline metadata, per-detection correlation fields (alert_id, src_ip, dst_ip, user, event_id, tactic, groups) and a structured recon delta. v1 stays frozen and valid; a producer emits one or the other.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "generated", "source", "consumer", "window", "filter", "truncated", "pipeline", "detections", "recon_delta", "note"],
+  "properties": {
+    "schema": { "const": "talonsoclab.soc-intake/v2" },
+    "generated": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$", "description": "UTC datetime the intake was built" },
+    "source": { "type": "string", "minLength": 1 },
+    "consumer": { "type": "string", "minLength": 1 },
+    "window": {
+      "type": "object", "additionalProperties": false, "required": ["start", "end", "lookback_hours"],
+      "properties": {
+        "start": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$" },
+        "end": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$" },
+        "lookback_hours": { "type": "integer", "minimum": 1, "maximum": 8760 }
+      }
+    },
+    "filter": {
+      "type": "object", "additionalProperties": false, "required": ["min_level", "cap", "order"],
+      "properties": {
+        "min_level": { "type": "integer", "minimum": 0, "maximum": 16 },
+        "cap": { "type": "integer", "minimum": 1 },
+        "order": { "const": "newest_first" }
+      }
+    },
+    "truncated": { "type": "boolean", "description": "true when the cap cut the detection list" },
+    "pipeline": {
+      "type": "object", "additionalProperties": false, "required": ["collector_ok", "agents_reporting", "last_event_seen"],
+      "properties": {
+        "collector_ok": { "type": "boolean" },
+        "agents_reporting": { "type": "integer", "minimum": 0 },
+        "last_event_seen": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$" }
+      }
+    },
+    "detections": { "type": "array", "items": { "$ref": "#/definitions/detection" } },
+    "recon_delta": {
+      "type": "object", "additionalProperties": false, "required": ["markdown", "baseline", "changes"],
+      "properties": {
+        "markdown": { "type": "string" },
+        "baseline": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+        "changes": { "type": "array", "items": { "$ref": "#/definitions/change" } }
+      }
+    },
+    "note": { "type": "string" }
+  },
+  "definitions": {
+    "detection": {
+      "type": "object", "additionalProperties": false,
+      "required": ["level", "description", "rule_id", "agent", "mitre", "timestamp", "alert_id", "src_ip", "dst_ip", "user", "event_id", "tactic", "groups"],
+      "properties": {
+        "level": { "type": "integer", "minimum": 0, "maximum": 16 },
+        "description": { "type": "string", "minLength": 1 },
+        "rule_id": { "type": "string", "minLength": 1 },
+        "agent": { "type": "string", "minLength": 1 },
+        "mitre": { "type": "array", "items": { "type": "string", "pattern": "^T\\d{4}(\\.\\d{3})?$" } },
+        "timestamp": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,3})?Z$" },
+        "alert_id": { "type": "string", "minLength": 1 },
+        "src_ip": { "type": ["string", "null"], "minLength": 1 },
+        "dst_ip": { "type": ["string", "null"], "minLength": 1 },
+        "user": { "type": ["string", "null"], "minLength": 1 },
+        "event_id": { "type": ["string", "null"], "minLength": 1 },
+        "tactic": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "groups": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "change": {
+      "type": "object", "additionalProperties": false, "required": ["host", "port", "proto", "status"],
+      "properties": {
+        "host": { "type": "string", "minLength": 1 },
+        "port": { "type": "integer", "minimum": 0, "maximum": 65535 },
+        "proto": { "type": "string", "enum": ["tcp", "udp"] },
+        "status": { "type": "string", "enum": ["new", "removed", "unchanged"] }
+      }
+    }
+  }
+}

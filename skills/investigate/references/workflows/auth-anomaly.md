@@ -27,6 +27,13 @@
 - H3 cannot be decided from v1: the intake has no account field. State it as undetermined
   and request the data in section 4.
 - H4 stays open until the source address is known. Say so in `alternatives`.
+- **Chain into another host.** If a later detection on a second host says in its own
+  description that the logon came from a source with a preceding failure burst, treat that
+  as the link to this burst; the missing address is a data request. With a recon-delta change
+  on this host in the window as well, the chain reaches **High**; hand it to the
+  lateral-movement or DCSync card for the second host.
+- **v2 intakes:** `src_ip` and `user` on each detection decide spraying versus brute force
+  directly and tie the success to the burst; the ceilings above lift accordingly.
 - Threshold guidance from the lab's rules: a burst of 20 or more failures in 60 seconds from
   one source is the level-12 floor; below that nothing reaches the intake.
 

@@ -27,6 +27,8 @@
 - H2 requires DNS or proxy evidence the intake does not carry; mark undetermined.
 - H4 is the default alternative for every finding here. Business hours, destination
   category and the host's role decide it, none of which v1 carries.
+- **v2 intakes:** `dst_ip` identifies the destination for categorisation and threat-intel;
+  `user` ties the transfer to a session; `groups` says which sensor raised it.
 - **High** needs the data in section 4: measured volume against a baseline, a destination
   outside approved services, and a staging artifact or a user action that explains it.
 

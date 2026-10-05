@@ -35,19 +35,8 @@ jobs:
         run: bun x tsc --noEmit
       - name: agent frontmatter + unit tests
         run: bun test
-      - name: validate intake fixtures
+      - name: validate intake fixtures (the invalid set is covered by bun test)
         run: bun intake/Validate.ts
-      - name: validator rejects a malformed intake
-        shell: bash
-        run: |
-          set -euo pipefail
-          bad="$(mktemp).json"
-          echo '{"schema":"wrong"}' > "$bad"
-          if bun intake/Validate.ts "$bad"; then
-            echo "validator accepted a malformed intake" >&2
-            exit 1
-          fi
-          echo "ok — malformed intake rejected"
 
   secrets:
     name: gitleaks

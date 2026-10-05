@@ -31,6 +31,14 @@ does not carry the requesting account, the source address, or the replication GU
   minutes before replicating.
 - If the only detection is T1003.006 with no preceding chain, keep **Medium** and name H3 as
   the alternative; the data request in section 4 decides it.
+- **Cross-host chain (H2).** When a credential-attack detection on `<source host>` precedes
+  the DC logon, and the DC logon's own description asserts the relation ("from a source with
+  a preceding failed-auth burst"), that assertion plus the time order is the link; the intake
+  not naming the address is a data request, not a reason to hedge. A recon-delta change on
+  `<source host>` inside the window is a second, independent source. With both, H2 and H1 are
+  **High** for the whole chain, not only for the DC segment.
+- **v2 intakes:** a `user` shared by the source-host success and the DC logon, or a `src_ip`
+  shared by the DC logon and the replication request, establishes the link as data.
 - Severity: a `supported` H1 is the most critical item in any intake it appears in. Lead the
   brief with it. Containment options are appropriate at Medium or above because the cost of
   a completed DCSync (every domain hash, including krbtgt) is total.

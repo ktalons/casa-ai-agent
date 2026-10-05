@@ -30,6 +30,8 @@
 - A recon-delta listener on that host is corroborating context for H3; it does not raise H1
   by itself. A self-signed certificate on a workstation port is as consistent with H4 as
   with H3; say so in `alternatives`.
+- **v2 intakes:** `dst_ip` on the detections is an indicator the threat-intel agent can look
+  up, and a structured `recon_delta.changes[]` entry for the host is the listener fact.
 - **High** is reachable in intake-only mode only when an independent source corroborates:
   a threat-intelligence match on the destination (threat-intel agent, with a cited source)
   or a host-level detection tying a suspicious process to the connection.

@@ -28,6 +28,9 @@
   corroborating context, not proof.
 - H2 and H3 are undetermined in v1 (no account, no source address). Request section 4 data.
 - H4 is the alternative to record for every Medium finding here.
+- **v2 intakes:** a `src_ip` on the target's logon that matches the source host, or a `user`
+  shared across hosts, establishes H1 and H2 as data; `groups` naming the remote service
+  settles which T1021 sub-technique applies.
 
 ## 4. Data requests
 
