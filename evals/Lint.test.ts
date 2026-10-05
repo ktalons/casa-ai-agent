@@ -51,3 +51,17 @@ test("quiet-day intake: any host, rule ID or technique is a fabrication", () => 
   const r2 = lint("talondc01 fired rule 100220 (T1003.006)", quiet);
   expect(r2.unknown.map((u) => u.kind).sort()).toEqual(["host", "rule_id"]);
 });
+
+// Real briefs produced by /casa:investigate on the fixtures (kept as *.run1.brief.md) must
+// stay lint-clean against the intake they came from.
+import { readdirSync } from "node:fs";
+for (const f of readdirSync(join(ROOT, "evals/samples")).filter((n) => n.endsWith(".run1.brief.md")).sort()) {
+  const fixture = f.replace(/\.run1\.brief\.md$/, "");
+  test(`run sample ${f} traces every citation to ${fixture}`, () => {
+    const brief = readFileSync(join(ROOT, "evals/samples", f), "utf8");
+    const ik = JSON.parse(readFileSync(join(ROOT, `intake/fixtures/${fixture}.intake.json`), "utf8"));
+    const r = lint(brief, ik);
+    expect(r.unknown).toEqual([]);
+    expect(r.pass).toBe(true);
+  });
+}
