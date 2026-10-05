@@ -59,3 +59,37 @@ jobs:
       # Pinned to a commit SHA (v2.3.9) rather than the floating v2 tag so a
       # retag can't silently change what runs in CI.
       - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7
+
+  eval-full:
+    # Manual only: runs the whole loop on every fixture with a real model. Needs the
+    # ANTHROPIC_API_KEY secret. Results are uploaded as an artifact, never committed.
+    name: eval-full (manual)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g @anthropic-ai/claude-code@2.1.289
+      - run: bun install --frozen-lockfile
+      - name: load the checkout as the plugin, in place
+        run: bun run plugin:link
+      - name: trust the workspace for headless runs
+        run: |
+          node -e '
+            const fs = require("fs"), p = process.env.HOME + "/.claude.json";
+            const d = fs.existsSync(p) ? JSON.parse(fs.readFileSync(p, "utf8")) : {};
+            d.projects = d.projects || {}; d.projects[process.cwd()] = { ...(d.projects[process.cwd()] || {}), hasTrustDialogAccepted: true };
+            fs.writeFileSync(p, JSON.stringify(d, null, 2));
+          '
+      - name: investigate and evaluate every fixture
+        run: bun evals/RunFull.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eval-results
+          path: evals/results/

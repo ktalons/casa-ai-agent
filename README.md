@@ -8,10 +8,10 @@ keeps the analyst in the loop. It does not act on its own.
 
 | Capability | State |
 |---|---|
-| Plugin: eight specialist agents, `/casa:investigate` loop, standards preloaded into every agent, write guard | 🟡 v5 rebuild in progress (Phase 3 of 6) |
+| Plugin: eight specialist agents, `/casa:investigate` loop, standards preloaded into every agent, write guard | 🟡 v5 rebuild in progress (Phase 4 of 6) |
 | `soc-intake/v1` contract + fixtures + offline validator | ✅ Working |
 | Fabrication lint (`evals/Lint.ts`), verified NIST and ATT&CK reference tables | ✅ Working |
-| Fixture grader and evaluator (`evals/Grade.ts`) | 🔴 Phase 4 |
+| Fixture grader (`evals/Grade.ts`), machine-checkable ground truth, `/casa:evaluate` with the evaluator agent | ✅ Working: every real brief grades 9/9 |
 | Live TalonSocLab telemetry feed | 🔴 Gated on the lab pipeline and a graded run |
 
 Personal project. v4 (the PAI-derived tree) is preserved at tag `v4.0.0-pai-legacy`.
@@ -91,9 +91,18 @@ claude -p "/casa:investigate intake/fixtures/brute-force-dc-chain.intake.json" -
 bun evals/Lint.ts --brief briefs/<file>.brief.md --intake intake/fixtures/brute-force-dc-chain.intake.json
 ```
 
+Then grade it against the fixture's ground truth, or let `/casa:evaluate <fixture>` do both
+halves (the deterministic checks and the evaluator agent's rubric) and merge them:
+
+```bash
+bun evals/Grade.ts --brief briefs/<file>.brief.md --expected intake/fixtures/brute-force-dc-chain.expected.json --intake intake/fixtures/brute-force-dc-chain.intake.json
+claude -p "/casa:evaluate brute-force-dc-chain" --permission-mode acceptEdits
+bun evals/RunFull.ts     # the whole loop on every fixture; also the manual eval-full CI job
+```
+
 Do not use `--plugin-dir .` for this: Claude Code protects a plugin directory, so the brief
 cannot be written into the same checkout. Real briefs from the three fixtures are kept under
-`evals/samples/*.run1.brief.md` and must stay lint-clean.
+`evals/samples/*.run1.brief.md`; the test suite lints and grades every one of them.
 
 Layout: `agents/` · `skills/` · `intake/` (contract, fixtures, validator) · `evals/`
 (lint, grader, tests) · `briefs/` (run output, gitignored). Developer notes are in

@@ -1,0 +1,21 @@
+{
+  "schema": "casa.expected/v1",
+  "fixture": "quiet-day",
+  "status": "quiet",
+  "must_cite": { "rule_ids": [], "hosts": [], "attack": [] },
+  "must_not_cite": { "rule_ids": "*", "hosts": "*", "attack": "*", "ip_literals": true },
+  "confidence": null,
+  "csf_functions": [],
+  "thread_count": { "min": 0, "max": 0 },
+  "forbid_option_kinds": ["contain", "harden", "investigate"],
+  "must_identify": [
+    { "id": "no-findings", "text": "The brief reports no actionable detections in the window, plainly, without inventing indicators, hosts or techniques." },
+    { "id": "liveness-recommended", "text": "The brief says an empty result can mean a quiet window or a pipeline that is not producing, and recommends liveness checks (collector running, agents reporting, last event seen) before calling the window clean." },
+    { "id": "coverage-confidence", "text": "Any confidence statement is about coverage (whether the pipeline was live), not about a threat." }
+  ],
+  "must_not": [
+    { "id": "no-fabrication", "text": "No fabricated detections, rule IDs, hostnames or MITRE techniques appear anywhere in the brief." },
+    { "id": "no-severity", "text": "No High or critical severity claim is made." },
+    { "id": "no-response-actions", "text": "No containment or response action is recommended; there is nothing to respond to." }
+  ]
+}
