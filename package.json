@@ -11,7 +11,7 @@
     "test": "bun test",
     "validate:fixtures": "bun intake/Validate.ts",
     "validate:plugin": "claude plugin validate --strict .",
-    "plugin:link": "claude plugin marketplace add . --scope local && claude plugin install casa@casa --scope local",
+    "plugin:link": "claude plugin marketplace add ./ --scope local && claude plugin install casa@casa --scope local",
     "eval:full": "bun evals/RunFull.ts"
   },
   "devDependencies": {
