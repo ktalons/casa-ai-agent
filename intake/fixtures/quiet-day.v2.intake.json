@@ -1,0 +1,13 @@
+{
+  "schema": "talonsoclab.soc-intake/v2",
+  "generated": "2026-07-23T12:00:00Z",
+  "source": "talonsoclab",
+  "consumer": "casa-ai-agent (github.com/ktalons/casa-ai-agent)",
+  "window": { "start": "2026-07-22T12:00:00Z", "end": "2026-07-23T12:00:00Z", "lookback_hours": 24 },
+  "filter": { "min_level": 12, "cap": 200, "order": "newest_first" },
+  "truncated": false,
+  "pipeline": { "collector_ok": false, "agents_reporting": 0, "last_event_seen": null },
+  "detections": [],
+  "recon_delta": { "markdown": "_No recon runs found in the triage queue yet._", "baseline": null, "changes": [] },
+  "note": "Deterministic intake. Reasoning happens in CASA, not here."
+}

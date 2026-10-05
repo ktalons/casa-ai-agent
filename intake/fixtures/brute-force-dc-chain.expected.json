@@ -1,0 +1,24 @@
+{
+  "schema": "casa.expected/v1",
+  "fixture": "brute-force-dc-chain",
+  "status": "findings",
+  "must_cite": {
+    "rule_ids": ["100200", "100210", "100215", "100220"],
+    "hosts": ["talondellbox", "talondc01"],
+    "attack": ["T1110", "T1110.001", "T1078", "T1021.002", "T1003.006"]
+  },
+  "must_not_cite": { "rule_ids": [], "hosts": [], "attack": [], "ip_literals": true },
+  "confidence": "High",
+  "csf_functions": ["DE", "RS"],
+  "thread_count": { "min": 1, "max": 1 },
+  "forbid_option_kinds": [],
+  "must_identify": [
+    { "id": "one-chain", "text": "The four detections are presented as one attack chain, not four unrelated alerts, ordered oldest to newest: failed-auth burst, burst-then-success, lateral logon to the DC, directory replication." },
+    { "id": "escalation", "text": "The chain escalates in scope and severity from the workstation talondellbox to the domain controller talondc01 (levels 12 to 15)." },
+    { "id": "dcsync-critical", "text": "Detection 100220 (DRSUAPI replication from a non-DC host) is identified as a DCSync-class credential theft attempt and is treated as the most critical item, not a routine event." },
+    { "id": "rdp-corroborates", "text": "The new talondellbox:3389/tcp exposure from the recon delta is connected to the chain as corroborating attack surface, not reported in isolation." },
+    { "id": "next-steps", "text": "Options include isolating talondellbox, obtaining the account from the raw alerts (TargetUserName) before resetting it, hunting talondc01 for replication abuse or krbtgt changes, and closing the new RDP exposure." },
+    { "id": "high-justified", "text": "High confidence is stated for the chain and justified by two independent sources (the time-ordered alert chain across two hosts and the recon delta), while the missing account and source address are named as data requests rather than used to hedge the chain." }
+  ],
+  "must_not": []
+}

@@ -1,0 +1,23 @@
+{
+  "schema": "casa.expected/v1",
+  "fixture": "beaconing-recon-delta",
+  "status": "findings",
+  "must_cite": {
+    "rule_ids": ["100305", "100310"],
+    "hosts": ["talonmacbook"],
+    "attack": ["T1071.001", "T1071.004"]
+  },
+  "must_not_cite": { "rule_ids": [], "hosts": [], "attack": [], "ip_literals": true },
+  "confidence": "Medium",
+  "csf_functions": ["DE"],
+  "thread_count": { "min": 1, "max": 1 },
+  "forbid_option_kinds": ["contain"],
+  "must_identify": [
+    { "id": "same-host-correlation", "text": "The two detections on talonmacbook (periodic HTTPS and the newly observed high-entropy DNS domain) are correlated into one candidate C2 thread rather than treated as two separate low-value alerts." },
+    { "id": "listener-tied-in", "text": "The recon delta's new talonmacbook:8443/tcp listener with a self-signed certificate is tied into the beaconing hypothesis as a plausible staging or reverse channel, with the benign reading (a local service) stated as an alternative." },
+    { "id": "hypothesis-not-confirmed", "text": "The beacon is presented as a hypothesis needing confirmation, not a confirmed compromise: periodicity is inferred from rule assertions and cannot be established from the intake alone." },
+    { "id": "next-steps", "text": "Options include pulling PCAP or flow records for the interval to measure beacon period and jitter, resolving and reputation-checking the domain and destination, and identifying the process bound to 8443/tcp." },
+    { "id": "would-raise-named", "text": "The brief names exactly what evidence would move confidence from Medium to High (a measured low-jitter interval and a cited malicious reputation or an owning process)." }
+  ],
+  "must_not": []
+}

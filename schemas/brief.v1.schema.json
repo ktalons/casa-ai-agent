@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/ktalons/casa-ai-agent/schemas/brief.v1.schema.json",
+  "title": "casa.brief/v1",
+  "description": "The machine-readable record at the top of an analyst brief written by /casa:investigate.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "intake", "status", "threads", "overall_confidence", "csf", "options", "data_requests", "trace", "injection_flags", "verify"],
+  "properties": {
+    "schema": { "const": "casa.brief/v1" },
+    "intake": {
+      "type": "object", "additionalProperties": false, "required": ["path", "schema", "generated", "sha256"],
+      "properties": {
+        "path": { "type": "string" },
+        "schema": { "type": "string", "pattern": "^talonsoclab\\.soc-intake/v[0-9]+$" },
+        "generated": { "type": "string" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    },
+    "status": { "type": "string", "enum": ["findings", "quiet", "malformed"] },
+    "threads": { "type": "array", "items": { "$ref": "#/definitions/thread" } },
+    "overall_confidence": {
+      "type": "object", "additionalProperties": false, "required": ["level", "basis", "justification"],
+      "properties": {
+        "level": { "type": "string", "enum": ["High", "Medium", "Low"] },
+        "basis": { "type": "string", "enum": ["threat", "coverage"] },
+        "justification": { "type": "string", "minLength": 1 }
+      }
+    },
+    "csf": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["function", "category", "subcategory", "why"],
+        "properties": {
+          "function": { "type": "string", "enum": ["GV", "ID", "PR", "DE", "RS", "RC"] },
+          "category": { "type": "string", "pattern": "^(GV|ID|PR|DE|RS|RC)\\.[A-Z]{2}$" },
+          "subcategory": { "type": "string", "pattern": "^(GV|ID|PR|DE|RS|RC)\\.[A-Z]{2}-\\d{2}$" },
+          "why": { "type": "string", "minLength": 1 }
+        }
+      }
+    },
+    "options": { "type": "array", "items": { "$ref": "finding.v1.schema.json#/definitions/option" } },
+    "data_requests": { "type": "array", "items": { "$ref": "finding.v1.schema.json#/definitions/data_request" } },
+    "trace": { "type": "array", "items": { "type": "string" } },
+    "injection_flags": { "type": "array", "items": { "type": "string" } },
+    "verify": {
+      "type": "object", "additionalProperties": false, "required": ["lint", "report"],
+      "properties": { "lint": { "type": "string", "enum": ["pass", "fail"] }, "report": { "type": "string" } }
+    }
+  },
+  "definitions": {
+    "thread": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "title", "hosts", "rule_ids", "attack", "tactic_sequence", "hypothesis", "verdict", "confidence", "findings_from", "summary"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^T[0-9]+$" },
+        "title": { "type": "string", "minLength": 1 },
+        "hosts": { "type": "array", "items": { "type": "string" } },
+        "rule_ids": { "type": "array", "items": { "type": "string" } },
+        "attack": { "type": "array", "items": { "type": "string", "pattern": "^T\\d{4}(\\.\\d{3})?$" } },
+        "tactic_sequence": { "type": "array", "items": { "type": "string" } },
+        "hypothesis": { "type": "string", "minLength": 1 },
+        "verdict": { "type": "string", "enum": ["supported", "refuted", "undetermined"] },
+        "confidence": { "$ref": "finding.v1.schema.json#/definitions/confidence" },
+        "findings_from": { "type": "array", "items": { "type": "string", "pattern": "^casa:[a-z-]+$" } },
+        "summary": { "type": "string", "minLength": 1 }
+      }
+    }
+  }
+}

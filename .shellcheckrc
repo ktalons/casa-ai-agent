@@ -1,9 +1,0 @@
-# Reviewed, intentional disables for setup.sh:
-#
-# SC2059 — printf format strings embed static ANSI color constants
-#   (BOLD/GREEN/RESET). No user data reaches a format string — values are
-#   always passed as %s arguments — so this flags a non-issue here.
-#
-# SC2016 — the `bun -e '...'` blocks are single-quoted on purpose: the body is
-#   JavaScript and must NOT be expanded by the shell.
-disable=SC2059,SC2016

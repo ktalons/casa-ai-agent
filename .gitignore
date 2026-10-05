@@ -1,7 +1,5 @@
-# macOS
+# macOS / editors
 .DS_Store
-
-# Editor cruft
 *.swp
 *.swo
 .idea/
@@ -10,39 +8,23 @@
 # Dependencies
 node_modules/
 
-# ── .claude/ allowlist ─────────────────────────────────────────────
-# ~/.claude is a symlink into this repo, so Claude Code writes runtime
-# state (OAuth credentials, session logs, plugin caches, local settings)
-# directly into the working tree. Ignore everything under .claude/ by
-# default and re-track only the source files below. New runtime files
-# Claude Code invents in the future are ignored automatically.
+# Claude Code local state: keep only the project settings and dev notes
 .claude/*
 !.claude/CLAUDE.md
-!.claude/settings.template.json
-!.claude/agents/
-!.claude/skills/
-!.claude/hooks/
-!.claude/security/
-!.claude/VoiceServer/
+!.claude/settings.json
 
-# MEMORY: track the scaffold READMEs, never the captured contents
-!.claude/MEMORY/
-.claude/MEMORY/*
-!.claude/MEMORY/README.md
-!.claude/MEMORY/LEARNING/
-.claude/MEMORY/LEARNING/*
-!.claude/MEMORY/LEARNING/README.md
-!.claude/MEMORY/RESEARCH/
-.claude/MEMORY/RESEARCH/*
-!.claude/MEMORY/RESEARCH/README.md
-!.claude/MEMORY/STATE/
-.claude/MEMORY/STATE/*
-!.claude/MEMORY/STATE/README.md
-!.claude/MEMORY/WORK/
-.claude/MEMORY/WORK/*
-!.claude/MEMORY/WORK/README.md
+# CASA run outputs (analyst briefs, grades, proposed detections, learn candidates)
+briefs/*
+!briefs/README.md
+evals/results/*
+!evals/results/.gitkeep
+detections/proposed/*
+learn/pending/*
+learn/archive/*
+engagements/*
+!engagements/README.md
 
-# Secrets — never commit (applies inside allowlisted dirs too)
+# Secrets — never commit
 .env
 .env.*
 *.key

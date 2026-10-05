@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(jq *)",
+      "Bash(tshark *)",
+      "Bash(zeek-cut *)",
+      "Bash(bun intake/Validate.ts *)",
+      "Bash(bun evals/*)",
+      "Bash(bun test *)",
+      "Bash(bun x tsc *)",
+      "Bash(bun run *)",
+      "Bash(bun scripts/*)"
+    ],
+    "ask": [
+      "Bash(rm *)",
+      "Edit(.claude/settings.json)",
+      "Edit(.claude-plugin/**)",
+      "WebFetch"
+    ],
+    "deny": [
+      "Bash(sudo *)",
+      "Bash(dd *)",
+      "Bash(mkfs *)",
+      "Bash(diskutil *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.claude/.credentials.json)"
+    ]
+  },
+  "enableAllProjectMcpServers": false
+}

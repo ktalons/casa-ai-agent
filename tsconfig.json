@@ -3,15 +3,24 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ESNext"],
-    "types": ["bun"],
+    "lib": [
+      "ESNext"
+    ],
+    "types": [
+      "bun"
+    ],
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": false,
     "noEmit": true,
-    "strict": false,
+    "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
-  "include": [".claude/hooks/**/*.ts", ".claude/skills/**/*.ts", ".claude/VoiceServer/**/*.ts", "intake/**/*.ts"]
+  "include": [
+    "intake/**/*.ts",
+    "evals/**/*.ts",
+    "hooks/**/*.ts",
+    "scripts/**/*.ts"
+  ]
 }

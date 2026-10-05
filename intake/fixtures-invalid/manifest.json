@@ -1,0 +1,12 @@
+{
+  "level-17.intake.json": "above maximum 16",
+  "older-first.intake.json": "not newest-first",
+  "below-floor.intake.json": "below the level floor",
+  "over-cap.intake.json": "exceeds the cap",
+  "duplicate-alert.intake.json": "duplicate of an earlier detection",
+  "bad-date-feb30.intake.json": "not a real date",
+  "outside-window.intake.json": "outside window",
+  "unknown-field.intake.json": "unexpected field \"extra\"",
+  "truncated-mismatch.intake.json": "truncated: true but",
+  "bad-instant.intake.json": "does not match"
+}

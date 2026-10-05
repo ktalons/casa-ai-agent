@@ -1,6 +1,6 @@
 # Ground truth — brute-force-dc-chain
 
-Hand-authored representative intake. The TalonSocLab AD environment (Phase C) is not built yet, so `talondc01` is synthetic; the alert shapes, rule-ID namespace, and MITRE mappings mirror what the deployed pipeline will emit. A correct CASA analysis of this intake must land the points below.
+Hand-authored representative intake. Machine-checkable form: `brute-force-dc-chain.expected.json`. The TalonSocLab AD environment (Phase C) is not built yet, so `talondc01` is synthetic; the alert shapes, rule-ID namespace, and MITRE mappings mirror what the deployed pipeline will emit. A correct CASA analysis of this intake must land the points below.
 
 ## Must identify
 
@@ -17,9 +17,9 @@ Hand-authored representative intake. The TalonSocLab AD environment (Phase C) is
 ## Must map / recommend
 
 - [ ] NIST CSF 2.0: **DETECT** (the chain fired) and **RESPOND** (containment now).
-- [ ] Concrete next steps: isolate `talondellbox`, force-reset the successfully-authenticated account, hunt for `krbtgt` / replication abuse on `talondc01`, close the new RDP exposure.
-- [ ] Route to **LogAnalyst** (auth chain) and **NetworkAnalyst** (RDP/SMB paths); synthesize via **PurpleTeamMapper**.
+- [ ] Concrete next steps: isolate `talondellbox`; request `TargetUserName` for rules `100210` / `100215` from the raw alerts (v1 carries no account field) and then reset that account; hunt for `krbtgt` / replication abuse on `talondc01`; close the new RDP exposure.
+- [ ] Route to `casa:log-analyst` (auth chain), `casa:endpoint-analyst` (4662 and replication detail) and `casa:network-analyst` (RDP/SMB paths); map via `casa:purple-team-mapper`.
 
 ## Confidence
 
-- [ ] **High** — the evidence chain is internally consistent and self-corroborating (recon delta + escalating auth alerts). CASA should say High and justify it with the chain, not hedge.
+- [ ] **High** for the claim the rubric can support: the four detections are one escalating chain and `100220` is DCSync-class. Two independent sources corroborate it (the time-ordered alert chain across two hosts, and the recon delta on the first host). CASA should say High for that claim and name the account and source address as data requests, without downgrading the chain itself.
