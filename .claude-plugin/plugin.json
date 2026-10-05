@@ -2,7 +2,7 @@
   "$schema": "https://json.schemastore.org/claude-code-plugin.json",
   "name": "casa",
   "displayName": "CASA \u2014 Cybersecurity Analysis Support Agent",
-  "version": "5.0.0",
+  "version": "5.0.1",
   "description": "Explainable, human-in-the-loop SOC investigation: ingests a talonsoclab.soc-intake artifact, fans out to specialist analysts, and writes an analyst brief where every claim cites its evidence.",
   "author": {
     "name": "ktalons",

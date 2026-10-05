@@ -10,7 +10,7 @@
 #             CASA checkout in place, so promoted lessons and reference edits land in the checkout
 #             you version. Use the path on the machine where you maintain CASA.
 #   --ref     tag or branch of docs/settings.recommended.json to fetch when --source is not a path
-#             (default v5.0.0).
+#             (default v5.0.1).
 #
 # What it does: adds the marketplace and installs casa@casa; merges CASA's recommended permission
 # block into this project's .claude/settings.json (array union, backup first); creates the output
@@ -19,7 +19,7 @@ set -euo pipefail
 
 SCOPE="project"
 SOURCE="ktalons/casa-ai-agent"
-REF="v5.0.0"
+REF="v5.0.1"
 while [ $# -gt 0 ]; do
   case "$1" in
     --scope) SCOPE="$2"; shift 2 ;;
