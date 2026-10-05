@@ -74,3 +74,10 @@ Brute force: one account, many attempts. Stuffing: varied accounts from many sou
 
 CSF 2.0: DE.CM-01, DE.CM-03, DE.AE-02, DE.AE-03; hardening PR.AA-01, PR.AA-03, PR.AA-05;
 response RS.AN-03, RS.MI-01.
+
+**Options when burst-then-success is supported.** One option per action, each named
+concretely: `contain` isolates the host that saw the success, by agent name; `contain` resets
+the account once it is named (v1: a `TargetUserName` data request listed first in
+`depends_on`; v2: the `user` field); `harden` closes a new exposure the recon delta shows on
+that host, named as `<host>:<port>/<proto>`, with the cost of closing it; `investigate` pulls
+the raw 4625 and 4624 events for the source.

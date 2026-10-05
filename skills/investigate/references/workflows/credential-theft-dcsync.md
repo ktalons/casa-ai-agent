@@ -82,3 +82,15 @@ Quote each value you use as `raw:<file>:<line>`.
 What moves Medium to High in intake-only mode is a second, independent detection on the
 chain. What refutes H1 is raw evidence that the requester is a DC or an authorized sync
 account. CSF 2.0: DE.AE-02, DE.AE-03, DE.CM-09, RS.AN-03, RS.MI-01; hardening PR.AA-05.
+
+**Options when H1 or H2 is supported.** One option per action, each named concretely:
+
+- `contain`: isolate the first host in the chain by its agent name, the one whose detection
+  opened the chain, not "the host behind <address>". Name the DC separately only if the
+  replication is confirmed from raw 4662.
+- `contain`: reset the account, but only once it is named. In v1 that is a `TargetUserName`
+  data request on the success rules, listed first in `depends_on`; in v2 the `user` field names
+  it and the option can be written out directly.
+- `harden`: close a new exposure the recon delta shows on a chain host (`<host>:<port>/<proto>`).
+  Say "close", with what it costs, not "review".
+- `investigate`: hunt the DC for replication abuse and krbtgt changes (events 4662, 4738, 4769).

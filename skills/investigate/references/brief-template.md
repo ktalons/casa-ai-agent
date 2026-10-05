@@ -34,7 +34,7 @@ Two to five sentences. Lead with the most severe thread and its verdict.
 
 ## Threads
 ### T1 — <title>  (<verdict>, <confidence>)
-What the evidence shows, each claim followed by its reference in parentheses, e.g. (rule 100220 on talondc01).
+What the evidence shows, each claim followed by its reference in parentheses, e.g. (rule <rule_id> on <host>).
 **Alternatives considered** — only for Medium/Low.
 **What would raise confidence** — exact data, exact source.
 
@@ -43,6 +43,11 @@ CSF 2.0 and ATT&CK rows from the purple-team mapper, each with a one-line "why".
 
 ## Options for the analyst
 Numbered. Each: the action, what it achieves, what it costs or risks, what it depends on.
+One option per action, never two actions folded into one. Name the target concretely: a host
+by its agent name (not by an address), an exposure as `<host>:<port>/<proto>`, an account by
+name or, when the intake does not carry it, by the data request that will name it (listed in
+`depends_on`). An action waits on that request; it is not hedged into a weaker verb. A new
+exposure is closed, not reviewed.
 
 ## Data requests
 What the intake could not show and where it lives.
