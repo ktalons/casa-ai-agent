@@ -10,51 +10,31 @@ permissions:
   contents: read
 
 jobs:
-  shell:
-    name: shell — lint + syntax
+  plugin:
+    name: plugin — manifest + components
     runs-on: ubuntu-latest
+    # The validator needs the Claude Code CLI. Pinned so CI and local dev check the same rules.
+    # Marked non-blocking until it is confirmed to run without an authenticated session.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - name: bash -n
-        run: bash -n setup.sh
-      # Pinned to the upstream image so CI and local dev run the same checker —
-      # the runner's bundled version drifts and reports different codes for the
-      # same construct (SC2317 vs SC2329 on trap-invoked functions).
-      - name: shellcheck
-        run: docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.11.0 setup.sh
-
-  validate:
-    name: validate — ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]   # macos-latest ships bash 3.2
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - name: structure + hook-path resolution
-        run: bash setup.sh --validate
-      - name: sandbox install is idempotent
-        shell: bash
-        run: |
-          set -euo pipefail
-          export HOME="$(mktemp -d)"
-          export CASA_ASSUME_DEFAULTS=1
-          bash setup.sh
-          # second run must be a clean no-op, not a crash
-          bash setup.sh
-          test -L "$HOME/.claude"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install -g @anthropic-ai/claude-code@2.1.289
+      - run: claude plugin validate --strict .
 
   typecheck:
-    name: typecheck + fixtures
+    name: typecheck + tests + fixtures
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - name: tsc --noEmit
+      - name: tsc --noEmit (strict)
         run: bun x tsc --noEmit
+      - name: agent frontmatter + unit tests
+        run: bun test
       - name: validate intake fixtures
         run: bun intake/Validate.ts
       - name: validator rejects a malformed intake
@@ -77,6 +57,5 @@ jobs:
         with:
           fetch-depth: 0
       # Pinned to a commit SHA (v2.3.9) rather than the floating v2 tag so a
-      # retag can't silently change what runs in CI — matches how the shellcheck
-      # image is pinned above.
+      # retag can't silently change what runs in CI.
       - uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7

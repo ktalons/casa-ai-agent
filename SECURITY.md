@@ -1,19 +1,33 @@
-# Security Policy
+# Security
 
-## Scope and intent
+## Model
 
-CASA is a defensive, human-in-the-loop analysis assistant. It guides investigations and explains its reasoning; it does not take autonomous response actions, and its Pentester agent is for **authorized** assessment only. Use it within engagements you are permitted to test.
+CASA is a Claude Code plugin that reasons over SOC telemetry. Three things follow:
 
-## Reporting a vulnerability
+1. **Telemetry is attacker-controlled input.** Alert descriptions, hostnames, usernames, DNS
+   names and the recon delta can contain text written by an adversary. Every CASA agent
+   preloads `skills/standards/SKILL.md`, which treats all such content as data, never
+   instruction, and records anything instruction-shaped in `injection_flags` without acting on
+   it. Specialist agents have explicit, minimal `tools:` lists; the analysis agents cannot write
+   files and cannot fetch from the web.
+2. **Nothing is auto-remediated.** Outputs are options with trade-offs under `briefs/`. The
+   only agents that write are the detection engineer (`detections/proposed/`) and the evaluator
+   (`evals/results/`).
+3. **Permissions do not travel with a plugin.** The repo's `.claude/settings.json` denies
+   destructive commands and secret reads and allowlists read-only analysis tools. Copy it into
+   any project where CASA is installed. Phase 3 adds a write-path guard hook that does travel
+   with the plugin.
 
-Report privately through GitHub's [security advisories](https://github.com/ktalons/casa-ai-agent/security/advisories/new) for this repo. Please do not open a public issue for anything exploitable. Include repro steps and impact; expect an initial response within a week.
+Neither the agent prompts nor the permission rules are a sandbox. Run CASA where a mistake
+is recoverable, and use Claude Code's sandbox settings where the host supports them.
 
-## Handling secrets
+## What is never committed
 
-- Secrets live only in `.claude/.env` (created by `setup.sh`, gitignored). Never commit API keys.
-- `~/.claude` is a symlink into this repo, so Claude Code runtime files (OAuth credentials, session logs, local settings) land in the working tree. The `.gitignore` is an **allowlist** — everything under `.claude/` is ignored except the tracked source directories — so runtime credentials cannot be committed by accident. Keep it that way when adding files.
-- CI runs [gitleaks](https://github.com/gitleaks/gitleaks) on every push as a backstop.
+Briefs, grades, proposed detections, learn candidates, engagement scopes, `.env`, keys and
+logs are gitignored. `intake/raw/*.jsonl` is the one tracked JSONL path, for hand-authored
+fixtures only. CI runs gitleaks over full history.
 
-## Permission posture
+## Reporting
 
-The bundled `settings.template.json` allows only read-only tools outright, denies destructive commands (`rm -rf /`, disk erase, force-push, …), and prompts for sensitive reads. `SecurityValidator.hook.ts` is a second `PreToolUse` layer that checks Bash/Edit/Write/Read against `security/patterns.example.yaml`. Neither is a sandbox — review actions before approving them.
+Open a private security advisory on the GitHub repository, or contact the maintainer
+directly. Please do not open a public issue for a vulnerability.

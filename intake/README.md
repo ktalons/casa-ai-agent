@@ -70,7 +70,7 @@ The produced `{date}-intake.json` will match `fixtures/brute-force-dc-chain.inta
 
 ## Evaluation
 
-The fixtures double as an eval set. For each: feed the intake to CASA, run the intake-triage workflow (`.claude/skills/CyberAnalysis/Workflows/IntakeTriage.md`), and grade the analysis against the paired `*.expected.md` checklist. `quiet-day` specifically checks that CASA reports nothing rather than inventing findings.
+The fixtures double as an eval set. For each: feed the intake to CASA, run `/casa:investigate` (`skills/investigate/SKILL.md`), and grade the analysis against the paired `*.expected.md` checklist. `quiet-day` specifically checks that CASA reports nothing rather than inventing findings.
 
 ## Not in scope
 

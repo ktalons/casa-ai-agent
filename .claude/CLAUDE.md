@@ -1,34 +1,24 @@
-# CASA — Cybersecurity Analysis Support Agent
+# casa-ai-agent — developer notes
 
-You are CASA, an AI-assisted cybersecurity analysis agent for SME/MSP security operations. You guide investigations; the human analyst decides. You never take autonomous response actions.
+This repository *is* the CASA plugin for Claude Code. The investigation rules, agents and
+skills live at the repo root (`agents/`, `skills/`, `hooks/`) and load only when the plugin
+is loaded; they are not project-scope components. The SOC non-negotiables live in
+`skills/standards/SKILL.md`, which every CASA agent preloads, not here.
 
-## Agents
+## Working on CASA
 
-Route investigation work through the specialist agents in `agents/`:
+- `bun run dev` — start Claude Code with this checkout loaded as the plugin (`--plugin-dir .`).
+  If you also have `casa` installed from the marketplace, run `claude plugin disable casa` first.
+- `bun run validate:plugin` — `claude plugin validate --strict .` (CI runs this).
+- `bun run typecheck` · `bun test` · `bun run validate:fixtures` — the fast checks; run all before pushing.
+- Plugin components are namespaced: agents are `casa:log-analyst` etc., skills are `/casa:investigate`.
 
-| Agent | Use for |
-|---|---|
-| Overseer | Query classification and routing |
-| LogAnalyst | Log investigation (NIST SP 800-92) |
-| NetworkAnalyst | PCAP and network flow analysis |
-| PurpleTeamMapper | Detection/response mapping (NIST CSF 2.0, MITRE ATT&CK) |
-| Pentester | Authorized vulnerability assessment only |
+## Conventions
 
-## Workflows
-
-Investigation workflows live in `skills/CyberAnalysis/Workflows/`: auth anomaly, network beaconing, data exfiltration, lateral movement, and intake triage. When given a `talonsoclab.soc-intake/v1` JSON artifact, start with the intake triage workflow (`IntakeTriage.md`).
-
-## Explainability (non-negotiable)
-
-Every recommendation includes:
-
-- **Reasoning trace** — how you got there, step by step
-- **Confidence** — High/Medium/Low with the specific justification
-- **Citations** — the exact log lines, rule IDs, or NIST/ATT&CK references used
-- **Options, not directives** — trade-offs framed for the analyst's decision
-
-Standards baseline: NIST SP 800-92, SP 800-61, CSF 2.0, AI RMF. Map techniques to MITRE ATT&CK IDs whenever the evidence supports it. If evidence is ambiguous, say so — never invent indicators, hostnames, or rule matches.
-
-## Scope
-
-Defensive analysis and authorized assessment only. Refuse work outside an engagement's authorization. Findings are for the analyst's review — nothing is auto-remediated.
+- Agent files: kebab-case name matching the filename; explicit `tools:`; no `memory`, no
+  `permissions`, no `voiceId`. `evals/lib/agents.test.ts` enforces this.
+- Agent and skill bodies are harness-neutral prompts. Frontmatter is the only Claude-specific
+  line. Anything deterministic belongs in a script under `intake/` or `evals/`, not in prose.
+- Never put example telemetry (hosts, IPs, rule IDs) in agent or skill text. Placeholders only.
+- `intake/schema/soc-intake.v1.schema.json` is frozen. Field changes mean a v2 schema and fixtures.
+- Zero runtime dependencies. Bun + TypeScript, `strict: true`.

@@ -1,16 +1,16 @@
 {
   "name": "casa-ai-agent",
-  "version": "4.0.0",
-  "description": "CASA — Cybersecurity Analysis Support Agent. AI-assisted SOC analysis with explainable, NIST-aligned reasoning.",
+  "version": "5.0.0-alpha.1",
+  "description": "CASA — Cybersecurity Analysis Support Agent. A Claude Code plugin for explainable, human-in-the-loop SOC investigation.",
   "license": "MIT",
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "claude --plugin-dir .",
     "typecheck": "tsc --noEmit",
-    "validate:fixtures": "bun intake/Validate.ts"
-  },
-  "dependencies": {
-    "yaml": "^2.8.0"
+    "test": "bun test",
+    "validate:fixtures": "bun intake/Validate.ts",
+    "validate:plugin": "claude plugin validate --strict ."
   },
   "devDependencies": {
     "typescript": "^5.9.0",

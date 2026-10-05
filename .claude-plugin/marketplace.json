@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "casa",
+  "description": "CASA, the reasoning plane for TalonSocLab.",
+  "owner": { "name": "ktalons", "url": "https://github.com/ktalons" },
+  "plugins": [
+    {
+      "name": "casa",
+      "source": "./",
+      "description": "Explainable, human-in-the-loop SOC investigation agent.",
+      "category": "security",
+      "tags": ["soc", "investigation", "nist", "mitre-attack"]
+    }
+  ]
+}

@@ -1,75 +1,92 @@
 # CASA — Cybersecurity Analysis Support Agent
 
-AI-assisted SOC analysis for SME/MSP environments. CASA guides log and network investigations with explainable, NIST-aligned reasoning and keeps the analyst in the loop — it does not act on its own.
+AI-assisted SOC analysis for SME/MSP environments, packaged as a Claude Code plugin. CASA
+guides log, network and endpoint investigations with explainable, NIST-aligned reasoning and
+keeps the analyst in the loop. It does not act on its own.
 
 ## Status
 
 | Capability | State |
 |---|---|
-| Five specialist agents + four investigation workflows | ✅ Working |
+| Plugin: eight specialist agents, `/casa:investigate` loop, standards preloaded into every agent | 🟡 v5 rebuild in progress (Phase 1 of 6) |
 | `soc-intake/v1` contract + fixtures + offline validator | ✅ Working |
-| Intake-triage workflow (fixtures → reasoning → graded) | ✅ Working |
-| Live TalonSocLab telemetry feed | 🔴 Gated — needs the lab pipeline deployed and workflows validated against real log volume |
+| Fabrication lint and fixture grader (`evals/`) | 🔴 Phase 2–4 |
+| Live TalonSocLab telemetry feed | 🔴 Gated on the lab pipeline and a graded run |
 
-Personal project, separate from my group senior capstone. Actively iterating.
+Personal project. v4 (the PAI-derived tree) is preserved at tag `v4.0.0-pai-legacy`.
 
 ## Two planes
 
-CASA is one half of a two-plane design. [TalonSocLab](https://github.com/ktalons/talonsoclab) is the deterministic **data plane** — it collects, filters, and cites SOC telemetry, then emits a structured intake artifact. It does not reason or decide. CASA is the separate **reasoning plane** that consumes that artifact and produces explainable, human-in-the-loop analysis. The contract between them is a JSON schema (`talonsoclab.soc-intake/v1`), not a shared API — see [`intake/`](intake/README.md). The two repos stay decoupled until CASA is validated against representative log volume.
+[TalonSocLab](https://github.com/ktalons/talonsoclab) is the deterministic **data plane**: it
+collects, filters and cites SOC telemetry, then emits a structured intake artifact. CASA is the
+separate **reasoning plane** that consumes that artifact and produces explainable,
+human-in-the-loop analysis. The contract between them is a JSON schema
+(`talonsoclab.soc-intake/v1`), not a shared API — see [`intake/`](intake/README.md).
 
-## Quick start
+## Install
 
 Prerequisites: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Bun](https://bun.sh).
 
+As a plugin, in any project:
+
+```
+/plugin marketplace add ktalons/casa-ai-agent
+/plugin install casa@casa
+```
+
+From this checkout, for development:
+
 ```bash
-git clone https://github.com/ktalons/casa-ai-agent
-cd casa-ai-agent
-bash setup.sh --validate   # optional: check structure, change nothing
-bash setup.sh              # symlink ~/.claude, generate local config
-claude
+git clone https://github.com/ktalons/casa-ai-agent && cd casa-ai-agent
+bun install
+bun run dev          # claude --plugin-dir .
 ```
 
-`setup.sh` symlinks `~/.claude` → `<repo>/.claude/`, so updates are just `git pull`. An existing `~/.claude` is backed up first, never deleted. Local config (`settings.json`, `.env`) stays gitignored.
-
-Try:
+Then:
 
 ```
-Analyze these auth logs for brute force indicators
-Triage this intake: intake/fixtures/brute-force-dc-chain.intake.json
+/casa:investigate intake/fixtures/brute-force-dc-chain.intake.json
 ```
 
-## Agents
+Permissions do not travel with a plugin. The repo's `.claude/settings.json` is the recommended
+allowlist (read-only analysis commands, destructive commands denied, secrets unreadable);
+copy it into projects where you install CASA.
 
-| Agent | Role | Standards |
-|---|---|---|
-| Overseer | Routes queries to specialists | NIST AI RMF |
-| LogAnalyst | Log investigation, step by step | NIST SP 800-92 |
-| NetworkAnalyst | PCAP and network flow analysis | Network security best practice |
-| PurpleTeamMapper | Maps findings to detections/response | NIST CSF 2.0, MITRE ATT&CK |
-| Pentester | Authorized vulnerability assessment | OWASP, PTES |
+## How it works
 
-## Workflows
+`/casa:investigate` runs one loop on the main thread: **OBSERVE** (validate the intake, count,
+flag injected text) → **HYPOTHESIZE** (thread detections into chains) → **INVESTIGATE** (fan
+out to specialists in parallel) → **VERIFY** (every citation must trace to the intake) →
+**MAP** (CSF 2.0 / ATT&CK) → **BRIEF** (one analyst brief under `briefs/`) → **LEARN**
+(candidates the analyst approves or discards). An empty intake short-circuits to a liveness
+check; it never invents findings.
 
-| Workflow | Triggers |
+| Agent | Lane |
 |---|---|
-| Auth Anomaly | Brute force, credential stuffing, impossible travel |
-| Network Beaconing | Periodic connections, DNS anomalies, C2 callbacks |
-| Data Exfiltration | Large outbound transfers, encoded traffic |
-| Lateral Movement | Internal scanning, credential reuse, RDP/SMB abuse |
-| Intake Triage | A `soc-intake/v1` artifact — classifies and routes to the above |
+| log-analyst | alert chains and timelines across hosts |
+| network-analyst | flows, DNS, TLS, ports, beaconing, recon-delta exposure |
+| endpoint-analyst | single-host behaviour, event IDs, process ancestry, data requests |
+| purple-team-mapper | NIST CSF 2.0 and ATT&CK mapping, visibility gaps |
+| detection-engineer | Sigma + Wazuh rule drafts for supported findings |
+| threat-intel | technique and indicator context, offline first |
+| evaluator | grades a brief against fixture ground truth |
+| pentester | authorized-assessment pointers; refuses without an engagement scope |
 
-Every recommendation carries a reasoning trace, a confidence level with justification, citations to the evidence used, and options rather than directives.
+Every specialist returns one `casa.finding/v1` record: verdict, confidence with what would
+raise it, evidence references, alternatives, data requests, options with trade-offs, and a
+reasoning trace. The rules live in [`skills/standards/SKILL.md`](skills/standards/SKILL.md).
 
-## Why
+## Development
 
-I'm building the reasoning layer I want in a SOC: one that shows its work. CASA is a personal project that grew out of my senior capstone research. It's where I study when agentic AI actually helps a defender and when it fails. It's deliberately human-in-the-loop — the analyst decides, the agent explains.
+```bash
+bun run typecheck && bun test && bun run validate:fixtures && bun run validate:plugin
+```
 
-## Follow along
-
-- Site: <https://ktalons.github.io/>
-- Data plane: <https://github.com/ktalons/talonsoclab>
-- LinkedIn: <https://www.linkedin.com/in/ktalons/>
+Layout: `agents/` · `skills/` · `intake/` (contract, fixtures, validator) · `evals/`
+(lint, grader, tests) · `briefs/` (run output, gitignored). Developer notes are in
+[`.claude/CLAUDE.md`](.claude/CLAUDE.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Derived from [Daniel Miessler's PAI](https://github.com/danielmiessler/Personal_AI_Infrastructure) (also MIT).
+MIT — see [LICENSE](LICENSE). The v4 tree was derived from
+[Daniel Miessler's PAI](https://github.com/danielmiessler/Personal_AI_Infrastructure) (also MIT).
