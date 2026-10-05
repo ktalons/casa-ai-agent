@@ -55,8 +55,8 @@ test("quiet-day intake: any host, rule ID or technique is a fabrication", () => 
 // Real briefs produced by /casa:investigate on the fixtures (kept as *.run1.brief.md) must
 // stay lint-clean against the intake they came from.
 import { readdirSync } from "node:fs";
-for (const f of readdirSync(join(ROOT, "evals/samples")).filter((n) => n.endsWith(".run1.brief.md")).sort()) {
-  const fixture = f.replace(/\.run1\.brief\.md$/, ""); // may carry a .v2 suffix: same intake name
+for (const f of readdirSync(join(ROOT, "evals/samples")).filter((n) => /\.run\d+\.brief\.md$/.test(n)).sort()) {
+  const fixture = f.replace(/\.run\d+\.brief\.md$/, ""); // may carry a .v2 suffix: same intake name
   test(`run sample ${f} traces every citation to ${fixture}`, () => {
     const brief = readFileSync(join(ROOT, "evals/samples", f), "utf8");
     const ik = JSON.parse(readFileSync(join(ROOT, `intake/fixtures/${fixture}.intake.json`), "utf8"));

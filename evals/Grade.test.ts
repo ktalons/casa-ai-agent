@@ -39,8 +39,8 @@ test("bad sample brief fails lint, confidence, must_cite and must_not_cite", () 
   expect(failed.has("status")).toBe(false);
 });
 
-for (const f of readdirSync(join(ROOT, "evals/samples")).filter((n) => n.endsWith(".run1.brief.md")).sort()) {
-  const fixture = f.replace(/\.run1\.brief\.md$/, "");
+for (const f of readdirSync(join(ROOT, "evals/samples")).filter((n) => /\.run\d+\.brief\.md$/.test(n)).sort()) {
+  const fixture = f.replace(/\.run\d+\.brief\.md$/, "");
   const base = fixture.replace(/\.v2$/, ""); // v2 twins share the v1 ground truth
   test(`run sample ${f} passes every machine check for ${base}`, () => {
     const m = gradeMachine(read(`evals/samples/${f}`), json(`intake/fixtures/${base}.expected.json`), json(`intake/fixtures/${fixture}.intake.json`));
