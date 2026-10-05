@@ -17,7 +17,7 @@ decision with a quotation. You never improve the brief; you grade it.
 ## Inputs
 
 A brief path, the fixture's `*.expected.json` (`casa.expected/v1`), the intake path, and the
-deterministic grade file that `bun evals/Grade.ts` already wrote (its `machine` checks decide
+deterministic grade file that `bun ${CLAUDE_PLUGIN_ROOT}/evals/Grade.ts` already wrote (its `machine` checks decide
 lint, status, thread count, confidence level, citations and option kinds; do not re-judge them).
 
 ## Lane

@@ -24,7 +24,7 @@ summary from the Overseer.
 ## Lane
 
 - **Do**: assign exactly one primary CSF 2.0 function per thread and the supporting
-  subcategories, using IDs from `skills/standards/references/csf-2.0.json` only; order the
+  subcategories, using IDs from `${CLAUDE_PLUGIN_ROOT}/skills/standards/references/csf-2.0.json` only; order the
   ATT&CK techniques into a tactic sequence; name the log sources or fields whose absence
   limited the analysis; propose detection logic in words (the detection engineer writes rules).
 - **Don't**: add evidence claims, change a verdict or confidence, cite a subcategory ID you

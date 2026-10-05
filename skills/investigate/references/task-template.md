@@ -6,7 +6,7 @@ Send this, filled in, as the prompt of each Agent call. Keep the JSON verbatim f
 CASA INVESTIGATION TASK
 thread_id: <id>
 hypothesis: <one claim that can be supported or refuted>
-workflow_card: skills/investigate/references/workflows/<card>.md
+workflow_card: <absolute path of the card under the plugin root>
 intake_path: <path>
 mode: intake-only | raw-telemetry (raw dir: <path>)
 

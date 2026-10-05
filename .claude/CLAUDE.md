@@ -33,5 +33,8 @@ is loaded; they are not project-scope components. The SOC non-negotiables live i
 - Agent and skill bodies are harness-neutral prompts. Frontmatter is the only Claude-specific
   line. Anything deterministic belongs in a script under `intake/` or `evals/`, not in prose.
 - Never put example telemetry (hosts, IPs, rule IDs) in agent or skill text. Placeholders only.
+- Skill and agent bodies reach plugin files only as `${CLAUDE_PLUGIN_ROOT}/...`; Claude Code
+  substitutes it at load, so the plugin works from any project. Bare `intake/...` or `evals/...`
+  paths only work from this checkout; `evals/lib/paths.test.ts` fails on them.
 - `intake/schema/soc-intake.v1.schema.json` is frozen. Field changes mean a v2 schema and fixtures.
 - Zero runtime dependencies. Bun + TypeScript, `strict: true`.

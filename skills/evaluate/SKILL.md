@@ -11,21 +11,21 @@ advisory and comes from `casa:evaluator`. Nothing here edits a brief.
 
 ## Steps
 
-1. **Resolve inputs.** `<fixture>` is a name under `intake/fixtures/` (for example
-   `brute-force-dc-chain`, or `brute-force-dc-chain.v2` for the v2 twin). Intake:
-   `intake/fixtures/<fixture>.intake.json`. Expected: the base name's
-   `intake/fixtures/<base>.expected.json`, where `<base>` is `<fixture>` without a `.v2` suffix;
+1. **Resolve inputs.** `<fixture>` is a name under `${CLAUDE_PLUGIN_ROOT}/intake/fixtures/` (for
+   example `brute-force-dc-chain`, or `brute-force-dc-chain.v2` for the v2 twin). Intake:
+   `${CLAUDE_PLUGIN_ROOT}/intake/fixtures/<fixture>.intake.json`. Expected: the base name's
+   `${CLAUDE_PLUGIN_ROOT}/intake/fixtures/<base>.expected.json`, where `<base>` is `<fixture>` without a `.v2` suffix;
    the ground truth is the same for both intake versions. Brief: the `--brief` path if given; otherwise the
    newest `briefs/*-<fixture>.brief.md` (the dash and the `.brief.md` suffix matter: they keep
    a `.v2` twin's brief from matching its base fixture); otherwise
-   `evals/samples/<fixture>.run1.brief.md`.
+   `${CLAUDE_PLUGIN_ROOT}/evals/samples/<fixture>.run1.brief.md`.
    Find files with the Glob tool (it returns newest first), not with `ls`, `find` or `cat`:
    those are not allowlisted and the call is refused. If any of the three is missing, say
    so and stop.
 2. **Machine grade.** Run, as a single Bash command:
 
    ```
-   bun evals/Grade.ts --brief <brief> --expected <expected> --intake <intake> --json
+   bun ${CLAUDE_PLUGIN_ROOT}/evals/Grade.ts --brief <brief> --expected <expected> --intake <intake> --json
    ```
 
    Run it on its own, with nothing chained to it. Keep the printed `path` (the grade file). A
@@ -37,7 +37,7 @@ advisory and comes from `casa:evaluator`. Nothing here edits a brief.
 4. **Merge.** Run:
 
    ```
-   bun evals/Grade.ts --brief <brief> --expected <expected> --intake <intake> --rubric <rubric file>
+   bun ${CLAUDE_PLUGIN_ROOT}/evals/Grade.ts --brief <brief> --expected <expected> --intake <intake> --rubric <rubric file>
    ```
 
 5. **Report.** Print the machine table, the rubric lines with their quotations, the score
@@ -49,5 +49,5 @@ advisory and comes from `casa:evaluator`. Nothing here edits a brief.
   brief or in `expected.json`, never in the grade file.
 - The evaluator's quotations must be verbatim. If a quotation does not appear in the brief,
   treat that rubric item as failed and say so.
-- Results are gitignored. If a grade should be kept, copy the brief under `evals/samples/` as
+- Results are gitignored. If a grade should be kept, copy the brief under `${CLAUDE_PLUGIN_ROOT}/evals/samples/` as
   `<fixture>.runN.brief.md`; the test suite lints every run sample.

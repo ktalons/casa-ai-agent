@@ -7,7 +7,7 @@ argument-hint: "[--list | --approve <file> | --discard <file>]"
 # /casa:learn
 
 The LEARN phase of an investigation writes a candidate note under `learn/pending/`. This skill
-is the only path from a candidate to `skills/standards/references/lessons.md`, and the analyst
+is the only path from a candidate to `${CLAUDE_PLUGIN_ROOT}/skills/standards/references/lessons.md`, and the analyst
 decides every promotion. You never edit workflow cards, agents or the standards skill here.
 
 ## Modes
@@ -27,7 +27,7 @@ Find notes with the Glob tool. Read them with the Read tool. Do not run shell co
 1. From the note, distil one entry: the rule, threshold or correction that proved out, stated
    in one or two sentences a future run can apply, plus the evidence reference it rests on
    (a fixture name and rule IDs, a grade file, or a quoted specialist disagreement).
-2. Append to `skills/standards/references/lessons.md` under a heading of the form
+2. Append to `${CLAUDE_PLUGIN_ROOT}/skills/standards/references/lessons.md` under a heading of the form
    `## <YYYY-MM-DD> <source slug>` with the entry, the evidence reference and the note's file
    name. Do not rewrite earlier entries. If the file still contains the `_(empty)_`
    placeholder, remove that line.
