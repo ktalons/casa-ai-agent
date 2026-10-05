@@ -18,7 +18,12 @@ is loaded; they are not project-scope components. The SOC non-negotiables live i
     `claude plugin disable casa` first.
 - `bun run validate:plugin` — `claude plugin validate --strict .` (CI runs this).
 - `bun run typecheck` · `bun test` · `bun run validate:fixtures` — the fast checks; run all before pushing.
-- Plugin components are namespaced: agents are `casa:log-analyst` etc., skills are `/casa:investigate`.
+- Plugin components are namespaced: agents are `casa:log-analyst` etc., skills are
+  `/casa:investigate`, `/casa:evaluate`, `/casa:learn`.
+- Eval loop: `bun run eval:full` (investigate then evaluate on every fixture, headless, needs
+  the plugin linked and the workspace trusted); `bun evals/Grade.ts` alone for the deterministic
+  half; real briefs worth keeping go to `evals/samples/<fixture>.runN.brief.md`.
+- `claude plugin eval` is not used; the manifest points it at the empty `evals/plugin-eval/`.
 
 ## Conventions
 

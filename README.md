@@ -8,11 +8,11 @@ keeps the analyst in the loop. It does not act on its own.
 
 | Capability | State |
 |---|---|
-| Plugin: eight specialist agents, `/casa:investigate` loop, standards preloaded into every agent, write guard | 🟡 v5 rebuild in progress (Phase 4 of 6) |
-| `soc-intake/v1` contract + fixtures + offline validator | ✅ Working |
+| Plugin: eight specialist agents, `/casa:investigate`, `/casa:evaluate`, `/casa:learn`, standards preloaded into every agent, write guard | ✅ Working |
+| `soc-intake/v1` and `v2` contracts, schema-driven and semantic validator, six fixtures plus ten invalid ones | ✅ Working |
 | Fabrication lint (`evals/Lint.ts`), verified NIST and ATT&CK reference tables | ✅ Working |
 | Fixture grader (`evals/Grade.ts`), machine-checkable ground truth, `/casa:evaluate` with the evaluator agent | ✅ Working: every real brief grades 9/9 |
-| Live TalonSocLab telemetry feed | 🔴 Gated on the lab pipeline and a graded run |
+| Live TalonSocLab telemetry feed | 🔴 Gated: the lab's digest must emit v2, then a graded run on real volume |
 
 Personal project. v4 (the PAI-derived tree) is preserved at tag `v4.0.0-pai-legacy`.
 
@@ -59,8 +59,9 @@ copy it into projects where you install CASA.
 flag injected text) → **HYPOTHESIZE** (thread detections into chains) → **INVESTIGATE** (fan
 out to specialists in parallel) → **VERIFY** (every citation must trace to the intake) →
 **MAP** (CSF 2.0 / ATT&CK) → **BRIEF** (one analyst brief under `briefs/`) → **LEARN**
-(candidates the analyst approves or discards). An empty intake short-circuits to a liveness
-check; it never invents findings.
+(a candidate note under `learn/pending/`, promoted only through `/casa:learn` with the
+analyst's approval). An empty intake short-circuits to a liveness check; with a v2 intake it
+names the failing pipeline check. It never invents findings.
 
 | Agent | Lane |
 |---|---|
@@ -76,6 +77,15 @@ check; it never invents findings.
 Every specialist returns one `casa.finding/v1` record: verdict, confidence with what would
 raise it, evidence references, alternatives, data requests, options with trade-offs, and a
 reasoning trace. The rules live in [`skills/standards/SKILL.md`](skills/standards/SKILL.md).
+
+## Running CASA elsewhere
+
+Install from the marketplace into the project where the telemetry lives (a TalonSocLab
+checkout, or an empty working directory), merge `docs/settings.recommended.json` into that
+project's `.claude/settings.json`, and run `/casa:investigate <path to intake.json>`. Briefs,
+proposed detections, grades and learn candidates are written under that project, never into
+the plugin. The write guard that limits what agents may write travels with the plugin; the
+Bash allowlist does not, which is why the settings snippet exists.
 
 ## Development
 

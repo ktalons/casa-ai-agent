@@ -41,8 +41,9 @@ test("bad sample brief fails lint, confidence, must_cite and must_not_cite", () 
 
 for (const f of readdirSync(join(ROOT, "evals/samples")).filter((n) => n.endsWith(".run1.brief.md")).sort()) {
   const fixture = f.replace(/\.run1\.brief\.md$/, "");
-  test(`run sample ${f} passes every machine check for ${fixture}`, () => {
-    const m = gradeMachine(read(`evals/samples/${f}`), json(`intake/fixtures/${fixture}.expected.json`), json(`intake/fixtures/${fixture}.intake.json`));
+  const base = fixture.replace(/\.v2$/, ""); // v2 twins share the v1 ground truth
+  test(`run sample ${f} passes every machine check for ${base}`, () => {
+    const m = gradeMachine(read(`evals/samples/${f}`), json(`intake/fixtures/${base}.expected.json`), json(`intake/fixtures/${fixture}.intake.json`));
     const failed = m.machine.filter((c) => !c.pass).map((c) => `${c.check}: ${c.detail}`);
     expect(failed).toEqual([]);
   });

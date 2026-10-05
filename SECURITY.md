@@ -10,9 +10,11 @@ CASA is a Claude Code plugin that reasons over SOC telemetry. Three things follo
    instruction, and records anything instruction-shaped in `injection_flags` without acting on
    it. Specialist agents have explicit, minimal `tools:` lists; the analysis agents cannot write
    files and cannot fetch from the web.
-2. **Nothing is auto-remediated.** Outputs are options with trade-offs under `briefs/`. The
-   only agents that write are the detection engineer (`detections/proposed/`) and the evaluator
-   (`evals/results/`).
+2. **Nothing is auto-remediated, and nothing is learned without sign-off.** Outputs are
+   options with trade-offs under `briefs/`. The only agents that write are the detection
+   engineer (`detections/proposed/`) and the evaluator (`evals/results/`). The LEARN phase
+   writes candidates under `learn/pending/`; only `/casa:learn`, driven by the analyst,
+   promotes one into the lessons file the standards skill reads.
 3. **Permissions do not travel with a plugin.** The repo's `.claude/settings.json` denies
    destructive commands and secret reads and allowlists read-only analysis tools. Copy it into
    any project where CASA is installed. Phase 3 adds a write-path guard hook that does travel

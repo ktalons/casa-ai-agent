@@ -1,12 +1,25 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin.json",
   "name": "casa",
-  "displayName": "CASA — Cybersecurity Analysis Support Agent",
+  "displayName": "CASA \u2014 Cybersecurity Analysis Support Agent",
   "version": "5.0.0-alpha.1",
   "description": "Explainable, human-in-the-loop SOC investigation: ingests a talonsoclab.soc-intake artifact, fans out to specialist analysts, and writes an analyst brief where every claim cites its evidence.",
-  "author": { "name": "ktalons", "url": "https://github.com/ktalons" },
+  "author": {
+    "name": "ktalons",
+    "url": "https://github.com/ktalons"
+  },
   "homepage": "https://github.com/ktalons/casa-ai-agent",
   "repository": "https://github.com/ktalons/casa-ai-agent",
   "license": "MIT",
-  "keywords": ["soc", "security", "investigation", "nist", "mitre-attack", "explainability"]
+  "keywords": [
+    "soc",
+    "security",
+    "investigation",
+    "nist",
+    "mitre-attack",
+    "explainability"
+  ],
+  "experimental": {
+    "evals": "./evals/plugin-eval"
+  }
 }

@@ -20,6 +20,7 @@ evals/results/*
 !evals/results/.gitkeep
 detections/proposed/*
 learn/pending/*
+learn/archive/*
 engagements/*
 !engagements/README.md
 
