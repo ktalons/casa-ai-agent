@@ -27,7 +27,11 @@ export interface Knowledge {
   ips_in_intake: Set<string>;
 }
 
-export const DEFAULT_HOST_PATTERN = "^talon[a-z0-9-]+$";
+// Hosts in the lab share a name prefix. The lint takes only that prefix, never a regular
+// expression: the prefix is validated against the hostname character set and escaped before
+// it is placed in a regex, so a caller cannot change the expression's meaning or its cost.
+export const DEFAULT_HOST_PREFIX = "talon";
+const RE_HOST_PREFIX = /^[a-z0-9-]{1,63}$/;
 
 const RE_HEX_BLOB = /\b[0-9a-f]{32,}\b/gi; // sha256 and friends: never rule IDs
 // Rule IDs: five or six digits. Four-digit numbers are deliberately out of range, because
@@ -41,13 +45,23 @@ const RE_ATTACK = /\bT\d{4}(?:\.\d{3})?\b/g;
 const RE_CSF = /\b(?:GV|ID|PR|DE|RS|RC)\.[A-Z]{2}-\d{1,2}\b/g;
 const RE_IPV4 = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
 
-function hostRegex(pattern: string): RegExp {
-  // The pattern is anchored for whole-token matching; turn it into a global finder.
-  const core = pattern.replace(/^\^/, "").replace(/\$$/, "");
-  return new RegExp(`\\b(?:${core})\\b`, "g");
+/** Escape every regex metacharacter so the string matches itself and nothing else. */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-export function extractTokens(text: string, hostPattern = DEFAULT_HOST_PATTERN): Tokens {
+/** The prefix itself when it is made of hostname characters only; throws otherwise. */
+export function assertHostPrefix(prefix: string): string {
+  if (!RE_HOST_PREFIX.test(prefix)) throw new Error(`host prefix must match ${RE_HOST_PREFIX}, got ${JSON.stringify(prefix)}`);
+  return prefix;
+}
+
+/** A global finder for whole host tokens that start with the prefix: <prefix><host chars>. */
+function hostRegex(prefix: string): RegExp {
+  return new RegExp(`\\b${escapeRegExp(assertHostPrefix(prefix))}[a-z0-9-]+\\b`, "g");
+}
+
+export function extractTokens(text: string, hostPrefix = DEFAULT_HOST_PREFIX): Tokens {
   const cleaned = text.replace(RE_HEX_BLOB, " ");
   const grab = (re: RegExp) => new Set((cleaned.match(re) ?? []).map((s) => s.trim()));
   const ips = grab(RE_IPV4);
@@ -56,7 +70,7 @@ export function extractTokens(text: string, hostPattern = DEFAULT_HOST_PATTERN):
   const noIps = cleaned.replace(RE_IPV4, " ").replace(RE_PORT, " ");
   return {
     rule_id: new Set((noIps.match(RE_RULE_ID) ?? [])),
-    host: grab(hostRegex(hostPattern)),
+    host: grab(hostRegex(hostPrefix)),
     attack: grab(RE_ATTACK),
     csf: grab(RE_CSF),
     ip: ips,
@@ -73,7 +87,7 @@ export function loadReferences(): { attack: Set<string>; csf: Set<string>; attac
   };
 }
 
-export function intakeKnowledge(intake: unknown, hostPattern = DEFAULT_HOST_PATTERN): Knowledge {
+export function intakeKnowledge(intake: unknown, hostPrefix = DEFAULT_HOST_PREFIX): Knowledge {
   const text = JSON.stringify(intake);
   const refs = loadReferences();
   const detections: Array<{ rule_id?: string; agent?: string; mitre?: string[] }> =
@@ -82,7 +96,7 @@ export function intakeKnowledge(intake: unknown, hostPattern = DEFAULT_HOST_PATT
   for (const d of detections) if (d.agent) hosts.add(d.agent);
   const recon = (intake as { recon_delta?: unknown }).recon_delta;
   const reconText = typeof recon === "string" ? recon : JSON.stringify(recon ?? "");
-  for (const h of extractTokens(reconText, hostPattern).host) hosts.add(h);
+  for (const h of extractTokens(reconText, hostPrefix).host) hosts.add(h);
   return {
     rule_ids: new Set(detections.map((d) => d.rule_id).filter((r): r is string => typeof r === "string")),
     hosts,
@@ -112,9 +126,9 @@ export function stripProducerStrings(text: string, intake: unknown): string {
 }
 
 /** Every token in `text` must trace to the intake or to a reference table. */
-export function lint(text: string, intake: unknown, hostPattern = DEFAULT_HOST_PATTERN): LintResult {
-  const k = intakeKnowledge(intake, hostPattern);
-  const t = extractTokens(stripProducerStrings(text, intake), hostPattern);
+export function lint(text: string, intake: unknown, hostPrefix = DEFAULT_HOST_PREFIX): LintResult {
+  const k = intakeKnowledge(intake, hostPrefix);
+  const t = extractTokens(stripProducerStrings(text, intake), hostPrefix);
   const unknown: Unknown[] = [];
   for (const r of t.rule_id) if (!k.rule_ids.has(r) && !k.intake_text.includes(r)) unknown.push({ token: r, kind: "rule_id", reason: "not a rule_id in the intake" });
   for (const h of t.host) if (!k.hosts.has(h)) unknown.push({ token: h, kind: "host", reason: "host not named in the intake" });

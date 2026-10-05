@@ -8,6 +8,18 @@ Tags on GitHub: `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
 The first published release of the v5 line. 5.0.0 tagged the rebuild's merge; 5.0.1 adds
 what packaging the TalonSocLab integration turned up.
 
+### Security
+
+- The lint and the grader no longer accept a regular expression for the host naming
+  convention. `--host-prefix` takes a plain prefix, validated against the hostname character
+  set and escaped before it enters the expression, so a command-line value can no longer
+  change the expression's meaning or cost (CodeQL `js/regex-injection`, two alerts).
+
+### Changed
+
+- `--host-pattern <regex>` on `evals/Lint.ts` and `evals/Grade.ts` is now
+  `--host-prefix <prefix>`; the default is `talon`.
+
 ### Fixed
 
 - Skills and agents reach the plugin's own validator, lint, grader, cards, templates and
