@@ -3,8 +3,12 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ESNext"],
-    "types": ["bun"],
+    "lib": [
+      "ESNext"
+    ],
+    "types": [
+      "bun"
+    ],
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": false,
     "noEmit": true,
@@ -13,5 +17,10 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true
   },
-  "include": ["intake/**/*.ts", "evals/**/*.ts", "hooks/**/*.ts"]
+  "include": [
+    "intake/**/*.ts",
+    "evals/**/*.ts",
+    "hooks/**/*.ts",
+    "scripts/**/*.ts"
+  ]
 }

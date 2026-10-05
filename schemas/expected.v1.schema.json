@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/ktalons/casa-ai-agent/schemas/expected.v1.schema.json",
+  "title": "casa.expected/v1",
+  "description": "Machine-checkable ground truth for a fixture, kept beside its human-readable *.expected.md. The machine fields are graded by evals/Grade.ts; must_identify and must_not are judged by the evaluator agent.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "fixture", "status", "must_cite", "must_not_cite", "confidence", "csf_functions", "thread_count", "forbid_option_kinds", "must_identify", "must_not"],
+  "properties": {
+    "schema": { "const": "casa.expected/v1" },
+    "fixture": { "type": "string", "minLength": 1 },
+    "status": { "type": "string", "enum": ["findings", "quiet"] },
+    "must_cite": { "$ref": "#/definitions/citeset" },
+    "must_not_cite": {
+      "type": "object", "additionalProperties": false, "required": ["rule_ids", "hosts", "attack", "ip_literals"],
+      "properties": {
+        "rule_ids": { "$ref": "#/definitions/listOrStar" },
+        "hosts": { "$ref": "#/definitions/listOrStar" },
+        "attack": { "$ref": "#/definitions/listOrStar" },
+        "ip_literals": { "type": "boolean", "description": "true = any IPv4 literal in the brief is a failure" }
+      }
+    },
+    "confidence": { "type": ["string", "null"], "enum": ["High", "Medium", "Low", null] },
+    "csf_functions": { "type": "array", "items": { "type": "string", "enum": ["GV", "ID", "PR", "DE", "RS", "RC"] } },
+    "thread_count": { "type": "object", "additionalProperties": false, "required": ["min", "max"], "properties": { "min": { "type": "integer", "minimum": 0 }, "max": { "type": "integer", "minimum": 0 } } },
+    "forbid_option_kinds": { "type": "array", "items": { "type": "string", "enum": ["investigate", "contain", "harden", "liveness"] } },
+    "must_identify": { "type": "array", "items": { "$ref": "#/definitions/rubric" } },
+    "must_not": { "type": "array", "items": { "$ref": "#/definitions/rubric" } }
+  },
+  "definitions": {
+    "citeset": {
+      "type": "object", "additionalProperties": false, "required": ["rule_ids", "hosts", "attack"],
+      "properties": {
+        "rule_ids": { "type": "array", "items": { "type": "string" } },
+        "hosts": { "type": "array", "items": { "type": "string" } },
+        "attack": { "type": "array", "items": { "type": "string", "pattern": "^T\\d{4}(\\.\\d{3})?$" } }
+      }
+    },
+    "listOrStar": { "oneOf": [ { "const": "*" }, { "type": "array", "items": { "type": "string" } } ] },
+    "rubric": { "type": "object", "additionalProperties": false, "required": ["id", "text"], "properties": { "id": { "type": "string", "pattern": "^[a-z0-9-]+$" }, "text": { "type": "string", "minLength": 1 } } }
+  }
+}

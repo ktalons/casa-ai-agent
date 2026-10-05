@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/ktalons/casa-ai-agent/schemas/grade.v1.schema.json",
+  "title": "casa.grade/v1",
+  "description": "Result of grading one brief against one fixture: the deterministic checks from evals/Grade.ts, optionally merged with the evaluator agent's rubric verdicts.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "fixture", "brief", "graded_at", "lint", "machine", "rubric", "fabrication", "score"],
+  "properties": {
+    "schema": { "const": "casa.grade/v1" },
+    "fixture": { "type": "string" },
+    "brief": { "type": "string" },
+    "graded_at": { "type": "string" },
+    "lint": {
+      "type": "object", "additionalProperties": false, "required": ["pass", "unknown"],
+      "properties": { "pass": { "type": "boolean" }, "unknown": { "type": "array", "items": { "type": "string" } } }
+    },
+    "machine": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": false, "required": ["check", "pass", "detail"], "properties": { "check": { "type": "string" }, "pass": { "type": "boolean" }, "detail": { "type": "string" } } }
+    },
+    "rubric": {
+      "oneOf": [
+        { "const": "pending" },
+        { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["id", "text", "pass", "quote"], "properties": { "id": { "type": "string" }, "text": { "type": "string" }, "pass": { "type": "boolean" }, "quote": { "type": "string" } } } }
+      ]
+    },
+    "fabrication": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["token", "kind", "present"], "properties": { "token": { "type": "string" }, "kind": { "type": "string", "enum": ["rule_id", "host", "attack", "csf", "ip"] }, "present": { "type": "boolean" } } } },
+    "score": {
+      "type": "object", "additionalProperties": false, "required": ["machine_pass", "machine_total", "rubric_pass", "rubric_total"],
+      "properties": { "machine_pass": { "type": "integer" }, "machine_total": { "type": "integer" }, "rubric_pass": { "type": ["integer", "null"] }, "rubric_total": { "type": ["integer", "null"] } }
+    }
+  }
+}

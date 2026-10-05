@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/ktalons/casa-ai-agent/schemas/finding.v1.schema.json",
+  "title": "casa.finding/v1",
+  "description": "What every CASA specialist agent returns: one verdict on one hypothesis, with evidence references the lint can trace back to the input.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "agent", "thread_id", "hypothesis", "verdict", "confidence", "evidence", "citations", "alternatives", "data_requests", "options", "trace", "injection_flags", "blocked_reason"],
+  "properties": {
+    "schema": { "const": "casa.finding/v1" },
+    "agent": { "type": "string", "enum": ["log-analyst", "network-analyst", "endpoint-analyst", "purple-team-mapper", "detection-engineer", "threat-intel", "evaluator", "pentester"] },
+    "thread_id": { "type": "string", "minLength": 1 },
+    "hypothesis": { "type": "string", "minLength": 1 },
+    "verdict": { "type": "string", "enum": ["supported", "refuted", "undetermined"] },
+    "confidence": { "$ref": "#/definitions/confidence" },
+    "evidence": { "type": "array", "items": { "$ref": "#/definitions/evidence" } },
+    "citations": { "$ref": "#/definitions/citations" },
+    "alternatives": { "type": "array", "items": { "type": "object", "additionalProperties": false, "required": ["explanation", "why_less_likely"], "properties": { "explanation": { "type": "string" }, "why_less_likely": { "type": "string" } } } },
+    "data_requests": { "type": "array", "items": { "$ref": "#/definitions/data_request" } },
+    "options": { "type": "array", "items": { "$ref": "#/definitions/option" } },
+    "trace": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "injection_flags": { "type": "array", "items": { "type": "string" } },
+    "blocked_reason": { "type": ["string", "null"] }
+  },
+  "definitions": {
+    "confidence": {
+      "type": "object", "additionalProperties": false, "required": ["level", "justification", "would_raise"],
+      "properties": {
+        "level": { "type": "string", "enum": ["High", "Medium", "Low"] },
+        "justification": { "type": "string", "minLength": 1 },
+        "would_raise": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "evidence": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "ref", "observation"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["detection", "recon", "raw", "reference"] },
+        "ref": { "type": "string", "pattern": "^(rule_id:[A-Za-z0-9_.-]+|recon:[A-Za-z0-9_.-]+(:[0-9]+/[a-z]+)?|raw:[^:]+:[0-9]+|reference:[A-Za-z0-9_.-]+#[A-Za-z0-9_.:-]+|brief:[0-9]+)$" },
+        "observation": { "type": "string", "minLength": 1 }
+      }
+    },
+    "citations": {
+      "type": "object", "additionalProperties": false, "required": ["rule_ids", "hosts", "attack", "csf", "standards"],
+      "properties": {
+        "rule_ids": { "type": "array", "items": { "type": "string" } },
+        "hosts": { "type": "array", "items": { "type": "string" } },
+        "attack": { "type": "array", "items": { "type": "string", "pattern": "^T\\d{4}(\\.\\d{3})?$" } },
+        "csf": { "type": "array", "items": { "type": "string", "pattern": "^(GV|ID|PR|DE|RS|RC)\\.[A-Z]{2}-\\d{2}$" } },
+        "standards": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "data_request": {
+      "type": "object", "additionalProperties": false, "required": ["id", "source", "fields", "why"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "fields": { "type": "array", "items": { "type": "string" } },
+        "why": { "type": "string", "minLength": 1 }
+      }
+    },
+    "option": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "action", "tradeoff", "depends_on"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["investigate", "contain", "harden", "liveness"] },
+        "action": { "type": "string", "minLength": 1 },
+        "tradeoff": { "type": "string", "minLength": 1 },
+        "depends_on": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

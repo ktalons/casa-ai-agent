@@ -71,13 +71,18 @@ second failure is recorded as `verdict: undetermined`.
 
 ### 4. VERIFY
 
-For each finding: every `rule_id`, host, technique ID and IP in `citations` must appear in the
-intake or in the reference tables. Strip any that do not, downgrade that finding one
-confidence level, and record the strip in the brief's trace. Check rubric consistency: Medium
-and Low findings carry `alternatives`; High findings carry at least two independent evidence
-refs; every option has a `tradeoff`. A `supported` verdict with no evidence refs becomes
-`undetermined`. (From Phase 2 this step runs `bun evals/Lint.ts`; until then do it by hand
-and show your work.)
+For each finding, save its JSON block to the scratchpad and run
+
+```
+bun evals/Lint.ts --finding <file> --intake <intake path>
+```
+
+Exit 1 lists every rule ID, host, technique ID, CSF ID or IP literal that does not trace to
+the intake or to `skills/standards/references/`. Strip each one from the finding, downgrade
+that finding one confidence level, and record the strip in the brief's trace. Then check
+rubric consistency by hand: Medium and Low findings carry `alternatives`; High findings carry
+at least two independent evidence refs; every option has a `tradeoff`. A `supported` verdict
+with no evidence refs becomes `undetermined`.
 
 ### 5. MAP
 
@@ -89,9 +94,11 @@ to `casa:threat-intel`.
 ### 6. BRIEF
 
 Write `briefs/<generated>-<intake basename>.brief.md` using `references/brief-template.md`.
-Order threads by severity; lead with the highest-level detection and its chain. Re-run the
-VERIFY checks on the whole brief, because mapping adds citations. Nothing ships with an
-uncited claim. Finish with a chat summary of at most 30 lines and the brief's path.
+Order threads by severity; lead with the highest-level detection and its chain. Then run
+`bun evals/Lint.ts --brief <brief path> --intake <intake path>` on the whole file, because
+mapping adds citations, and put its result in `verify`. A brief that fails lint is not
+finished: fix the citation or remove the claim, then run it again. Finish with a chat
+summary of at most 30 lines and the brief's path.
 
 ### 7. LEARN
 
