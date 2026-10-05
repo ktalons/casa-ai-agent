@@ -14,7 +14,8 @@ keeps the analyst in the loop. It does not act on its own.
 | Fixture grader (`evals/Grade.ts`), machine-checkable ground truth, `/casa:evaluate` with the evaluator agent | ✅ Working: every real brief grades 9/9 |
 | Live TalonSocLab telemetry feed | 🔴 Gated: the lab's digest must emit v2, then a graded run on real volume |
 
-Personal project. v4 (the PAI-derived tree) is preserved at tag `v4.0.0-pai-legacy`.
+Personal project. v5.0.0 is the first release on the plugin layout. v4 (the PAI-derived
+tree) is preserved at tag `v4.0.0-pai-legacy`.
 
 ## Two planes
 
