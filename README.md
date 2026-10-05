@@ -83,6 +83,18 @@ reasoning trace. The rules live in [`skills/standards/SKILL.md`](skills/standard
 bun run typecheck && bun test && bun run validate:fixtures && bun run validate:plugin
 ```
 
+To run the fixtures end to end from this checkout, install it in place once with
+`bun run plugin:link` (local scope, gitignored), then:
+
+```bash
+claude -p "/casa:investigate intake/fixtures/brute-force-dc-chain.intake.json" --permission-mode acceptEdits
+bun evals/Lint.ts --brief briefs/<file>.brief.md --intake intake/fixtures/brute-force-dc-chain.intake.json
+```
+
+Do not use `--plugin-dir .` for this: Claude Code protects a plugin directory, so the brief
+cannot be written into the same checkout. Real briefs from the three fixtures are kept under
+`evals/samples/*.run1.brief.md` and must stay lint-clean.
+
 Layout: `agents/` · `skills/` · `intake/` (contract, fixtures, validator) · `evals/`
 (lint, grader, tests) · `briefs/` (run output, gitignored). Developer notes are in
 [`.claude/CLAUDE.md`](.claude/CLAUDE.md).
