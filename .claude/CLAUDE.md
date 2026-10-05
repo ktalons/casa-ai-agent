@@ -1,6 +1,7 @@
-# casa-ai-agent — developer notes
+# casa-ai-agent developer notes
 
-This repository *is* the CASA plugin for Claude Code. The investigation rules, agents and
+This repository *is* the CASA plugin for Claude Code (v5, rebuilt in six phases; the PAI-era
+tree is preserved at tag `v4.0.0-pai-legacy`). The investigation rules, agents and
 skills live at the repo root (`agents/`, `skills/`, `hooks/`) and load only when the plugin
 is loaded; they are not project-scope components. The SOC non-negotiables live in
 `skills/standards/SKILL.md`, which every CASA agent preloads, not here.
