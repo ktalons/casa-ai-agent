@@ -8,9 +8,10 @@ keeps the analyst in the loop. It does not act on its own.
 
 | Capability | State |
 |---|---|
-| Plugin: eight specialist agents, `/casa:investigate` loop, standards preloaded into every agent | 🟡 v5 rebuild in progress (Phase 1 of 6) |
+| Plugin: eight specialist agents, `/casa:investigate` loop, standards preloaded into every agent, write guard | 🟡 v5 rebuild in progress (Phase 3 of 6) |
 | `soc-intake/v1` contract + fixtures + offline validator | ✅ Working |
-| Fabrication lint and fixture grader (`evals/`) | 🔴 Phase 2–4 |
+| Fabrication lint (`evals/Lint.ts`), verified NIST and ATT&CK reference tables | ✅ Working |
+| Fixture grader and evaluator (`evals/Grade.ts`) | 🔴 Phase 4 |
 | Live TalonSocLab telemetry feed | 🔴 Gated on the lab pipeline and a graded run |
 
 Personal project. v4 (the PAI-derived tree) is preserved at tag `v4.0.0-pai-legacy`.

@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "_comment": "Permissions do not travel with a Claude Code plugin. Merge this block into the .claude/settings.json of any project where CASA is installed. It allows the read-only analysis commands the specialists use, denies destructive commands and network tools in Bash, and keeps secrets unreadable.",
+  "permissions": {
+    "allow": [
+      "Bash(jq *)",
+      "Bash(tshark *)",
+      "Bash(zeek-cut *)",
+      "Bash(bun intake/Validate.ts *)",
+      "Bash(bun evals/*)"
+    ],
+    "ask": [
+      "Bash(rm *)",
+      "WebFetch"
+    ],
+    "deny": [
+      "Bash(sudo *)",
+      "Bash(dd *)",
+      "Bash(mkfs *)",
+      "Bash(diskutil *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(curl *)",
+      "Bash(wget *)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(~/.gnupg/**)",
+      "Read(~/.claude/.credentials.json)"
+    ]
+  }
+}

@@ -1,141 +1,69 @@
-# Authentication Anomaly Investigation Workflow
+# Authentication anomaly: brute force, spraying, stuffing, and burst-then-success
 
-**Triggers**: Brute force indicators, credential stuffing, impossible travel, unusual login times/locations, privilege escalation, account lockout storms.
+## 1. Applies when
 
-## MITRE ATT&CK Mapping
+- Technique IDs: T1110 and sub-techniques (.001 password guessing, .003 password spraying,
+  .004 credential stuffing), T1078 (Valid Accounts), T1098 (Account Manipulation).
+- Wazuh rule descriptions naming multiple authentication failures, failures followed by a
+  success, lockouts, or logons at unusual times or from unusual sources.
 
-| Technique | ID | Tactic |
-|-----------|-----|--------|
-| Brute Force | T1110 | Credential Access |
-| Valid Accounts | T1078 | Defense Evasion, Persistence, Privilege Escalation, Initial Access |
-| Account Manipulation | T1098 | Persistence, Privilege Escalation |
+## 2. Hypotheses
 
-## Agent Routing
+- H1: `<host>` received a credential attack (burst of failures from one source) in the window.
+- H2: the attack succeeded: a success from the same source followed the burst.
+- H3: the pattern is spraying (few attempts per account, many accounts) rather than brute
+  force (many attempts against one account); the response differs.
+- H4 (benign): a misconfigured service account, a user who changed a password, or a
+  vulnerability scanner produced the failures.
 
-```
-Analyst Query
-     |
-     v
-[Overseer] — classify as auth anomaly
-     |
-     v
-[LogAnalyst] — primary analysis
-     | Analyze authentication logs
-     | Establish login baselines
-     | Identify anomalous patterns
-     | Correlate across log sources
-     |
-     v
-[PurpleTeamMapper] — improvement mapping
-     | Map findings to NIST CSF 2.0
-     | Identify detection gaps
-     | Recommend monitoring improvements
-     |
-     v
-[Overseer] — synthesize and present
-```
+## 3. Intake-only decision rules
 
-**Note**: If the analyst mentions network-level indicators (e.g., source IPs from unusual geolocations, VPN/proxy detection), also route to NetworkAnalyst in parallel with LogAnalyst.
+- A T1110 detection on `<host>` makes H1 `supported` at **Medium**: the rule counted failures,
+  but the intake does not show the source or the accounts.
+- A second detection on the same host whose description says failures were followed by a
+  success (T1110.001 with T1078, or a "burst then success" rule) makes H2 `supported` at
+  **Medium**; it reaches **High** when a third detection shows what the success led to (a
+  lateral-movement or credential-access detection on another host within 15 minutes).
+- H3 cannot be decided from v1: the intake has no account field. State it as undetermined
+  and request the data in section 4.
+- H4 stays open until the source address is known. Say so in `alternatives`.
+- Threshold guidance from the lab's rules: a burst of 20 or more failures in 60 seconds from
+  one source is the level-12 floor; below that nothing reaches the intake.
 
-## LogAnalyst Task Template
+## 4. Data requests
 
-```
-INVESTIGATION: Authentication Anomaly Analysis
+| Need | Source | Fields |
+|---|---|---|
+| Source and accounts of the failures | Windows Security 4625 / Linux `sshd` and PAM via Wazuh `data.win.eventdata` or `data` | `IpAddress`, `TargetUserName`, `LogonType`, `FailureReason`, `Status`, `SubStatus`; `srcip`, `srcuser` |
+| The success that followed | Windows Security 4624 | `IpAddress`, `TargetUserName`, `LogonType`, `AuthenticationPackageName` |
+| Spraying vs brute force | counts per account and per source over the burst | distinct `TargetUserName` per `IpAddress` |
+| Lockouts | Windows Security 4740, 4776 | `TargetUserName`, `TargetDomainName`, `Workstation` |
+| What the account did next | 4672 (special privileges), 4648 (explicit credentials), 4698, 7045 | `TargetUserName`, `ProcessName`, `TaskName`, `ServiceName` |
+| Is the source a scanner or a known admin host | asset inventory, recon delta | host role, exposure changes |
 
-CONTEXT
-| Query: [analyst's original question]
-| Environment: [systems, OS, auth provider if known]
-| Timeframe: [period of interest]
-| Available Data: [log sources provided]
-
-ANALYSIS STEPS (follow NIST SP 800-92 methodology)
-
-1. BASELINE ESTABLISHMENT
-   - What are normal login patterns for this environment?
-   - Typical login times, source IPs, user agents
-   - Expected failure rates
-   - Account lockout thresholds
-
-2. ANOMALY IDENTIFICATION
-   Examine logs for:
-   - Failed login volume: count by source IP, target account, time window
-   - Failed-then-success patterns: brute force followed by successful auth
-   - Geographic anomalies: logins from unusual locations or impossible travel
-   - Temporal anomalies: logins outside normal business hours
-   - Account lockout clusters: multiple accounts locked simultaneously
-   - Privilege changes: role assignments, group membership changes after auth
-   - Service account anomalies: interactive logins on service accounts
-
-3. PATTERN CLASSIFICATION
-   Classify observed patterns:
-   - Password spraying: few attempts per account, many accounts
-   - Brute force: many attempts against single account
-   - Credential stuffing: varied credentials, often from distributed sources
-   - Lateral credential reuse: same credentials across multiple systems
-   - Privilege escalation chain: auth → priv change → resource access
-
-4. CORRELATION
-   Cross-reference with:
-   - Source IP reputation and geolocation
-   - Prior successful logins from same accounts
-   - System logs for post-auth activity
-   - Network logs if lateral movement suspected
-
-5. EVIDENCE DOCUMENTATION
-   For each finding, provide:
-   - Specific log entries (timestamps, event IDs, accounts, source IPs)
-   - Statistical summary (counts, rates, timeframes)
-   - Baseline comparison
-   - NIST SP 800-92 reference
-
-OUTPUT FORMAT: Use standard LogAnalyst output format with NIST 800-92 references.
-```
-
-## PurpleTeamMapper Task Template
+## 5. Raw-telemetry mode
 
 ```
-MAPPING REQUEST: Authentication Anomaly Findings
+# failures by source and account in the window
+jq -r 'select(.data.win.system.eventID=="4625") | [.timestamp, .data.win.eventdata.IpAddress, .data.win.eventdata.TargetUserName] | @tsv' <alerts.jsonl>
 
-FINDINGS FROM LOGANALYST:
-[Insert LogAnalyst findings here]
+# the first success after the burst, from the same source
+jq -r 'select(.data.win.system.eventID=="4624") | select(.data.win.eventdata.IpAddress=="<source>") | [.timestamp, .data.win.eventdata.TargetUserName, .data.win.eventdata.LogonType] | @tsv' <alerts.jsonl>
 
-MAP TO:
-1. NIST CSF 2.0 — focus on:
-   - PR.AA (Identity Management, Authentication, and Access Control)
-   - DE.CM (Continuous Monitoring)
-   - DE.AE (Adverse Event Analysis)
-   - RS.AN (Incident Analysis)
-
-2. Detection Opportunities:
-   - SIEM correlation rules for identified patterns
-   - Alert thresholds based on baseline data
-   - Log source gaps that limited analysis
-
-3. Improvement Actions:
-   - Authentication hardening (MFA, lockout policies)
-   - Monitoring coverage for auth events
-   - Response playbook updates for credential attacks
+# Linux
+jq -r 'select(.rule.groups|index("authentication_failed")) | [.timestamp, .data.srcip, .data.srcuser] | @tsv' <alerts.jsonl>
 ```
 
-## Expected Data Sources
+Spraying signature: many distinct accounts per source with one or two attempts each.
+Brute force: one account, many attempts. Stuffing: varied accounts from many sources.
 
-| Source | Key Fields | Priority |
-|--------|-----------|----------|
-| Windows Security Event Log | Event IDs 4624, 4625, 4648, 4672, 4768, 4771 | Critical |
-| Linux auth.log / secure | sshd, PAM messages, sudo events | Critical |
-| Azure AD / Entra ID Sign-in Logs | Sign-in status, location, device, risk level | Critical |
-| VPN/Remote Access Logs | Source IP, auth result, session duration | High |
-| MFA Provider Logs | Challenge results, bypass events | High |
-| Active Directory Changes | Group membership, password resets, account enables | Medium |
-| Web Application Auth Logs | Login attempts, session tokens, API auth | Medium |
+## 6. Confidence ladder
 
-## Key Indicators Checklist
+| Level | Requires |
+|---|---|
+| Low | Failures only, no technique ID, or a volume below the lab's floor |
+| Medium | A T1110 detection; or burst-then-success asserted by a rule with no corroboration |
+| High | Burst-then-success plus an independent detection showing what the account did next (lateral movement, privilege use, or credential access), or raw 4625 → 4624 evidence from one source |
 
-- [ ] Failed login count exceeds baseline by >3x in analysis window
-- [ ] Failed-then-success pattern from same source
-- [ ] Logins from >2 geographic regions within impossible travel time
-- [ ] Logins outside established business hours for the account
-- [ ] Multiple account lockouts within a short timeframe
-- [ ] Privilege changes within 30 minutes of successful auth
-- [ ] Service account used for interactive login
-- [ ] Password reset followed by immediate login from new source
+CSF 2.0: DE.CM-01, DE.CM-03, DE.AE-02, DE.AE-03; hardening PR.AA-01, PR.AA-03, PR.AA-05;
+response RS.AN-03, RS.MI-01.

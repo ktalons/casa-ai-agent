@@ -1,213 +1,70 @@
-# Lateral Movement Detection Workflow
+# Lateral movement: remote services, credential reuse, internal spread
 
-**Triggers**: Internal host-to-host connections on management protocols, credential reuse across systems, internal port scanning, remote service exploitation, pass-the-hash/ticket activity.
+## 1. Applies when
 
-## MITRE ATT&CK Mapping
+- Technique IDs: T1021 and sub-techniques (.001 RDP, .002 SMB/Windows Admin Shares, .004 SSH,
+  .006 WinRM), T1570 (Lateral Tool Transfer), T1550 (Use Alternate Authentication Material;
+  .002 pass the hash, .003 pass the ticket), T1047 (WMI), T1053.005 (Scheduled Task),
+  T1569.002 (Service Execution), T1210 (Exploitation of Remote Services).
+- Wazuh rule descriptions naming a network logon to a server from a source that recently
+  failed authentication, admin share access, service installation on a remote host, or one
+  account logging on to many hosts.
 
-| Technique | ID | Tactic |
-|-----------|-----|--------|
-| Remote Services (RDP, SSH, SMB, WinRM) | T1021 | Lateral Movement |
-| Lateral Tool Transfer | T1570 | Lateral Movement |
-| Use Alternate Authentication Material | T1550 | Defense Evasion, Lateral Movement |
-| Internal Proxy | T1090.001 | Command and Control |
-| Remote Service Session Hijacking | T1563 | Lateral Movement |
-| Exploitation of Remote Services | T1210 | Lateral Movement |
+## 2. Hypotheses
 
-## Agent Routing
+- H1: an actor moved from `<source host>` to `<target host>` using `<remote service>`.
+- H2: the same credential was reused across several hosts in a short window.
+- H3: the movement was automated (many hosts in minutes) rather than interactive.
+- H4 (benign): an administrator's normal remote work, a patching job, or a monitoring agent.
 
-```
-Analyst Query
-     |
-     v
-[Overseer] — classify as lateral movement investigation
-     |
-     +------ parallel ------+
-     |                      |
-     v                      v
-[NetworkAnalyst]      [LogAnalyst]
-  | Internal traffic     | Auth logs across hosts
-  | East-west flows      | Remote service usage
-  | Port scan detection  | Privilege escalation
-  | Protocol analysis    | Process execution chains
-     |                      |
-     +----------+-----------+
-                |
-                v
-       [PurpleTeamMapper]
-         | Map to NIST CSF 2.0
-         | Segmentation gaps
-         | Detection improvements
-                |
-                v
-          [Overseer] — synthesize
-```
+## 3. Intake-only decision rules
 
-**Both agents run in parallel** because lateral movement leaves traces in both network traffic (east-west connections) and host logs (authentication, process execution).
+- A T1021.* detection on `<target host>` makes H1 `supported` at **Medium** when its
+  description names a preceding failure burst or an unusual source; **Low** otherwise.
+- If a credential-access or T1110 detection on a different host precedes it by no more than
+  15 minutes, H1 is **High** on the chain (two hosts, two detections, time-ordered).
+- If the recon delta reports a newly reachable remote-service port on `<source host>` or
+  `<target host>` (3389, 445, 22, 5985/5986), tie it in as the plausible path; it is
+  corroborating context, not proof.
+- H2 and H3 are undetermined in v1 (no account, no source address). Request section 4 data.
+- H4 is the alternative to record for every Medium finding here.
 
-## NetworkAnalyst Task Template
+## 4. Data requests
+
+| Need | Source | Fields |
+|---|---|---|
+| Logon chain across hosts | Windows Security 4624 on each host | `IpAddress`, `TargetUserName`, `LogonType` (3 network, 10 remote interactive, 9 new credentials) |
+| Pass-the-hash indicator | 4624 with `LogonType` 9, or NTLM where Kerberos is expected | `AuthenticationPackageName`, `LogonProcessName` |
+| Explicit credential use | 4648 | `TargetServerName`, `TargetUserName` |
+| Admin share access | 5140, 5145 | `ShareName` (`ADMIN$`, `C$`, `IPC$`), `IpAddress` |
+| Remote execution artifacts | 7045 (service install), 4688 with parent `WmiPrvSE.exe`, 4698 (task created) | `ServiceName`, `ImagePath`, `ParentProcessName`, `TaskName` |
+| Kerberos anomalies | 4768, 4769, 4771 | `TicketEncryptionType`, `ServiceName`, failure codes |
+| East-west flows | Zeek `conn.log` | `id.orig_h`, `id.resp_h`, `id.resp_p`, `duration`, `orig_bytes` |
+
+## 5. Raw-telemetry mode
 
 ```
-INVESTIGATION: Lateral Movement — Network Analysis
+# network and remote-interactive logons per source host and account
+jq -r 'select(.data.win.system.eventID=="4624") | select(.data.win.eventdata.LogonType=="3" or .data.win.eventdata.LogonType=="10") | [.timestamp, .agent.name, .data.win.eventdata.IpAddress, .data.win.eventdata.TargetUserName, .data.win.eventdata.LogonType] | @tsv' <alerts.jsonl>
 
-CONTEXT
-| Query: [analyst's original question]
-| Environment: [network segments, VLAN structure if known]
-| Timeframe: [period of interest]
-| Available Data: [internal PCAP, east-west NetFlow, switch logs]
+# service installs and WMI-spawned processes on the target
+jq -r 'select(.data.win.system.eventID=="7045" or (.data.win.system.eventID=="4688" and (.data.win.eventdata.ParentProcessName|test("WmiPrvSE")))) | [.timestamp, .agent.name, .data.win.system.eventID, (.data.win.eventdata.ServiceName // .data.win.eventdata.NewProcessName)] | @tsv' <alerts.jsonl>
 
-ANALYSIS STEPS
-
-1. INTERNAL CONNECTION MAPPING
-   - Map all internal host-to-host connections in the timeframe
-   - Identify connections on management/remote access protocols:
-     * RDP (3389), SSH (22), WinRM (5985/5986)
-     * SMB (445), WMI (135 + dynamic), PsExec patterns
-     * VNC (5900+), telnet (23)
-   - Compare connection graph to known/expected baselines
-   - Flag new host-to-host pairs not seen in baseline period
-
-2. PORT SCANNING DETECTION
-   - Identify hosts connecting to many ports on single targets
-   - Identify hosts connecting to same port across many internal targets
-   - Look for sequential port access patterns
-   - Check for ICMP sweep patterns (host discovery)
-   - Detect service enumeration (multiple protocol probes)
-
-3. PROTOCOL ANALYSIS
-   - Verify protocol compliance on management ports
-   - Check for tunneling (non-standard protocol on standard port)
-   - Examine SMB traffic for file staging or tool transfer
-   - Look for PsExec service installation patterns
-   - Identify named pipe activity over SMB
-
-4. TRAFFIC VOLUME AND TIMING
-   - Internal transfer volume anomalies (tool staging, data collection)
-   - Connections outside business hours between workstations
-   - Rapid sequential connections to multiple hosts (automated movement)
-   - Connection duration patterns (brief auth attempts vs persistent sessions)
-
-5. NETWORK SEGMENTATION ASSESSMENT
-   - Identify cross-segment traffic that violates expected flow
-   - Flag connections from user segments to server management interfaces
-   - Check for traffic between segments with no business justification
-
-OUTPUT FORMAT: Use standard NetworkAnalyst output format.
+# east-west connections to admin ports
+zeek-cut ts id.orig_h id.resp_h id.resp_p duration orig_bytes < conn.log | grep -E '\s(445|3389|22|5985|5986|135)\s'
 ```
 
-## LogAnalyst Task Template
+Thresholds worth stating: one account on more than 3 hosts within an hour; one source
+reaching more than 10 hosts on 445 in a short period; RDP between two hosts with no prior
+RDP history.
 
-```
-INVESTIGATION: Lateral Movement — Log Analysis
+## 6. Confidence ladder
 
-CONTEXT
-| Query: [analyst's original question]
-| Environment: [domain structure, authentication infrastructure]
-| Timeframe: [period of interest]
-| Available Data: [Windows event logs, Linux auth, AD logs, EDR]
+| Level | Requires |
+|---|---|
+| Low | A single T1021.* detection with a description that could fit routine admin work |
+| Medium | The detection names an anomalous source or a preceding failure; or a recon-delta exposure on the path |
+| High | A time-ordered chain across two hosts (credential attack or theft on one, remote logon on the other) within 15 minutes, or raw 4624/5145/7045 evidence linking source and target |
 
-ANALYSIS STEPS
-
-1. AUTHENTICATION CHAIN ANALYSIS
-   - Trace authentication events across multiple hosts
-   - Build timeline: Host A login → Host B login → Host C login
-   - Identify the initial compromise point (first anomalous auth)
-   - Look for logon type patterns:
-     * Type 3 (Network) — SMB, mapped drives
-     * Type 7 (Unlock) — screen unlock after remote session
-     * Type 10 (RemoteInteractive) — RDP
-   - Check for Kerberos ticket anomalies (pass-the-ticket indicators)
-
-2. CREDENTIAL REUSE DETECTION
-   - Same account authenticating to multiple hosts in short timeframe
-   - Service accounts used for interactive logins
-   - Admin accounts used on non-admin workstations
-   - NTLM authentication where Kerberos is expected (pass-the-hash indicator)
-   - Look for Windows Event IDs: 4624, 4625, 4648, 4768, 4769, 4771
-
-3. REMOTE SERVICE AND EXECUTION LOGS
-   - PsExec: service installation events (Event ID 7045), pipe creation
-   - WMI: process creation via WMI (Event ID 4688 with WmiPrvSE parent)
-   - PowerShell remoting: WinRM connection events
-   - Scheduled task creation on remote hosts (Event ID 4698)
-   - SSH key-based auth to new hosts
-
-4. PROCESS EXECUTION CHAINS
-   - Identify tools commonly used in lateral movement:
-     * PsExec, PAExec, RemCom
-     * WMI queries and process creation
-     * PowerShell with -ComputerName or Invoke-Command
-     * mstsc.exe (RDP), ssh, putty
-   - Look for reconnaissance tools: net.exe, nltest, dsquery, AdFind
-   - Track parent-child process relationships
-
-5. TIMELINE CONSTRUCTION
-   Build a unified timeline correlating:
-   - Authentication events across hosts
-   - Process execution on each host
-   - Network connections between hosts (from NetworkAnalyst)
-   - File access and modification events
-
-OUTPUT FORMAT: Use standard LogAnalyst output format with NIST 800-92 references.
-```
-
-## PurpleTeamMapper Task Template
-
-```
-MAPPING REQUEST: Lateral Movement Findings
-
-FINDINGS FROM NETWORKANALYST:
-[Insert NetworkAnalyst findings]
-
-FINDINGS FROM LOGANALYST:
-[Insert LogAnalyst findings]
-
-MAP TO:
-1. NIST CSF 2.0 — focus on:
-   - PR.AA (Identity Management and Access Control)
-   - PR.AC (Access Control) — network segmentation, least privilege
-   - DE.CM-01 (Network monitoring — east-west visibility)
-   - DE.CM-03 (Personnel activity monitoring)
-   - DE.AE-02 (Adverse event analysis)
-   - RS.AN (Incident Analysis — scope determination)
-
-2. Detection Opportunities:
-   - East-west traffic anomaly rules (new host pairs, unusual protocols)
-   - Authentication chain correlation rules
-   - Credential reuse detection (same account, multiple hosts, short window)
-   - Remote service usage monitoring for workstation-to-workstation connections
-   - Internal port scan detection thresholds
-
-3. Improvement Actions:
-   - Network segmentation enforcement and monitoring
-   - Privileged access management (PAM) for admin credentials
-   - Credential hygiene (tiered admin accounts, LAPS)
-   - East-west network visibility gaps
-   - Endpoint detection coverage for lateral movement tools
-   - Microsegmentation for critical assets
-```
-
-## Expected Data Sources
-
-| Source | Key Fields | Priority |
-|--------|-----------|----------|
-| Windows Security Event Logs | Event IDs 4624/4625/4648/4768/4769, logon type | Critical |
-| Internal NetFlow / East-West Traffic | Src/dst IP:port, bytes, session duration | Critical |
-| EDR / Endpoint Telemetry | Process chains, network connections, file events | Critical |
-| Active Directory Logs | Authentication, group changes, Kerberos events | High |
-| Linux auth.log / secure | SSH connections, sudo usage, su events | High |
-| DNS Logs (internal) | Internal host resolution patterns | Medium |
-| Switch/Router Logs | MAC table changes, VLAN traffic, ARP events | Medium |
-| Firewall Logs (internal segments) | Inter-VLAN traffic, blocked connections | Medium |
-
-## Key Indicators Checklist
-
-- [ ] Single account authenticating to >3 hosts within 1 hour
-- [ ] Network logon (Type 3) from workstation to workstation
-- [ ] RDP connection (Type 10) between hosts that have no prior RDP history
-- [ ] Service accounts used for interactive or remote interactive logons
-- [ ] NTLM authentication where Kerberos is the norm (pass-the-hash)
-- [ ] New service installations (Event 7045) on multiple hosts
-- [ ] Internal host connecting to >10 other hosts on port 445 in short period
-- [ ] PowerShell remoting or WMI from non-admin workstation
-- [ ] Reconnaissance tool execution (net.exe, nltest, AdFind)
-- [ ] Cross-segment traffic violating expected network flow
+CSF 2.0: DE.CM-01, DE.CM-09, DE.AE-03, DE.AE-04; hardening PR.AA-05, PR.IR-01; response
+RS.AN-03, RS.AN-08, RS.MI-01.

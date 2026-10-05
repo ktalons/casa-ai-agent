@@ -1,154 +1,78 @@
-# Network Beaconing Detection Workflow
+# Command and control: beaconing, DNS channels, unknown listeners
 
-**Triggers**: Periodic outbound connections, regular-interval DNS queries, encrypted traffic to unknown/suspicious IPs, heartbeat-like traffic patterns, callback behavior.
+## 1. Applies when
 
-## MITRE ATT&CK Mapping
+- Technique IDs: T1071 and sub-techniques (.001 web protocols, .004 DNS), T1573 (Encrypted
+  Channel), T1571 (Non-Standard Port), T1572 (Protocol Tunneling), T1568.002 (Domain
+  Generation Algorithms), T1105 (Ingress Tool Transfer).
+- Wazuh rule descriptions naming periodic outbound connections, high-entropy or newly seen
+  domains, TLS to an unknown destination, or a new listening port on a workstation.
+- A recon delta reporting a new listener on a host that also has a C2-tactic detection.
 
-| Technique | ID | Tactic |
-|-----------|-----|--------|
-| Application Layer Protocol | T1071 | Command and Control |
-| Encrypted Channel | T1573 | Command and Control |
-| Non-Standard Port | T1571 | Command and Control |
-| DNS (C2 over DNS) | T1071.004 | Command and Control |
-| Protocol Tunneling | T1572 | Command and Control |
-| Ingress Tool Transfer | T1105 | Command and Control |
+## 2. Hypotheses
 
-## Agent Routing
+- H1: `<host>` is beaconing to `<destination>` on a fixed interval, consistent with C2.
+- H2: the DNS activity from `<host>` is a channel (tunnelling or DGA resolution), not
+  ordinary resolution.
+- H3: the new listener on `<host>` belongs to the same activity (staging or a reverse
+  channel), not to a legitimate service.
+- H4 (benign): an updater, monitoring agent, CDN, or developer tool with regular check-ins;
+  a self-signed certificate on a local development server.
 
-```
-Analyst Query
-     |
-     v
-[Overseer] — classify as beaconing investigation
-     |
-     v
-[NetworkAnalyst] — primary analysis
-     | Analyze traffic for periodicity
-     | Examine DNS patterns
-     | Inspect connection metadata
-     | Identify suspicious destinations
-     |
-     v
-[PurpleTeamMapper] — improvement mapping
-     | Map to NIST CSF 2.0
-     | Identify network monitoring gaps
-     | Recommend detection rules
-     |
-     v
-[Overseer] — synthesize and present
-```
+## 3. Intake-only decision rules
 
-**Note**: If the analyst also has endpoint logs (process → network correlation), route to LogAnalyst in parallel to correlate process activity with network connections.
+- A T1071.* detection asserting periodicity makes H1 `supported` at **Medium** at most:
+  periodicity inferred by a rule is suggestive, and the intake carries no interval, jitter,
+  destination or byte counts. Name the measurement that would confirm it.
+- Two C2-tactic detections on the same host in the window (for example periodic HTTPS plus
+  a high-entropy DNS query) stay **Medium** but become one thread; they corroborate each
+  other only weakly because both rest on the same host's rule evaluations.
+- A recon-delta listener on that host is corroborating context for H3; it does not raise H1
+  by itself. A self-signed certificate on a workstation port is as consistent with H4 as
+  with H3; say so in `alternatives`.
+- **High** is reachable in intake-only mode only when an independent source corroborates:
+  a threat-intelligence match on the destination (threat-intel agent, with a cited source)
+  or a host-level detection tying a suspicious process to the connection.
 
-## NetworkAnalyst Task Template
+## 4. Data requests
 
-```
-INVESTIGATION: Network Beaconing Detection
+| Need | Source | Fields |
+|---|---|---|
+| Interval and jitter | Zeek `conn.log` for the host | `ts`, `id.resp_h`, `id.resp_p`, `duration`, `orig_bytes`, `resp_bytes` |
+| Destination identity | Zeek `ssl.log`, `dns.log`; proxy logs | `server_name`, `issuer`, `validation_status`, `query`, `answers`, `rcode_name` |
+| DNS channel signs | `dns.log` | query length, label entropy, record type (`TXT`, `NULL`), NXDOMAIN rate, distinct subdomains per domain |
+| The process behind the connection | Sysmon event 3 (network connection), event 1 (process create) | `Image`, `ProcessId`, `DestinationIp`, `DestinationPort`, `ParentImage` |
+| What owns the new listener | Sysmon event 3 inbound, or `lsof -i :<port>` output supplied by the analyst | `Image`, `User`, listening socket |
+| Destination reputation | threat-intel agent, offline tables first | ASN, registration age, known-C2 lists, with the source cited |
 
-CONTEXT
-| Query: [analyst's original question]
-| Environment: [network architecture if known]
-| Timeframe: [capture/flow period]
-| Available Data: [PCAP, NetFlow, DNS logs, proxy logs]
-
-ANALYSIS STEPS
-
-1. CONNECTION INVENTORY
-   - Enumerate all outbound connections in the dataset
-   - Group by source host → destination IP:port pairs
-   - Calculate connection frequency and duration for each pair
-   - Identify long-running or persistent connections
-
-2. PERIODICITY ANALYSIS
-   For each connection pair, calculate:
-   - Inter-arrival time (time between consecutive connections)
-   - Jitter (standard deviation of inter-arrival times)
-   - Beaconing score: low jitter + regular interval = high score
-   - Thresholds: jitter < 15% of interval suggests beaconing
-   - Account for common legitimate periodic traffic (NTP, updates, monitoring)
-
-3. DNS ANALYSIS
-   Examine DNS query patterns for:
-   - High-entropy domain names (DGA indicators)
-   - Regular-interval queries to same domain
-   - TXT record queries (potential DNS tunneling)
-   - Unusual query lengths (data encoded in subdomain)
-   - Queries to recently registered domains
-   - NXDOMAIN response clustering
-
-4. TRAFFIC CHARACTERISTICS
-   For suspicious connections, examine:
-   - Payload sizes: small + consistent = C2 heartbeat; large = data transfer
-   - Protocol compliance: is HTTP actually HTTP? Is DNS well-formed?
-   - TLS certificate details: self-signed, unusual issuer, mismatched CN
-   - User-Agent strings: unusual, missing, or known malware signatures
-   - Request/response ratio: C2 often has asymmetric patterns
-
-5. DESTINATION ANALYSIS
-   For flagged destinations:
-   - Geolocation and ASN
-   - Domain registration age and registrar
-   - Reverse DNS and WHOIS
-   - Known threat intelligence matches
-   - Hosting provider (bulletproof hosting indicators)
-
-6. EVIDENCE DOCUMENTATION
-   For each finding:
-   - Specific packets or flow records with timestamps
-   - Statistical analysis (interval, jitter, volume)
-   - Visualization data (timeline of connections)
-   - Comparison to baseline traffic patterns
-
-OUTPUT FORMAT: Use standard NetworkAnalyst output format.
-```
-
-## PurpleTeamMapper Task Template
+## 5. Raw-telemetry mode
 
 ```
-MAPPING REQUEST: Beaconing Detection Findings
+# connections from the host to one destination, in time order (compute deltas from ts)
+zeek-cut ts id.orig_h id.resp_h id.resp_p orig_bytes resp_bytes < conn.log | grep '<host ip>' | sort -n
 
-FINDINGS FROM NETWORKANALYST:
-[Insert NetworkAnalyst findings here]
+# inter-arrival deltas and spread (jitter) for one destination
+zeek-cut ts < conn.log | jq -s -R 'split("\n") | map(select(length>0)|tonumber) | sort | [.[1:], .[:-1]] | transpose | map(.[0]-.[1]) | {n:length, mean:(add/length), min:min, max:max}'
 
-MAP TO:
-1. NIST CSF 2.0 — focus on:
-   - DE.CM-01 (Networks monitored for cybersecurity events)
-   - DE.CM-06 (External service provider activity monitored)
-   - DE.AE-02 (Potentially adverse events analyzed for impact)
-   - RS.AN-01 (Investigation notifications from detection sources)
+# DNS queries by length and type
+zeek-cut ts query qtype_name rcode_name < dns.log | grep '<host ip>'
 
-2. Detection Opportunities:
-   - Network-based beaconing detection rules (interval + jitter thresholds)
-   - DNS anomaly monitoring (entropy, query frequency, record types)
-   - TLS inspection policy for suspicious destinations
-   - Proxy/firewall log correlation rules
-
-3. Improvement Actions:
-   - Network visibility gaps (encrypted traffic, east-west visibility)
-   - DNS monitoring coverage
-   - Threat intelligence feed integration
-   - Network segmentation recommendations
+# TLS to the destination from a capture
+tshark -r <capture.pcap> -Y 'tls.handshake.type == 1' -T fields -e frame.time_epoch -e ip.src -e ip.dst -e tls.handshake.extensions_server_name
 ```
 
-## Expected Data Sources
+Beaconing signature: inter-arrival jitter below 15 percent of the mean interval over at
+least ten connections, small and consistent payload sizes, common intervals (30 s, 60 s,
+300 s, 600 s, 3600 s). Legitimate periodic traffic (NTP, updaters, monitoring) must be
+excluded by destination before the signature counts.
 
-| Source | Key Fields | Priority |
-|--------|-----------|----------|
-| PCAP / Full Packet Capture | All packet data, timing, payloads | Critical |
-| NetFlow / IPFIX | Src/dst IP:port, bytes, packets, timestamps | Critical |
-| DNS Query Logs | Query name, type, response, source IP | Critical |
-| Proxy / Web Gateway Logs | URL, user-agent, response code, bytes | High |
-| Firewall Connection Logs | Src/dst, action, bytes, session duration | High |
-| TLS/SSL Inspection Logs | Certificate details, SNI, cipher suite | Medium |
-| Threat Intelligence Feeds | IP/domain reputation, known C2 infrastructure | Medium |
+## 6. Confidence ladder
 
-## Key Indicators Checklist
+| Level | Requires |
+|---|---|
+| Low | A single C2-tactic detection whose description fits a benign periodic service |
+| Medium | Periodicity or a DNS anomaly asserted by a rule, with or without a recon-delta listener on the same host |
+| High | A measured interval with low jitter over ten or more connections, plus a destination with a cited malicious reputation or a suspicious owning process |
 
-- [ ] Outbound connections with inter-arrival jitter < 15% of mean interval
-- [ ] Connections at regular intervals (30s, 60s, 300s, 600s, 3600s common)
-- [ ] DNS queries to high-entropy domains or recently registered domains
-- [ ] TXT/NULL DNS record queries at regular intervals
-- [ ] Small, consistent payload sizes on periodic connections
-- [ ] HTTPS to IP addresses (no domain name) or self-signed certificates
-- [ ] Connections to known bulletproof hosting or suspicious ASNs
-- [ ] Protocol non-compliance (HTTP headers missing, DNS malformed)
+CSF 2.0: DE.CM-01, DE.CM-09, DE.AE-02, DE.AE-07; hardening PR.IR-01, PR.PS-05; response
+RS.AN-03, RS.AN-07. Posture is investigate before respond: containment options only at High.
