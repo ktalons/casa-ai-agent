@@ -48,6 +48,9 @@ type OptionSpec = {
   operands: "paths" | "none" | "jq";
 };
 
+/** A plugin script's flags: file-valued, value-less, and value-taking with a value pattern. */
+type ScriptSpec = { pathFlags: string[]; boolFlags: string[]; valueFlags: Record<string, RegExp> };
+
 /** Where an argument list's file reads are, after options are taken out. */
 type Walked = { paths: Word[]; operands: Word[]; seen: Set<string> };
 
@@ -108,14 +111,22 @@ const JQ_FORBIDDEN = /\$ENV\b|(?<![.\w$])env\b|\bimport\b|\binclude\b/;
 const SECRET_DIRS = new Set([".ssh", ".aws"]);
 
 // Plugin scripts a CASA subagent may run; Grade.ts is absent because it writes a grade file.
-const PLUGIN_SCRIPTS = ["intake/Validate.ts", "evals/Lint.ts"];
-
-const PLUGIN_ROOT_VAR = "CLAUDE_PLUGIN_ROOT";
+// Each script's argv as its source parses it: Validate.ts reads every argument as a file;
+// Lint.ts reads the files after --brief, --finding and --intake (evals/Lint.ts, arg()).
+const PLUGIN_SCRIPTS: Record<string, ScriptSpec> = {
+  "intake/Validate.ts": { pathFlags: [], boolFlags: [], valueFlags: {} },
+  "evals/Lint.ts": {
+    pathFlags: ["brief", "finding", "intake"],
+    boolFlags: ["json"],
+    // Same pattern as RE_HOST_PREFIX in evals/lib/extract.ts.
+    valueFlags: { "host-prefix": /^[a-z0-9-]{1,63}$/ },
+  },
+};
 
 // *--- Parser ---*
 
 /** Split a command into pipeline segments the way bash would, refusing what it cannot model. */
-export function parseCommand(command: string, pluginRoot: string): Parsed {
+export function parseCommand(command: string): Parsed {
   if (/[`]|\$\(|<\(|>\(/.test(command)) return { ok: false, reason: "command or process substitution" };
 
   const segments: Segment[] = [];
@@ -147,19 +158,6 @@ export function parseCommand(command: string, pluginRoot: string): Parsed {
     segments.push(seg);
     seg = { words: [], redirects: [] };
     return true;
-  };
-
-  // SECURITY: the only expansion allowed is the plugin root, which the agent cannot set.
-  const expandVariable = (at: number): number | null => {
-    for (const form of [`\${${PLUGIN_ROOT_VAR}}`, `$${PLUGIN_ROOT_VAR}`]) {
-      if (!command.startsWith(form, at)) continue;
-      const next = command[at + form.length] ?? "";
-      if (form.endsWith("}") || !/[A-Za-z0-9_]/.test(next)) {
-        text += pluginRoot;
-        return at + form.length;
-      }
-    }
-    return null;
   };
 
   while (i < command.length) {
@@ -206,24 +204,14 @@ export function parseCommand(command: string, pluginRoot: string): Parsed {
           i += 2;
           continue;
         }
-        if (d === "$") {
-          const after = expandVariable(i);
-          if (after === null) return fail("variable expansion");
-          i = after;
-          continue;
-        }
+        if (d === "$") return fail("variable expansion");
         text += d;
         i++;
       }
       continue;
     }
-    if (c === "$") {
-      const after = expandVariable(i);
-      if (after === null) return fail("variable expansion");
-      started = true;
-      i = after;
-      continue;
-    }
+    // SECURITY: the agent's shell may not hold the hook's values, so no variable is expanded here.
+    if (c === "$") return fail("variable expansion");
     if (c === "|") {
       if (command[i + 1] === "&") return fail("|& pipes stderr into a command");
       if (!endSegment()) return fail("empty command or dangling redirect");
@@ -296,13 +284,16 @@ function checkReadPath(raw: string, cwd: string, pluginRoot: string): string | n
   }
   const name = (parts[parts.length - 1] ?? "").toLowerCase();
   if (name.endsWith(".key") || name.endsWith(".pem") || name.startsWith("id_")) return `path ${raw} names a secret`;
+  // SECURITY: a part that cannot be checked is refused; the walk never skips the rest of the path.
   for (let n = 1; n <= parts.length; n++) {
     const p = join(base, ...parts.slice(0, n));
+    let isLink: boolean;
     try {
-      if (lstatSync(p).isSymbolicLink()) return `path ${raw} goes through symlink ${p}`;
+      isLink = lstatSync(p).isSymbolicLink();
     } catch {
-      break;
+      return `path ${raw} does not exist (${p})`;
     }
+    if (isLink) return `path ${raw} goes through symlink ${p}`;
   }
   return null;
 }
@@ -388,13 +379,32 @@ function checkBun(args: Word[], cwd: string, pluginRoot: string): string | null 
   const [script, ...rest] = args;
   if (script === undefined) return "bun with no script";
   const target = resolve(cwd, script.text);
-  if (!PLUGIN_SCRIPTS.some((s) => target === join(pluginRoot, s))) {
-    return `bun may run only ${PLUGIN_SCRIPTS.join(", ")} from the plugin (asked for ${script.text})`;
+  const name = Object.keys(PLUGIN_SCRIPTS).find((s) => target === join(pluginRoot, s));
+  if (name === undefined) {
+    return `bun may run only ${Object.keys(PLUGIN_SCRIPTS).join(", ")} from the plugin (asked for ${script.text})`;
   }
-  // The scripts take file paths and a few flags; every non-flag argument is read as a file.
-  for (const a of rest) {
-    if (a.text.startsWith("-")) continue;
-    const bad = checkReadPath(a.text, cwd, pluginRoot);
+  const spec = PLUGIN_SCRIPTS[name]!;
+  for (let n = 0; n < rest.length; n++) {
+    const t = rest[n]!.text;
+    if (!t.startsWith("-")) {
+      const bad = checkReadPath(t, cwd, pluginRoot);
+      if (bad) return bad;
+      continue;
+    }
+    const eq = t.indexOf("=");
+    const flag = t.startsWith("--") ? (eq < 0 ? t.slice(2) : t.slice(2, eq)) : "";
+    if (spec.boolFlags.includes(flag)) {
+      if (eq >= 0) return `${name} --${flag} takes no value`;
+      continue;
+    }
+    const pattern = spec.valueFlags[flag];
+    if (!spec.pathFlags.includes(flag) && pattern === undefined) return `${name} ${t} is not allowed`;
+    const value = eq < 0 ? rest[++n]?.text : t.slice(eq + 1);
+    // SECURITY: a value that looks like a flag would shift which file the script opens.
+    if (value === undefined || value === "" || value.startsWith("-")) return `${name} --${flag} needs a value`;
+    const bad = pattern !== undefined
+      ? (pattern.test(value) ? null : `${name} --${flag} value ${value} is not allowed`)
+      : checkReadPath(value, cwd, pluginRoot);
     if (bad) return bad;
   }
   return null;
@@ -422,7 +432,7 @@ function checkSegment(seg: Segment, cwd: string, pluginRoot: string): string | n
 /** Decide whether a CASA subagent's Bash command is read-only under the shipped policy. */
 export function checkBash(command: string, cwd: string, pluginRoot: string): BashVerdict {
   if (command.trim() === "") return { ok: false, reason: "empty command" };
-  const parsed = parseCommand(command, pluginRoot);
+  const parsed = parseCommand(command);
   if (!parsed.ok) return parsed;
   for (const seg of parsed.segments) {
     const bad = checkSegment(seg, cwd, pluginRoot);

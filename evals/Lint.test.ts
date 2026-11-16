@@ -53,6 +53,15 @@ test("reference tables load and carry the IDs the fixtures rely on", () => {
   expect(refs.ports.has("4444")).toBe(false);
 });
 
+test("TLD list holds only lowercase root-zone names; special-use names stay separate but still read as domains", () => {
+  const lr = json("skills/standards/references/lint-references.json");
+  const special = new Set<string>(lr.special_use_names.names);
+  expect(lr.tlds.filter((t: string) => t !== t.toLowerCase())).toEqual([]);
+  expect(lr.tlds.filter((t: string) => special.has(t))).toEqual([]);
+  expect([...extractTokens("talondc01 resolved dc01.corp and files.internal").domain].sort()).toEqual(["dc01.corp", "files.internal"]);
+  expect(flagged("talondc01 resolved dc01.corp", intakeV2)).toEqual(["domain:dc01.corp"]);
+});
+
 // *--- Extraction ---*
 
 test("extractTokens ignores sha256 blobs and IP octets when looking for rule IDs", () => {

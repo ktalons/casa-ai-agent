@@ -120,6 +120,7 @@ export interface References {
   ports: Set<string>;
   domains: Set<string>;
   tlds: Set<string>;
+  special_use: Set<string>;
 }
 
 export interface Unknown { token: string; kind: Kind; reason: string }
@@ -259,8 +260,8 @@ export function loadReferences(): References {
   const attack = JSON.parse(readFileSync(join(REFERENCES_DIR, "attack-techniques.json"), "utf8"));
   const csf = JSON.parse(readFileSync(join(REFERENCES_DIR, "csf-2.0.json"), "utf8"));
   const lr = JSON.parse(readFileSync(LINT_REFERENCES, "utf8"));
-  if (typeof lr?.event_ids !== "object" || typeof lr?.service_ports !== "object" || !Array.isArray(lr?.tlds) || !Array.isArray(lr?.reference_domains)) {
-    throw new Error(`${LINT_REFERENCES}: missing event_ids, service_ports, tlds or reference_domains`);
+  if (typeof lr?.event_ids !== "object" || typeof lr?.service_ports !== "object" || !Array.isArray(lr?.tlds) || !Array.isArray(lr?.reference_domains) || !Array.isArray(lr?.special_use_names?.names)) {
+    throw new Error(`${LINT_REFERENCES}: missing event_ids, service_ports, tlds, reference_domains or special_use_names`);
   }
   const excluded = new Set<string>([...(lr.excluded_tlds?.file_extensions ?? []), ...(lr.excluded_tlds?.field_path_words ?? [])]);
   cachedRefs = {
@@ -271,6 +272,7 @@ export function loadReferences(): References {
     ports: new Set<string>(Object.keys(lr.service_ports)),
     domains: new Set<string>(lr.reference_domains),
     tlds: new Set<string>((lr.tlds as string[]).filter((t) => !excluded.has(t))),
+    special_use: new Set<string>(lr.special_use_names.names),
   };
   return cachedRefs;
 }
@@ -282,7 +284,7 @@ export function extractTokens(text: string, patterns: Partial<NamePatterns> = {}
   const p: NamePatterns = { knownHosts: [], hostPrefixes: [], hostStems: [], userPrefixes: [], ...patterns };
   for (const prefix of [...p.hostPrefixes, ...p.hostStems]) assertHostPrefix(prefix);
   const known = new Set(p.knownHosts.map((h) => h.toLowerCase()));
-  const tlds = loadReferences().tlds;
+  const { tlds, special_use: specialUse } = loadReferences();
   const t = emptyTokens();
   const buf = { s: text };
 
@@ -344,7 +346,8 @@ export function extractTokens(text: string, patterns: Partial<NamePatterns> = {}
 
   // Domains are lowercase dotted names with a recognized TLD; an FQDN is a domain, not a host.
   consume(buf, RE_DOMAIN, (m) => {
-    if (!tlds.has(m[2])) return null;
+    // Internal names under a special-use suffix (dc01.corp) are domain-shaped and checked too.
+    if (!tlds.has(m[2]) && !specialUse.has(m[2])) return null;
     t.domain.add(m[1]);
     return "";
   });

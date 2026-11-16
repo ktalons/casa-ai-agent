@@ -24,6 +24,16 @@ mkdirSync(join(cwd, "agents"));
 writeFileSync(join(cwd, "agents", "x.md"), "x");
 symlinkSync(join(cwd, "agents"), join(cwd, "detections", "proposed", "link"));
 
+// Bash reads must name files that exist, so the analyst cases read from these.
+const PROJECT_FILES = [
+  "alerts.jsonl", "a", "a.json", "b.json", "a.txt", "f", "cap.pcap", "conn.log", "sysmon.log",
+  "auth.log", "x.log", "b.md", "i.json", "intake/fixtures/x.json", "logs/app.log",
+];
+for (const f of PROJECT_FILES) {
+  mkdirSync(dirname(join(cwd, f)), { recursive: true });
+  writeFileSync(join(cwd, f), "{}\n");
+}
+
 // A PATH with no bun on it, and one bun that always crashes.
 const NO_BUN_PATH = "/usr/bin:/bin";
 const crashDir = mkdtempSync(join(tmpdir(), "casa-guard-bin-"));
@@ -140,9 +150,13 @@ test("recorded payload: real subagent calls carry casa:<name> and agent_id, and 
   }
   const [bashRead, inLane, outside] = payloads;
   expect(bashRead.tool_name).toBe("Bash");
-  expect(decide(bashRead)).toEqual({ exit: 0 });
   expect(inLane.tool_input.file_path.startsWith(`${inLane.cwd}/detections/proposed/`)).toBe(true);
-  expect(decide(inLane)).toEqual({ exit: 0 });
+
+  // Bash reads must name files that exist, so the recorded project root moves to the temp project.
+  const relocate = (p: unknown) => JSON.parse(JSON.stringify(p).replaceAll(bashRead.cwd, cwd));
+  expect(decide(relocate(bashRead))).toEqual({ exit: 0 });
+  expect(decide(relocate(inLane))).toEqual({ exit: 0 });
+  expect(isDeny(decide(relocate(outside)))).toBe(true);
   expect(isDeny(decide(outside))).toBe(true);
 
   // Derived, not recorded: the same call with the subagent fields removed is the main thread.
@@ -282,12 +296,12 @@ test("bash write: writing or unmodellable Bash from a CASA agent is denied", () 
     "bun --preload ./x.ts intake/Validate.ts a.json",
   ];
   for (const cmd of writes) {
-    const d = decide(bash(la, cmd, ROOT), ROOT);
+    const d = decide(bash(la, cmd), ROOT);
     if (!isDeny(d)) throw new Error(`expected deny for: ${cmd}`);
   }
   // Readers the Grep and Read tools replace are off the list, even in a harmless shape.
   for (const cmd of ["cat a.log", "grep x a.log", "cut -f1 a.tsv", "sort a.txt", "uniq -c a.txt", "jq . a | sort"]) {
-    const d = decide(bash(la, cmd, ROOT), ROOT);
+    const d = decide(bash(la, cmd), ROOT);
     expect(d.exit === 0 ? denyReason(d.output) : null).toContain("is not on the read-only allowlist");
   }
   // Agents without a Bash lane are refused any Bash at all.
@@ -313,14 +327,13 @@ test("bash read: allowlisted read-only Bash from a CASA analyst gets no decision
     "tail -n 50 sysmon.log",
     "wc -l sysmon.log auth.log",
     `bun ${ROOT}/intake/Validate.ts intake/fixtures/x.json`,
-    'bun "${CLAUDE_PLUGIN_ROOT}/evals/Lint.ts" --brief b.md --intake i.json',
-    "bun intake/Validate.ts x.json",
+    `bun "${ROOT}/evals/Lint.ts" --brief b.md --intake i.json`,
     "jq . a.json; jq . b.json\n",
     "jq '.env' alerts.jsonl",
   ];
   for (const a of ["casa:log-analyst", "network-analyst", "casa:endpoint-analyst"]) {
     for (const cmd of reads) {
-      const d = decide(bash(sub(a), cmd, ROOT), ROOT);
+      const d = decide(bash(sub(a), cmd), ROOT);
       if (d.exit !== 0 || d.output !== undefined) throw new Error(`expected no decision for ${a}: ${cmd} -> ${JSON.stringify(d)}`);
     }
   }
@@ -329,8 +342,6 @@ test("bash read: allowlisted read-only Bash from a CASA analyst gets no decision
 // *--- Bash File Operands ---*
 
 test("bash path: files a CASA analyst reads stay inside the project or the plugin and off secrets", () => {
-  mkdirSync(join(cwd, "logs"), { recursive: true });
-  writeFileSync(join(cwd, "logs", "app.log"), "line\n");
   writeFileSync(join(cwd, ".env"), "SECRET=x\n");
   symlinkSync(crashDir, join(cwd, "logs", "out"));
   const la = sub("casa:log-analyst");
@@ -371,6 +382,11 @@ test("bash path: files a CASA analyst reads stay inside the project or the plugi
     const d = decide(bash(la, cmd), ROOT);
     if (!isDeny(d)) throw new Error(`expected deny for: ${cmd}`);
   }
+  // A part of the path that is not there cannot be checked for a symlink, so it is refused.
+  for (const cmd of ["head logs/missing/app.log", "head logs/nope.log", "zeek-cut ts < missing/conn.log"]) {
+    const d = decide(bash(la, cmd), ROOT);
+    expect(d.exit === 0 ? denyReason(d.output) : null).toContain("does not exist");
+  }
   const allowed = [
     "head -n 5 logs/app.log",
     "jq -R . logs/app.log",
@@ -379,7 +395,7 @@ test("bash path: files a CASA analyst reads stay inside the project or the plugi
     "tshark -r logs/app.log -T fields -e frame.number",
     "jq -n --arg x y '$x'",
     `jq . "${ROOT}/skills/standards/references/attack-techniques.json"`,
-    'jq . "${CLAUDE_PLUGIN_ROOT}/skills/standards/references/csf-2.0.json"',
+    `jq . ${ROOT}/skills/standards/references/csf-2.0.json`,
     "jq -c . - < logs/app.log",
   ];
   for (const cmd of allowed) {
@@ -400,6 +416,60 @@ test("shell comment: an unquoted word-initial # is refused, not read through", (
   // The shell skips from # to end of line, so `rm b` would run as its own command.
   for (const cmd of ["ls #'\nrm b\n#'", "jq . f #x", "jq . f;#x", "ls >#x"]) {
     expect(bashReason(cmd)).toContain("shell comment");
+  }
+});
+
+test("variable expansion: every $ outside single quotes is refused, the plugin root included", () => {
+  // The agent's shell may not hold CLAUDE_PLUGIN_ROOT; unset, $CLAUDE_PLUGIN_ROOT/etc/passwd is /etc/passwd.
+  const refused = [
+    "head $CLAUDE_PLUGIN_ROOT/etc/passwd",
+    'head "${CLAUDE_PLUGIN_ROOT}/x"',
+    "head ${CLAUDE_PLUGIN_ROOT}/x",
+    'jq . "$HOME/x"',
+    "jq . $HOME/x",
+  ];
+  for (const cmd of refused) expect(bashReason(cmd)).toContain("variable expansion");
+  // The two plugin scripts stay runnable by absolute path, which skill bodies already carry.
+  for (const cmd of [`bun ${ROOT}/intake/Validate.ts a.json`, `bun "${ROOT}/evals/Lint.ts" --brief b.md --intake i.json`]) {
+    expect(bashReason(cmd)).toBeNull();
+  }
+  // A $ inside single quotes is literal text, as in a jq variable.
+  expect(bashReason("jq --arg h x '.[] | select(.host == $h)' alerts.jsonl")).toBeNull();
+});
+
+test("bun script argv: Lint.ts and Validate.ts flags are modelled and every file value is path-checked", () => {
+  const lint = `bun ${ROOT}/evals/Lint.ts`;
+  const validate = `bun ${ROOT}/intake/Validate.ts`;
+  const refused = [
+    `${lint} --brief=/etc/passwd --intake i.json`,
+    `${lint} --brief b.md --intake /etc/passwd`,
+    `${lint} --finding=../x.json --intake i.json`,
+    `${lint} --brief b.md --intake i.json --unknown`,
+    `${lint} --brief b.md --intake i.json --host-prefix ../x`,
+    `${lint} --brief b.md --intake i.json --host-prefix=Bad.Prefix`,
+    `${lint} --brief b.md --intake i.json --json=1`,
+    `${lint} --brief --intake /etc/passwd`,
+    `${lint} --brief b.md --intake`,
+    `${lint} --brief b.md --intake i.json -- /etc/passwd`,
+    `${lint} --brief b.md --intake i.json /etc/passwd`,
+    `${validate} --json a.json`,
+    `${validate} - a.json`,
+    `${validate} /etc/passwd`,
+  ];
+  for (const cmd of refused) {
+    if (bashReason(cmd) === null) throw new Error(`expected deny for: ${cmd}`);
+  }
+  const allowed = [
+    `${lint} --brief b.md --intake i.json`,
+    `${lint} --brief=b.md --intake=i.json --json`,
+    `${lint} --finding a.json --intake i.json --host-prefix talon-lab --json`,
+    `${lint} --finding a.json --intake i.json --host-prefix=web`,
+    `${validate} a.json intake/fixtures/x.json`,
+    validate,
+  ];
+  for (const cmd of allowed) {
+    const reason = bashReason(cmd);
+    if (reason !== null) throw new Error(`expected no decision for: ${cmd} -> ${reason}`);
   }
 });
 
