@@ -10,7 +10,7 @@ import { test, expect } from "bun:test";
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { extractTokens, lint, loadReferences, type Kind } from "./lib/extract.ts";
+import { extractTokens, intakeKnowledge, lint, loadReferences, type Kind } from "./lib/extract.ts";
 
 // *--- Configuration ---*
 
@@ -292,7 +292,7 @@ test("samples: bad sample brief fails on exactly the planted fabrications", () =
 // Real briefs produced by /casa:investigate on the fixtures (kept as *.runN.brief.md) must
 // stay lint-clean against the intake they came from.
 for (const f of readdirSync(join(ROOT, "evals/samples")).filter((n) => /\.run\d+\.brief\.md$/.test(n)).sort()) {
-  // May carry a .v2 suffix: the intake file has the same name.
+  // May carry a .v2 or .v3 suffix: the intake file has the same name.
   const fixture = f.replace(/\.run\d+\.brief\.md$/, "");
   test(`samples: run sample ${f} traces every citation to ${fixture}`, () => {
     const r = lint(read(`evals/samples/${f}`), json(`intake/fixtures/${fixture}.intake.json`));
@@ -300,3 +300,81 @@ for (const f of readdirSync(join(ROOT, "evals/samples")).filter((n) => /\.run\d+
     expect(r.pass).toBe(true);
   });
 }
+
+// *--- Intake v3 ---*
+
+/** The v3 twin with typed fields filled in: a Suricata alert, a Sysmon DNS query, a Sysmon connection. */
+function richV3(): unknown {
+  const v3 = json("intake/fixtures/brute-force-dc-chain.v3.intake.json");
+  const nulls = { process_id: null, process_guid: null, user: null };
+  Object.assign(v3.detections[1], {
+    engine: { name: "suricata", rule_id: "2024217", rev: 3 }, dst_ip: "203.0.113.80", dst_port: 8443, proto: "tcp",
+    suricata: { event_type: "alert", signature: "ET POLICY test", category: null, severity: 2, action: "allowed", flow_id: "1234", app_proto: "tls", http_hostname: null, http_url: null, http_user_agent: null, tls_sni: "files.example.io", dns_rrname: null },
+  });
+  Object.assign(v3.detections[2], { src_port: 51544, logon_type: 3 });
+  Object.assign(v3.detections[3], {
+    event_id: "22",
+    sysmon: { dns_query: { ...nulls, image: "C:\\Tools\\agent.exe", user: "LAB\\opsuser", query_name: "sync-cdn.example.zz", query_status: "0", query_results: null } },
+  });
+  v3.detections.push({ ...v3.detections[3], alert_id: "9.9", event_id: "3", sysmon: { network_connect: { ...nulls, image: "C:\\Tools\\agent.exe", initiated: true, source_hostname: "wkstn-07", destination_hostname: "backhaul.example.com" } } });
+  return v3;
+}
+
+test("v3 fields: subject and target users, ports, engine rule IDs and Sysmon names trace, and inventions fail", () => {
+  const v3 = richV3();
+  const honest = [
+    "Suricata SID 2024217 fired on talondc01 for files.example.io on 8443/tcp.",
+    "On talondellbox the target user svc-backup logged on from source port 51544.",
+    "On talondc01 the subject user svc-backup requested replication.",
+    "The resolver asked for sync-cdn.example.zz, and wkstn-07 then reached backhaul.example.com.",
+  ];
+  for (const line of honest) expect([line, flagged(line, v3)]).toEqual([line, []]);
+  const invented: [Kind, string][] = [
+    ["rule_id", "Suricata SID 2024299 fired on talondc01."],
+    ["port", "talondc01 also reached 9443/tcp."],
+    ["user", "The subject user svc-sqlagent requested replication."],
+    ["domain", "The resolver asked for sync-cdn2.example.zz."],
+  ];
+  for (const [kind, line] of invented) expect([line, flagged(line, v3, kind).length]).toEqual([line, 1]);
+});
+
+test("v3 fields: a detection's own ports do not become host:port exposures", () => {
+  const v3 = richV3();
+  expect(flagged("talondc01:8443 was exposed.", v3).length).toBeGreaterThan(0);
+  expect(flagged("talondellbox:3389 was exposed.", v3)).toEqual([]);
+});
+
+test("v3 offsets: an intake time with a non-UTC offset traces by its UTC date and time, not its local clock", () => {
+  const v3 = richV3() as { detections: { timestamp: string }[] };
+  v3.detections[0].timestamp = "2026-07-20T09:19:47.418123+07:00";
+  expect(flagged("The first alert fired at 2026-07-20 02:19:47Z.", v3, "timestamp")).toEqual([]);
+  expect(flagged("The first alert fired at 2026-07-20 09:19:47Z.", v3, "timestamp").length).toBe(1);
+  // Across midnight the UTC date is the earlier day.
+  v3.detections[0].timestamp = "2026-07-20T05:10:00+07:00";
+  expect(intakeKnowledge(v3).stamps.some((s) => s.date === "2026-07-19" && s.time === "22:10:00")).toBe(true);
+});
+
+test("v3 learned TLDs: only a TLD the domain pattern can read is learned", () => {
+  const v3 = richV3() as { detections: { sysmon: { dns_query?: { query_name: string } } | null }[] };
+  const k = (name: string) => {
+    v3.detections[3].sysmon!.dns_query!.query_name = name;
+    return intakeKnowledge(v3).patterns.domainTlds;
+  };
+  expect(k("sync-cdn.example.zz")).toContain("zz");
+  for (const [name, tld] of [["a.example.c0m", "c0m"], ["a.example.x-y", "x-y"], [`a.example.${"q".repeat(30)}`, "q".repeat(30)]]) expect(k(name)).not.toContain(tld);
+});
+
+test("v3 Sysmon hosts: a single-label hostname found only in source_hostname traces, and a stranger still fails", () => {
+  const v3 = richV3() as { detections: { sysmon?: { network_connect?: Record<string, unknown> } | null }[] };
+  const conn = v3.detections.at(-1)!.sysmon!.network_connect!;
+  conn.source_hostname = "wkstn-relay";
+  conn.destination_hostname = null;
+  const hosts = (text: string, hostPrefix?: string) => lint(text, v3, { hostPrefix }).unknown.filter((u) => u.kind === "host").map((u) => u.token);
+  // In prose the prefix makes a single-label name readable as a host; only the intake can vouch for it.
+  expect(hosts("wkstn-relay connected out.", "wkstn-")).toEqual([]);
+  expect(hosts("wkstn-other connected out.", "wkstn-")).toEqual(["wkstn-other"]);
+  // A brief's JSON block names a host with no prefix to read it by, so the intake's typed field is the only voucher.
+  const block = (h: string) => "```json\n" + JSON.stringify({ schema: "casa.brief/v1", threads: [{ hosts: [h] }] }) + "\n```\n";
+  expect(hosts(block("wkstn-relay"))).toEqual([]);
+  expect(hosts(block("wkstn-other"))).toEqual(["wkstn-other"]);
+});

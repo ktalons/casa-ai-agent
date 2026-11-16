@@ -17,7 +17,8 @@ with the test that proves it fires and the note that says when it will fire wron
 ## Inputs
 
 One `casa.finding/v1` with `verdict: supported`, its thread's detections as verbatim JSON, the
-run's brief path, and the run's `run_id`, which is unique to this run.
+run's brief path, the run's `run_id`, which is unique to this run, and the absolute output
+root (standards §9). Every `detections/proposed/` path below is under that output root.
 
 ## Lane
 

@@ -6,7 +6,7 @@
 
 // *--- Imports ---*
 
-import { afterAll, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
 import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -70,12 +70,12 @@ const isDeny = (d: ReturnType<typeof decide>) => d.exit === 0 && denyReason(d.ou
 const reasonOf = (d: ReturnType<typeof decide>) => (d.exit === 0 ? denyReason(d.output) : null);
 
 /** Run the hooks.json command as Claude Code would: payload on stdin, `dir` as working directory. */
-function runHook(payload: unknown, PATH: string, dir: string = ROOT) {
+function runHook(payload: unknown, PATH: string, dir: string = ROOT, extra: Record<string, string> = {}) {
   const body = typeof payload === "string" ? payload : JSON.stringify(payload);
   const r = Bun.spawnSync(["/bin/sh", "-c", hookCommand], {
     cwd: dir,
     stdin: Buffer.from(body),
-    env: { PATH, CLAUDE_PLUGIN_ROOT: ROOT, HOME: process.env.HOME ?? "/" },
+    env: { PATH, CLAUDE_PLUGIN_ROOT: ROOT, HOME: process.env.HOME ?? "/", ...extra },
     stdout: "pipe",
     stderr: "pipe",
   });
@@ -351,6 +351,34 @@ test("stdin: the hooks.json command decides every matched tool end to end", () =
   }
 });
 
+// *--- Output Root ---*
+
+test("output root: lanes resolve under the configured root, and an empty value falls back to the project", () => {
+  const root = mkdtempSync(join(tmpdir(), "casa-out-"));
+  try {
+    mkdirSync(join(root, "detections", "proposed"), { recursive: true });
+    symlinkSync(join(cwd, "agents"), join(root, "detections", "proposed", "link"));
+    const env = { [guard.OUTPUT_ROOT_ENV]: root };
+    const de = sub("casa:detection-engineer"), ev = sub("casa:evaluator");
+    expect(decide(write(de, join(root, "detections/proposed/r1-T1.sigma.yml")), env)).toEqual({ exit: 0 });
+    expect(decide(write(ev, join(root, "evals/results/f/x.rubric.json")), env)).toEqual({ exit: 0 });
+    // The project lane is outside a root that lives elsewhere.
+    expect(reasonOf(decide(write(de, "detections/proposed/x.yml"), env))).toContain("outside the output root");
+    expect(reasonOf(decide(write(de, join(root, "briefs/x.md")), env))).toContain("may write only under");
+    expect(decide(write(de, join(root, "detections/proposed/link/x.md")), env).exit).toBe(2);
+    expect(isDeny(decide(write(de, join(root, "detections/proposed/../../x.md")), env))).toBe(true);
+    // A relative root resolves against the project; an empty or blank one is the project.
+    expect(decide(write(de, join(cwd, "out/detections/proposed/x.yml")), { [guard.OUTPUT_ROOT_ENV]: "out" })).toEqual({ exit: 0 });
+    for (const blank of ["", "   "]) expect(decide(write(de, "detections/proposed/x.yml"), { [guard.OUTPUT_ROOT_ENV]: blank })).toEqual({ exit: 0 });
+    // End to end: Claude Code exports the option to the hook process.
+    const extra = { [guard.OUTPUT_ROOT_ENV]: root };
+    expect(runHook(write(de, join(root, "detections/proposed/y.yml")), BUN_PATH, ROOT, extra)).toEqual({ exit: 0, stdout: "", stderr: "" });
+    expect(denyReason(runHook(write(de, "detections/proposed/y.yml"), BUN_PATH, ROOT, extra).stdout)).toContain("outside the output root");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 // *--- Registry Drift ---*
 
 test("agent registry matches agents/ frontmatter and guard.sh", () => {
@@ -361,4 +389,61 @@ test("agent registry matches agents/ frontmatter and guard.sh", () => {
   const sh = readFileSync(join(import.meta.dir, "guard.sh"), "utf8");
   const bare = /bare='\(([^)]+)\)'/.exec(sh)?.[1]?.split("|").sort();
   expect(bare).toEqual(names);
+});
+
+// *--- Output Root Hardening ---*
+
+describe("output root hardening", () => {
+  const project = mkdtempSync(join(tmpdir(), "casa-proj-"));
+  const elsewhere = mkdtempSync(join(tmpdir(), "casa-else-"));
+  const tmpRoot = mkdtempSync("/tmp/casa-guard-tmp-");
+  mkdirSync(join(project, "detections", "accepted"), { recursive: true });
+  symlinkSync(elsewhere, join(project, "rootlink"));
+  symlinkSync(elsewhere, join(project, "via"));
+  afterAll(() => {
+    for (const d of [project, elsewhere, tmpRoot]) rmSync(d, { recursive: true, force: true });
+  });
+  const at = (p: string) => write(sub("casa:detection-engineer"), p);
+  const opt = (v: string, more: Record<string, string> = {}) => ({ [guard.OUTPUT_ROOT_ENV]: v, CLAUDE_PROJECT_DIR: project, ...more });
+  const exit2 = (d: ReturnType<typeof decide>, why: string) => {
+    expect(d.exit).toBe(2);
+    expect(d.exit === 2 ? d.reason : "").toContain(why);
+  };
+
+  test("a relative root resolves against CLAUDE_PROJECT_DIR, not the hook's cwd", () => {
+    expect(decide(at(join(project, "out/detections/proposed/x.yml")), opt("out"))).toEqual({ exit: 0 });
+  });
+  test("a root starting with ~ is refused with a request for an absolute path", () => {
+    exit2(decide(at(join(cwd, "~/r/detections/proposed/x.yml")), opt("~/r")), "absolute path");
+  });
+  test("a root inside the plugin directory is refused", () => {
+    exit2(decide(at(join(ROOT, "scratch/detections/proposed/x.yml")), opt(join(ROOT, "scratch"), { CLAUDE_PLUGIN_ROOT: ROOT })), "plugin");
+  });
+  test("a root with a detections/accepted segment is refused", () => {
+    exit2(decide(at(join(project, "detections/accepted/detections/proposed/x.yml")), opt("detections/accepted")), "detections/accepted");
+  });
+  test("a root that is itself a symlink is refused", () => {
+    exit2(decide(at(join(project, "rootlink/detections/proposed/x.yml")), opt("rootlink")), "symlink");
+  });
+  test("a symlink between the project and a root inside it is refused", () => {
+    exit2(decide(at(join(project, "via/out/detections/proposed/x.yml")), opt("via/out")), "symlink");
+  });
+  test("an absolute root outside the project keeps working under a system symlink", () => {
+    expect(decide(at(join(tmpRoot, "detections/proposed/x.yml")), opt(tmpRoot))).toEqual({ exit: 0 });
+  });
+  test("a root named like ..cache inside the plugin directory is refused as inside", () => {
+    exit2(decide(at(join(ROOT, "..cache/out/detections/proposed/x.yml")), opt(join(ROOT, "..cache/out"), { CLAUDE_PLUGIN_ROOT: ROOT })), "plugin");
+  });
+  test("a child directory named like ..x is inside the root, not an escape", () => {
+    const env = { CLAUDE_PROJECT_DIR: project, [guard.OUTPUT_ROOT_ENV]: project };
+    expect(decide(at(join(project, "detections/proposed/..x/a.yml")), env)).toEqual({ exit: 0 });
+    // At the root itself the lane check, not the escape check, must be what refuses it.
+    expect(reasonOf(decide(at(join(project, "..x/a.yml")), env))).toContain("may write only under");
+  });
+  test("no option: lanes resolve against the hook's cwd exactly as before", () => {
+    for (const env of [{ CLAUDE_PROJECT_DIR: project }, { CLAUDE_PROJECT_DIR: project, [guard.OUTPUT_ROOT_ENV]: "  " }]) {
+      expect(decide(at("detections/proposed/x.yml"), env)).toEqual({ exit: 0 });
+      expect(reasonOf(decide(at(join(project, "detections/proposed/x.yml")), env))).toContain("outside the project");
+    }
+  });
 });

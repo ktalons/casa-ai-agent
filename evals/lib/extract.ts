@@ -103,13 +103,15 @@ const DOC_HOST_KEYS = /^(?:hosts?|hostnames?|computers?|src_host|dst_host)$/i;
 const DOC_USER_KEYS = /^(?:users?|usernames?|user_name|accounts?|target_user|subject_user)$/i;
 const DOC_RULE_KEYS = /^(?:rule_ids?|rules?|sids?)$/i;
 // Keys that carry typed values inside an intake. In an intake, `agent` is the host.
-const INTAKE_HOST_KEYS = /^(?:agent|agent_name|hosts?|hostnames?|computer|src_host|dst_host|source_host|dest_host)$/i;
+const INTAKE_HOST_KEYS = /^(?:agent|agent_name|hosts?|hostnames?|computer|src_host|dst_host|source_host|dest_host|source_hostname|destination_hostname)$/i;
 const INTAKE_USER_KEYS = /^(?:users?|usernames?|user_name|accounts?|account_name|src_user|dst_user|subject_user|target_user|subjectusername|targetusername)$/i;
 const INTAKE_RULE_KEYS = /^rule_?id$/i;
 const INTAKE_ALERT_KEYS = /^alert_?id$/i;
 const INTAKE_EVENT_KEYS = /^event_?id$/i;
 const INTAKE_PORT_KEYS = /(?:^|_)port$/i;
 const INTAKE_ATTACK_KEYS = /^(?:mitre|mitre_ids?|techniques?)$/i;
+// v3 typed fields whose value is a DNS name: a Sysmon query or hostname, a Suricata SNI, HTTP host or rrname.
+const INTAKE_DOMAIN_KEYS = /^(?:query_name|dns_rrname|tls_sni|http_hostname|source_hostname|destination_hostname)$/i;
 const PRODUCER_KEYS = new Set(["schema", "source", "consumer"]);
 const HOSTNAME_VALUE = /^[A-Za-z0-9][A-Za-z0-9.-]*$/;
 
@@ -125,6 +127,8 @@ export interface NamePatterns {
   hostPrefixes: string[];
   hostStems: string[];
   userPrefixes: string[];
+  // TLDs outside the reference list that a typed intake field uses, so a DGA-style name under one is still read as a domain.
+  domainTlds: string[];
 }
 
 export interface LintOptions {
@@ -165,6 +169,7 @@ export interface References {
   tlds: Set<string>;
   special_use: Set<string>;
   special_addresses: Set<string>;
+  excluded_tlds: Set<string>;
 }
 
 export interface Unknown { token: string; kind: Kind; reason: string }
@@ -257,6 +262,21 @@ function looseDates(token: string): string[] {
   return [];
 }
 
+/**
+ * A stamp with a date, a time and a non-UTC offset, moved to its UTC date and time. The fraction
+ * is kept as written; anything else is returned unchanged.
+ */
+function toUtcStamp(st: Stamp): Stamp {
+  if (!st.date || !st.time || isUtc(st.zone) || st.time.length < 8) return st;
+  const z = /^([+-])(\d{2}):?(\d{2})$/.exec(st.zone as string);
+  if (!z) return st;
+  const local = Date.parse(`${st.date}T${st.time.slice(0, 8)}Z`);
+  if (Number.isNaN(local)) return st;
+  const offsetMs = (z[1] === "-" ? -1 : 1) * (Number(z[2]) * 60 + Number(z[3])) * 60_000;
+  const utc = new Date(local - offsetMs).toISOString();
+  return { date: utc.slice(0, 10), time: `${utc.slice(11, 19)}${st.time.slice(8)}`, zone: "Z" };
+}
+
 function isUtc(zone: string | undefined): boolean {
   return zone === undefined || zone === "Z" || /^[+-]00:?00$/.test(zone);
 }
@@ -336,6 +356,7 @@ export function loadReferences(): References {
     tlds: new Set<string>((lr.tlds as string[]).filter((t) => !excluded.has(t))),
     special_use: new Set<string>(lr.special_use_names.names),
     special_addresses: new Set<string>((lr.special_addresses.addresses as string[]).map((a) => (a.includes(":") ? canonicalIpv6(a) ?? a : a))),
+    excluded_tlds: excluded,
   };
   return cachedRefs;
 }
@@ -364,7 +385,8 @@ function isStopHost(token: string): boolean {
 
 /** Every evidence token in `text`, recognized with the naming patterns learned from an intake. */
 export function extractTokens(text: string, patterns: Partial<NamePatterns> = {}): Tokens {
-  const p: NamePatterns = { knownHosts: [], hostPrefixes: [], hostStems: [], userPrefixes: [], ...patterns };
+  const p: NamePatterns = { knownHosts: [], hostPrefixes: [], hostStems: [], userPrefixes: [], domainTlds: [], ...patterns };
+  const learnedTlds = new Set(p.domainTlds);
   for (const prefix of [...p.hostPrefixes, ...p.hostStems]) assertHostPrefix(prefix);
   const known = new Set(p.knownHosts.map((h) => h.toLowerCase()));
   const { tlds, special_use: specialUse } = loadReferences();
@@ -467,7 +489,7 @@ export function extractTokens(text: string, patterns: Partial<NamePatterns> = {}
   consume(buf, RE_DOMAIN, (m) => {
     // Internal names under a special-use suffix (dc01.corp) are domain-shaped and checked too.
     const tld = m[2].toLowerCase();
-    if ((!tlds.has(tld) && !specialUse.has(tld)) || RE_DOTNET_NAMESPACE.test(m[1])) return null;
+    if ((!tlds.has(tld) && !specialUse.has(tld) && !learnedTlds.has(tld)) || RE_DOTNET_NAMESPACE.test(m[1])) return null;
     t.domain.add(m[1].toLowerCase());
     return "";
   });
@@ -506,7 +528,7 @@ export function intakeKnowledge(intake: unknown, opts: LintOptions = {}): Knowle
     rule_ids: new Set(), alert_ids: new Set(), hosts: new Set(), users: new Set(), event_ids: new Set(), ports: new Set(),
     exposures: new Set(), ips: new Set(), ipv6: new Set(), domains: new Set(), hashes: new Set(), stamps: [], dates: new Set(),
     attack_in_intake: new Set(), intake_text: JSON.stringify(intake),
-    patterns: { knownHosts: [], hostPrefixes: [], hostStems: [], userPrefixes: [] },
+    patterns: { knownHosts: [], hostPrefixes: [], hostStems: [], userPrefixes: [], domainTlds: [] },
     window: null,
   };
   const bounds: Record<"start" | "end", number> = { start: NaN, end: NaN };
@@ -526,11 +548,22 @@ export function intakeKnowledge(intake: unknown, opts: LintOptions = {}): Knowle
       const o = value as Record<string, unknown>;
       const host = Object.keys(o).find((x) => INTAKE_HOST_KEYS.test(x));
       const port = Object.keys(o).find((x) => INTAKE_PORT_KEYS.test(x));
-      if (host && port && typeof o[host] === "string" && (typeof o[port] === "number" || typeof o[port] === "string")) k.exposures.add(`${(o[host] as string).toLowerCase()}:${o[port]}`);
+      // A v3 detection carries an agent and its connection ports; only a listener record is an exposure.
+      if (!Object.hasOwn(o, "alert_id") && host && port && typeof o[host] === "string" && (typeof o[port] === "number" || typeof o[port] === "string")) k.exposures.add(`${(o[host] as string).toLowerCase()}:${o[port]}`);
     }
   }
   for (const h of valuesUnder(intake, INTAKE_HOST_KEYS)) k.hosts.add(h.toLowerCase());
   for (const u of valuesUnder(intake, INTAKE_USER_KEYS)) k.users.add(u.toLowerCase());
+  // A typed DNS name is a domain whatever its TLD; learn the TLD unless it is a file extension.
+  const domainTlds = new Set<string>();
+  for (const v of valuesUnder(intake, INTAKE_DOMAIN_KEYS)) {
+    const name = v.toLowerCase().replace(/\.$/, "");
+    // The same TLD grammar RE_DOMAIN reads, so a learned TLD is one prose extraction can match.
+    const tld = name.match(/\.([a-z]{2,24})$/)?.[1];
+    if (!tld) continue;
+    k.domains.add(name);
+    if (!loadReferences().excluded_tlds.has(tld)) domainTlds.add(tld);
+  }
   if (!Number.isNaN(bounds.start) && !Number.isNaN(bounds.end)) k.window = { start: bounds.start, end: bounds.end };
   else if (detectionTimes.length > 0) k.window = { start: Math.min(...detectionTimes), end: Math.max(...detectionTimes) };
 
@@ -544,6 +577,7 @@ export function intakeKnowledge(intake: unknown, opts: LintOptions = {}): Knowle
     hostPrefixes: [...new Set(prefixes)],
     hostStems: [...new Set(hosts.map((h) => h.match(/^([a-z][a-z0-9-]*[a-z-])\d+$/)?.[1]).filter((s): s is string => !!s && RE_HOST_PREFIX.test(s) && s.length >= 2))],
     userPrefixes: [...new Set([...k.users].map((u) => u.match(/^([a-z0-9]{2,}[-_.])/)?.[1]).filter((s): s is string => !!s))],
+    domainTlds: [...domainTlds],
   };
 
   // Then the same extraction the document gets, over every intake string except producer metadata.
@@ -561,7 +595,8 @@ export function intakeKnowledge(intake: unknown, opts: LintOptions = {}): Knowle
     for (const h of t.hash) k.hashes.add(h);
     for (const a of t.attack) k.attack_in_intake.add(a);
     for (const ts of t.timestamp) {
-      const st = parseStamp(ts);
+      // An intake time written with an offset is cited by its UTC clock.
+      const st = toUtcStamp(parseStamp(ts));
       k.stamps.push(st);
       if (st.date) k.dates.add(st.date);
     }

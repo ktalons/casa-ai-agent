@@ -23,6 +23,8 @@ write to it. You never edit workflow cards, agents or the standards skill here.
 - **`/casa:learn --discard <file>`**: archive that one note as discarded without asking.
 
 Find notes with the Glob tool and read them with the Read tool. Do not run shell commands.
+The `learn/` folders are under the output root (standards §9), `${user_config.output_root}`;
+when that is empty or still a placeholder, they are under the project directory.
 A note under `learn/pending/` whose file name already exists under `learn/archive/` (as is, or
 with a `discarded-` prefix) is settled: leave it out of the list and of every prompt, and say
 it can be deleted.

@@ -88,10 +88,11 @@ working directory) with `scripts/install-into-project.sh`, run from that project
 adds the marketplace, installs `casa@casa`, merges `docs/settings.recommended.json` into that
 project's `.claude/settings.json` and creates the output directories. Then run
 `/casa:investigate <path to intake.json>` there. Briefs, proposed detections, grades and learn
-candidates are written under that project, never into the plugin; the skills reach the
+candidates are written under the plugin's `output_root` option (the project when it is empty),
+never into the plugin; the skills reach the
 plugin's own validator, lint and reference tables through `${CLAUDE_PLUGIN_ROOT}`. The guard
 travels with the plugin and refuses every subagent shell command; the main thread's Bash
-allowlist does not travel, which is why the settings snippet exists. The full runbook for the lab, including the v2 digest producer, is
+allowlist does not travel, which is why the settings snippet exists. The full runbook for the lab, including the v3 Wazuh producer that ships with CASA, is
 [`docs/talonsoclab-integration.md`](docs/talonsoclab-integration.md).
 
 ## Development

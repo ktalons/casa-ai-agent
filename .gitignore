@@ -40,3 +40,4 @@ engagements/*
 *.jsonl
 !intake/raw/*.jsonl
 !hooks/fixtures/*.jsonl
+!intake/producers/fixtures/*.jsonl

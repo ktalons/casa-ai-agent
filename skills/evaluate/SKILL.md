@@ -12,12 +12,12 @@ advisory and comes from `casa:evaluator`. Nothing here edits a brief.
 ## Steps
 
 1. **Resolve inputs.** `<fixture>` is a name under `${CLAUDE_PLUGIN_ROOT}/intake/fixtures/` (for
-   example `brute-force-dc-chain`, or `brute-force-dc-chain.v2` for the v2 twin). Intake:
+   example `brute-force-dc-chain`, or `brute-force-dc-chain.v2` or `.v3` for a later-version twin). Intake:
    `${CLAUDE_PLUGIN_ROOT}/intake/fixtures/<fixture>.intake.json`. Expected: the base name's
-   `${CLAUDE_PLUGIN_ROOT}/intake/fixtures/<base>.expected.json`, where `<base>` is `<fixture>` without a `.v2` suffix;
-   the ground truth is the same for both intake versions. Brief: the `--brief` path if given; otherwise the
+   `${CLAUDE_PLUGIN_ROOT}/intake/fixtures/<base>.expected.json`, where `<base>` is `<fixture>` without a `.v2` or `.v3` suffix;
+   the ground truth is the same for every intake version. Brief: the `--brief` path if given; otherwise the
    newest `briefs/*-<fixture>.brief.md` (the dash and the `.brief.md` suffix matter: they keep
-   a `.v2` twin's brief from matching its base fixture); otherwise
+   a `.v2` or `.v3` twin's brief from matching its base fixture); otherwise
    `${CLAUDE_PLUGIN_ROOT}/evals/samples/<fixture>.run1.brief.md`.
    Find files with the Glob tool (it returns newest first), not with `ls`, `find` or `cat`:
    those are not allowlisted and the call is refused. If any of the three is missing, say
@@ -30,12 +30,14 @@ advisory and comes from `casa:evaluator`. Nothing here edits a brief.
 
    Run it on its own, with nothing chained to it, from the project directory: the grade file
    goes to `evals/results/<fixture>/` under the current working directory, never under the
-   plugin root. Keep the printed `path` (the grade file). A non-zero exit means a machine check failed;
+   plugin root. When the output root (standards §9), `${user_config.output_root}`, is set and
+   is not the project directory, add `--out <output root>/evals/results` so the grade lands
+   where the evaluator may write. Keep the printed `path` (the grade file). A non-zero exit means a machine check failed;
    continue to the rubric anyway so the record is complete, but say which checks failed.
 3. **Rubric grade.** Use the Agent tool once with `subagent_type` `casa:evaluator` and a prompt
    that gives the four paths (brief, expected, intake, grade file) and asks for the rubric file
    in the same directory as the grade file. Take the rubric file path from its reply.
-   Both files now sit in one project `evals/results/<fixture>/` directory.
+   Both files now sit in one `evals/results/<fixture>/` directory under the output root.
 4. **Merge.** Run:
 
    ```bash

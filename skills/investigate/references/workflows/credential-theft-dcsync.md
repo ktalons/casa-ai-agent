@@ -39,6 +39,9 @@ does not carry the requesting account, the source address, or the replication GU
   change on a chain host), and state that level for the whole chain, not only the DC segment.
 - **v2 intakes:** a `user` shared by the source-host success and the DC logon, or a `src_ip`
   shared by the DC logon and the replication request, establishes the link as data.
+- **v3 intakes:** the source-host logon's `target_user` (with `logon_type` 3 for a network
+  logon) equal to the replication event's `subject_user` ties the account to the DC request as
+  data; v3 never puts both roles in one field, so a match across the two is not a guess.
 - Severity: a `supported` H1 is the most critical item in any intake it appears in, because a
   completed DCSync yields every domain hash, including krbtgt. Lead the brief with it.
 

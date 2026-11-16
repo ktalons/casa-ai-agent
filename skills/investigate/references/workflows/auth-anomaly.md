@@ -33,6 +33,9 @@
   its independent references, and hand the second host to the lateral-movement or DCSync card.
 - **v2 intakes:** `src_ip` and `user` on each detection decide spraying versus brute force
   directly and tie the success to the burst; the ceilings above lift accordingly.
+- **v3 intakes:** `target_user` and `logon_type` on each failure separate spraying (many
+  targets from one source) from brute force (one target); `subject_user` is the caller when a
+  service authenticates on a user's behalf.
 - Thresholds: the rule's own description and level state what it counted. A burst below the
   producer's level floor never reaches the intake, so no burst detection is not evidence of no
   failures.

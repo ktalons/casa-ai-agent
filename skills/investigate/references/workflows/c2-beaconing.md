@@ -32,6 +32,10 @@
   `alternatives`.
 - **v2 intakes:** `dst_ip` on the detections is an indicator the threat-intel agent can look
   up, and a structured `recon_delta.changes[]` entry for the host is the listener fact.
+- **v3 intakes:** `dst_ip`, `dst_port` and `proto` name the channel; a Sysmon `network_connect`
+  group names the `image` that holds it and a `dns_query` group the name it resolved first; a
+  `suricata` block adds `tls_sni`, `http_hostname` and the signature, whose ID is in
+  `engine.rule_id`.
 - **High** is reachable in intake-only mode only when an independent source corroborates:
   a threat-intelligence match on the destination (threat-intel agent, with a cited source)
   or a host-level detection tying a suspicious process to the connection.

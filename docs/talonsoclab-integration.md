@@ -1,26 +1,27 @@
 # Running CASA on TalonSocLab
 
-The runbook for the day the lab is ready: install the plugin into the lab checkout, switch the
-digest producer to intake v2, run the first investigation, then the daily loop. Everything
-here was exercised against a scratch copy of the lab on 2026-10-05; the exact commands are
-below so the steps can be repeated verbatim.
+The runbook for the day the lab is ready: install the plugin into the lab checkout, produce an
+intake v3 artifact with the CASA producer, run the first investigation, then the daily loop.
+Steps 2 and 4 were exercised against a scratch copy of the lab on 2026-10-05; the producer
+steps that need a live indexer wait for a lab ISC. The exact commands are below so the steps
+can be repeated verbatim.
 
-Two repos, two planes. TalonSocLab is the data plane: it collects, filters, cites and writes
-`digest/<date>-intake.json`. CASA is the reasoning plane: a Claude Code plugin installed
-**into the lab checkout**, so briefs, proposed detections and learn candidates land next to
-the telemetry they came from. CASA never writes into its own repo from a lab run; lessons you
-approve go to the plugin's data directory (see step 2).
+Two repos, two planes. TalonSocLab is the data plane: it collects, filters and cites
+telemetry, and the CASA producer turns its Wazuh alerts into `<output-root>/intake/<date>-intake.json`.
+CASA is the reasoning plane: a Claude Code plugin installed **into the lab checkout**, whose
+`output_root` option (step 3) puts briefs, proposed detections and learn candidates outside
+the tracked tree. CASA never writes into its own repo from a lab run; lessons you approve go
+to the plugin's data directory (see step 2).
 
 ## 1. Prerequisites
 
 | Need | Why |
 |---|---|
 | Claude Code 2.1.289 or later | plugin skills reference their own files through `${CLAUDE_PLUGIN_ROOT}`, substituted at load |
-| bun | runs the validator, lint and grader that ship with the plugin |
+| bun | runs the producer, validator, lint and grader that ship with the plugin |
 | jq | the install script merges permission rules with it |
-| python3 | the lab's digest producer (stdlib only) |
 
-Check: `claude --version`, `bun --version`, `jq --version`, `python3 --version`.
+Check: `claude --version`, `bun --version`, `jq --version`.
 
 ## 2. Install CASA into the lab checkout
 
@@ -66,76 +67,76 @@ an edit to a card or agent in your checkout takes effect without a reinstall.
 
 Commit the lab's `.claude/settings.json` and `.gitignore` changes.
 
-## 3. Switch the digest producer to intake v2
+## 3. Produce the intake with the CASA producer
 
-> **On hold since 2026-11-04.** The lab removed `deploy/soc-recon/digest/` from its public
-> tree that day, so the patch and the drop-in file below no longer have a target. Both are
-> being replaced by a TypeScript producer that ships with CASA and works against any Wazuh
-> indexer. This section stays as the record of what the v2 producer does until that lands.
+CASA ships its own producer, `intake/producers/wazuh.ts` (Bun, no dependencies). It reads
+Wazuh alerts, from a recorded export or from a live indexer, and writes one
+`talonsoclab.soc-intake/v3` intake. It replaces the lab's former Python digest producer, which
+the lab removed from its public tree on 2026-11-04; the lab's history was rewritten that day,
+so commit IDs recorded before it no longer resolve there.
 
-The v2 contract gives CASA what v1 could not carry: the window and filter the producer
-applied, whether the cap cut the list, pipeline liveness, per-alert correlation fields
-(`alert_id`, `src_ip`, `dst_ip`, `user`, `event_id`, `tactic`, `groups`) and a structured recon
-delta. Field table: [`intake/README.md`](../intake/README.md).
+What v3 carries beyond v2 (field table: [`intake/README.md`](../intake/README.md)): the engine
+that raised each alert with its own IDs (a Suricata signature ID next to the Wazuh rule ID),
+ports and protocol, the acting `subject_user` apart from the `target_user` with its logon
+type, typed Sysmon fields for events 1, 3, 11, 13 and 22, Suricata EVE fields, timestamps with
+microseconds and UTC offsets, a level floor plus a rule-ID include list, and per-day counts so
+a truncated window shows which days lost alerts.
 
-The updated producer is in this repo as a drop-in file and as a patch against the lab's
-former producer. The lab's history was rewritten on 2026-11-04, so commit IDs recorded
-before that date no longer resolve there.
-
-```bash
-cd /path/to/talonsoclab
-git apply /path/to/casa-ai-agent/docs/talonsoclab/generate_digest-v2.patch
-# or: cp /path/to/casa-ai-agent/docs/talonsoclab/generate_digest.py deploy/soc-recon/digest/
-```
-
-What changed in `deploy/soc-recon/digest/generate_digest.py`:
-
-- `generated` is an ISO instant; `window` comes from `DIGEST_LOOKBACK` (`24h` or `3d`);
-  `filter.cap` from the new `DIGEST_CAP` (default 200); `truncated` is true when the indexer
-  reported more matches than the cap.
-- `pipeline` comes from one extra size-0 query over the same window with **no** level filter:
-  distinct `agent.name` and the newest `@timestamp`. A quiet high-severity window and a dead
-  collector now look different to CASA.
-- Each detection carries the correlation fields, read from the Wazuh document: `id`,
-  `data.srcip` or `data.win.eventdata.ipAddress`, `data.dstip`, `data.srcuser`, `data.dstuser` or
-  `data.win.eventdata.targetUserName`, `data.win.system.eventID`, `rule.mitre.tactic`,
-  `rule.groups`. Missing values are `null`, lists default to empty.
-- `recon_delta` is `{markdown, baseline, changes[]}`. `baseline` is the date of the newest
-  `*_baseline.md`; `changes` lists each host under "New subdomains" in the newest delta, one
-  entry per port seen for it in `<recon-dir>/latest/httpx.jsonl` (`--recon-dir`, default
-  `data/recon`), or `port: 0` when the host was enumerated but never probed live. Nuclei
-  findings stay in the markdown.
-- `--schema v1` still emits the frozen v1 shape, for rollback. The digest markdown, the
-  optional LLM rewrite and the other flags are unchanged.
-
-Dry run before touching cron, with a recorded alert file (two ship with CASA under
-`intake/raw/`):
+**Dry run (works today, no lab needed).** Replay a recorded export and validate the result:
 
 ```bash
-cd deploy/soc-recon
-python3 digest/generate_digest.py --alerts-file /path/to/casa-ai-agent/intake/raw/brute-force-dc-chain.v2.alerts.jsonl --out-dir /tmp/casa-dry
-bun /path/to/casa-ai-agent/intake/Validate.ts /tmp/casa-dry/*-intake.json
+bun /path/to/casa-ai-agent/intake/producers/wazuh.ts --replay /path/to/casa-ai-agent/intake/raw/brute-force-dc-chain.v2.alerts.jsonl --out /tmp/casa-dry/intake.json
+bun /path/to/casa-ai-agent/intake/Validate.ts /tmp/casa-dry/intake.json
 ```
 
-In replay mode the window is anchored to the recording, not to now, so old data validates.
-Then a live run with the lab up, and validate that too:
+In replay mode the window ends at the newest alert in the recording (or at `--window-end`),
+not at now, so old data validates. `--min-level`, `--include-rules`, `--cap` and `--lookback`
+apply exactly as they do live.
+
+**Live run (after a lab ISC exists).** Nothing in this leg touches the lab; these are the steps
+for the day the lab wires CASA in. The producer talks HTTPS only, verifies the indexer's
+certificate against the CA you give it, refuses a plain `http://` URL or one with a user name
+in it, and takes the password from the environment or a file, never from its command line. It
+never prints the password or the authorization header.
 
 ```bash
-set -a && . ./.env && set +a
-python3 digest/generate_digest.py
-bun /path/to/casa-ai-agent/intake/Validate.ts digest/$(date -u +%F)-intake.json
+export WAZUH_INDEXER_URL=https://<indexer-host>:9200
+export WAZUH_INDEXER_USER=<read-only-user>
+bun /path/to/casa-ai-agent/intake/producers/wazuh.ts --password-file <path-to-password-file> --ca-file <path-to-root-ca.pem> --include-rules <pack-rule-ids> --redact --out "<output-root>/intake/$(date -u +%F)-intake.json"
+bun /path/to/casa-ai-agent/intake/Validate.ts "<output-root>/intake/$(date -u +%F)-intake.json"
 ```
+
+`--redact` applies the lab's own mapping before anything is written: private IPv4 addresses
+become `192.0.2.n` and private IPv6 addresses `2001:db8::n` in order of first sight, account
+SIDs become `S-1-5-21-0-0-n`, the machine-derived first field of each Sysmon GUID becomes
+zeros, and each `--alias <host>=<alias>` is applied as a whole word. If anything private
+survives, the producer writes nothing and names the field.
+
+`--redact` is a second layer, not a guarantee; the first is an output root outside any public
+tree. It rewrites addresses written plainly, as reverse-lookup names and as IPv4-mapped forms,
+and refuses a base64 run of 16 or more characters that decodes to a private value. It does not
+decode percent-encoding, base64 shorter than 16 characters, nested or whitespace-wrapped
+encodings, or UTF-16BE, and it does not follow a Sysmon GUID into encoded text. Read an intake
+before it goes anywhere public. Pick an `<output-root>` outside any
+tracked public path, and set CASA's `output_root` plugin option to the same directory (below),
+so briefs and drafts land there too.
 
 A failure names the rule that tripped. Warnings (a technique ID not in the ATT&CK table, a
 window whose span disagrees with `lookback_hours`) do not fail.
+
+**Output root.** CASA's `output_root` option (a directory) decides where every run writes:
+`briefs/`, `detections/proposed/`, `learn/pending/`, `learn/archive/` and `evals/results/` all
+resolve under it, and the plugin's write guard enforces the same root. Left empty, it is the
+project directory, as before. Claude Code asks for plugin options when the plugin is enabled.
+For a public lab checkout, set it to a directory outside the repository.
 
 ## 4. First investigation
 
 From the lab checkout root, where the plugin is installed:
 
 ```bash
-claude -p "/casa:investigate deploy/soc-recon/digest/$(date -u +%F)-intake.json" --permission-mode acceptEdits
-bun /path/to/casa-ai-agent/evals/Lint.ts --brief briefs/$(date -u +%F).brief.md --intake deploy/soc-recon/digest/$(date -u +%F)-intake.json
+claude -p "/casa:investigate <output-root>/intake/$(date -u +%F)-intake.json" --permission-mode acceptEdits
+bun /path/to/casa-ai-agent/evals/Lint.ts --brief <output-root>/briefs/$(date -u +%F).brief.md --intake <output-root>/intake/$(date -u +%F)-intake.json
 ```
 
 The brief is `briefs/<date>.brief.md` (the producer's `<date>-intake.json` name is used as is,
@@ -145,7 +146,8 @@ truth for a live intake, so `/casa:evaluate` does not apply; read the brief agai
 reading of the alerts. Interactive use is the same without `-p`: start `claude` in the lab
 root and type the slash command.
 
-What CASA writes, all under the lab checkout and all gitignored except the last:
+What CASA writes, all under the output root except the last (with the option empty, that is
+the lab checkout, where the install script gitignores these paths):
 
 | Path | Written by | Contents |
 |---|---|---|
@@ -157,15 +159,16 @@ What CASA writes, all under the lab checkout and all gitignored except the last:
 
 ## 5. The daily loop
 
-Add the digest to cron after the recon run, as `crontab.example` already plans:
+After a lab ISC exists, add the producer to cron after the recon run (`%` is escaped because
+cron treats it as a line break):
 
 ```text
-0 7 * * *  cd /opt/soc-recon && set -a && . ./.env && set +a && python3 digest/generate_digest.py >> /var/log/soc-recon.log 2>&1
+0 7 * * *  WAZUH_INDEXER_URL=https://<indexer-host>:9200 WAZUH_INDEXER_USER=<read-only-user> bun /path/to/casa-ai-agent/intake/producers/wazuh.ts --password-file <path-to-password-file> --ca-file <path-to-root-ca.pem> --redact --out "<output-root>/intake/$(date -u +\%F)-intake.json" >> <log-file> 2>&1
 ```
 
 Then, each day you review:
 
-1. `claude -p "/casa:investigate deploy/soc-recon/digest/<date>-intake.json" --permission-mode acceptEdits`
+1. `claude -p "/casa:investigate <output-root>/intake/<date>-intake.json" --permission-mode acceptEdits`
 2. Read the brief. Options are suggestions with trade-offs; nothing is acted on by CASA.
 3. If rules were proposed, test them on the manager (`/var/ossec/bin/wazuh-logtest` with a real
    event), then move the keepers to `detections/accepted/` and commit.
