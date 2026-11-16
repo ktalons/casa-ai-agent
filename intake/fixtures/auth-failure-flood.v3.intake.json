@@ -1,0 +1,252 @@
+{
+  "schema": "talonsoclab.soc-intake/v3",
+  "generated": "2026-08-04T12:00:00Z",
+  "source": "talonsoclab",
+  "consumer": "casa-ai-agent (github.com/ktalons/casa-ai-agent)",
+  "window": {
+    "start": "2026-08-03T12:00:00Z",
+    "end": "2026-08-04T12:00:00Z",
+    "lookback_hours": 24
+  },
+  "filter": {
+    "min_level": 12,
+    "include_rule_ids": [],
+    "cap": 5,
+    "order": "newest_first"
+  },
+  "truncated": true,
+  "counts": [
+    {
+      "date": "2026-08-03",
+      "matched": 29,
+      "included": 0
+    },
+    {
+      "date": "2026-08-04",
+      "matched": 13,
+      "included": 5
+    }
+  ],
+  "pipeline": {
+    "collector_ok": true,
+    "agents_reporting": 6,
+    "last_event_seen": "2026-08-04T11:59:12.871Z"
+  },
+  "detections": [
+    {
+      "level": 12,
+      "description": "Password spray: failed network logons (4625) for 10 or more distinct accounts from one source within 10 minutes",
+      "rule_id": "100912",
+      "agent": "corpdc02",
+      "mitre": [
+        "T1110.003"
+      ],
+      "timestamp": "2026-08-04T01:16:30.402Z",
+      "alert_id": "1785806190.000742",
+      "tactic": [
+        "credential-access"
+      ],
+      "groups": [
+        "windows",
+        "authentication_failed",
+        "password_spray"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100912",
+        "rev": null
+      },
+      "src_ip": "192.0.2.77",
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": "u-frontdesk",
+      "logon_type": 3,
+      "event_id": "4625",
+      "sysmon": null,
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Suricata: SMB NTLMSSP authentication failures for many accounts from one source to a domain controller",
+      "rule_id": "100916",
+      "agent": "corpnsm05",
+      "mitre": [
+        "T1110.003"
+      ],
+      "timestamp": "2026-08-04T01:14:05.118204Z",
+      "alert_id": "1785806045.000743",
+      "tactic": [
+        "credential-access"
+      ],
+      "groups": [
+        "suricata",
+        "ids",
+        "authentication_failed"
+      ],
+      "engine": {
+        "name": "suricata",
+        "rule_id": "1000121",
+        "rev": 1
+      },
+      "src_ip": "192.0.2.77",
+      "src_port": 50217,
+      "dst_ip": "198.51.100.10",
+      "dst_port": 445,
+      "proto": "tcp",
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": null,
+      "sysmon": null,
+      "suricata": {
+        "event_type": "alert",
+        "signature": "LOCAL AUTH SMB NTLMSSP logon failures for 10 or more distinct accounts from one source in 5 minutes",
+        "category": "Attempted User Privilege Gain",
+        "severity": 2,
+        "action": "allowed",
+        "flow_id": "907135562418833",
+        "app_proto": "smb",
+        "http_hostname": null,
+        "http_url": null,
+        "http_user_agent": null,
+        "tls_sni": null,
+        "dns_rrname": null
+      }
+    },
+    {
+      "level": 13,
+      "description": "Successful network logon to a domain controller for an account that failed from the same source within 30 minutes",
+      "rule_id": "100914",
+      "agent": "corpdc02",
+      "mitre": [
+        "T1078",
+        "T1110.003"
+      ],
+      "timestamp": "2026-08-04T01:12:44.250913Z",
+      "alert_id": "1785805964.000744",
+      "tactic": [
+        "initial-access",
+        "credential-access"
+      ],
+      "groups": [
+        "windows",
+        "authentication_success",
+        "password_spray"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100914",
+        "rev": null
+      },
+      "src_ip": "192.0.2.77",
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": "svc-print",
+      "logon_type": 3,
+      "event_id": "4624",
+      "sysmon": null,
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Password spray: failed network logons (4625) for 10 or more distinct accounts from one source within 10 minutes",
+      "rule_id": "100912",
+      "agent": "corpdc02",
+      "mitre": [
+        "T1110.003"
+      ],
+      "timestamp": "2026-08-04T01:12:41.733Z",
+      "alert_id": "1785805961.000745",
+      "tactic": [
+        "credential-access"
+      ],
+      "groups": [
+        "windows",
+        "authentication_failed",
+        "password_spray"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100912",
+        "rev": null
+      },
+      "src_ip": "192.0.2.77",
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": "adm-helpdesk",
+      "logon_type": 3,
+      "event_id": "4625",
+      "sysmon": null,
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Password spray: failed network logons (4625) for 10 or more distinct accounts from one source within 10 minutes",
+      "rule_id": "100912",
+      "agent": "corpdc02",
+      "mitre": [
+        "T1110.003"
+      ],
+      "timestamp": "2026-08-04T01:09:58.316507Z",
+      "alert_id": "1785805798.000746",
+      "tactic": [
+        "credential-access"
+      ],
+      "groups": [
+        "windows",
+        "authentication_failed",
+        "password_spray"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100912",
+        "rev": null
+      },
+      "src_ip": "192.0.2.77",
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": "svc-print",
+      "logon_type": 3,
+      "event_id": "4625",
+      "sysmon": null,
+      "suricata": null
+    }
+  ],
+  "recon_delta": {
+    "markdown": "## Recon delta — 2026-08-04\n\n- No new or removed services against the 2026-07-28 baseline.\n- Unchanged: `corpdc02:88/tcp`, `corpdc02:389/tcp`, `corpdc02:445/tcp` (198.51.100.10).\n",
+    "baseline": "2026-07-28",
+    "changes": [
+      {
+        "host": "corpdc02",
+        "port": 88,
+        "proto": "tcp",
+        "status": "unchanged"
+      },
+      {
+        "host": "corpdc02",
+        "port": 389,
+        "proto": "tcp",
+        "status": "unchanged"
+      },
+      {
+        "host": "corpdc02",
+        "port": 445,
+        "proto": "tcp",
+        "status": "unchanged"
+      }
+    ]
+  },
+  "note": "Deterministic intake. Reasoning happens in CASA, not here."
+}

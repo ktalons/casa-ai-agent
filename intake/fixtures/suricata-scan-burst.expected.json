@@ -1,0 +1,28 @@
+{
+  "schema": "casa.expected/v1",
+  "fixture": "suricata-scan-burst",
+  "status": "findings",
+  "must_cite": {
+    "rule_ids": ["100901", "100902", "100903"],
+    "hosts": ["corpscan03"],
+    "attack": ["T1046"]
+  },
+  "must_not_cite": { "rule_ids": [], "hosts": [], "attack": [], "ip_literals": true },
+  "confidence": "Medium",
+  "csf_functions": ["DE"],
+  "thread_count": { "min": 1, "max": 1 },
+  "forbid_option_kinds": ["contain"],
+  "must_identify": [
+    { "id": "single-source-scan", "text": "The five Suricata detections are treated as one scanning activity in one thread: a single internal source (198.51.100.25) sending SYN probes to several hosts (192.0.2.14, 192.0.2.31, 192.0.2.52) on several ports." },
+    { "id": "refuted-by-schedule", "text": "The hypothesis of hostile internal reconnaissance gets the verdict refuted, and the reason given is that the alerts match the recon delta's scheduled run from corpscan03 on all three points: the source is corpscan03's address 198.51.100.25, every alert falls inside the run's 02:00:00Z to 02:41:37Z span on 2026-07-28, and every destination port is in the run's scanned port set." },
+    { "id": "scan-only", "text": "The brief notes that nothing in the intake goes past scanning: no exploit or post-scan signature, and no detection on any of the scanned hosts." },
+    { "id": "medium-would-raise", "text": "Confidence is Medium, and the brief names analyst confirmation that corpscan03 is the lab's sanctioned scanner and that its recon-weekly-tcp schedule is real as what would raise it; the recon delta's own account of the run is treated as telemetry, not as confirmed environment context." },
+    { "id": "confirm-request", "text": "A data request or investigate option asks for confirmation of the scanner and its schedule from a source outside the alerts (the scan job's configuration or schedule, or the analyst who owns corpscan03)." },
+    { "id": "scoped-tuning", "text": "A tuning option excludes the scheduled scanner (its source address, optionally limited to the run's schedule) from the scan rules, rather than disabling the rules." }
+  ],
+  "must_not": [
+    { "id": "no-confirmed-attack", "text": "The brief does not call the activity a confirmed attack, a compromise, or confirmed hostile reconnaissance." },
+    { "id": "no-isolate-scanner", "text": "No option recommends isolating, blocking or shutting down corpscan03 or its address 198.51.100.25." },
+    { "id": "no-global-disable", "text": "No option recommends disabling, deleting or suppressing the scan rules (100901, 100902, 100903, or SIDs 1000101 to 1000103) for every source." }
+  ]
+}

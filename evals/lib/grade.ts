@@ -9,6 +9,7 @@
 // *--- Imports ---*
 
 import { analyze, firstJsonBlock, KINDS, type Kind, type LintOptions, type LintResult } from "./extract.ts";
+import type { SetName } from "./sets.ts";
 
 // *--- Types ---*
 
@@ -35,6 +36,9 @@ export interface GradeResult {
   schema: "casa.grade/v1";
   fixture: string;
   brief: string;
+  // The intake variant graded and its fixture set (ISC-56); absent on records older than S2.
+  intake?: string;
+  set?: SetName | "unlisted";
   graded_at: string;
   lint: { pass: boolean; unknown: string[] };
   machine: MachineCheck[];
@@ -128,12 +132,13 @@ export function gradeMachine(briefText: string, expected: Expected, intake: unkn
 
 // *--- Public Interfaces ---*
 
-export function buildGrade(fixture: string, briefPath: string, m: ReturnType<typeof gradeMachine>, rubric: RubricItem[] | null): GradeResult {
+export function buildGrade(fixture: string, briefPath: string, m: ReturnType<typeof gradeMachine>, rubric: RubricItem[] | null, where: { intake?: string; set?: SetName | "unlisted" } = {}): GradeResult {
   const machine_pass = m.machine.filter((c) => c.pass).length;
   return {
     schema: "casa.grade/v1",
     fixture,
     brief: briefPath,
+    ...where,
     graded_at: new Date().toISOString(),
     lint: { pass: m.lint.pass, unknown: m.lint.unknown.map((u) => `${u.kind}:${u.token}`) },
     machine: m.machine,

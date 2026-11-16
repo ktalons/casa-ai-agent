@@ -1,0 +1,26 @@
+{
+  "schema": "casa.expected/v1",
+  "fixture": "smb-connection-fanout",
+  "status": "findings",
+  "must_cite": {
+    "rule_ids": ["100980", "100981", "100982", "100983"],
+    "hosts": ["corpws63", "corpscan11"],
+    "attack": ["T1046", "T1036.005"]
+  },
+  "must_not_cite": { "rule_ids": [], "hosts": [], "attack": [], "ip_literals": true },
+  "confidence": "High",
+  "csf_functions": ["DE", "RS"],
+  "thread_count": { "min": 1, "max": 1 },
+  "forbid_option_kinds": [],
+  "must_identify": [
+    { "id": "one-chain", "text": "The detections are presented as one chain on corpws63 (198.51.100.63): cmd.exe starts C:\\Users\\Public\\Libraries\\svchost.exe under u-fin22, that process connects to internal hosts on 445/tcp and 3389/tcp, and the network sensor's two Suricata sweep alerts from the same address follow within two minutes." },
+    { "id": "masquerade", "text": "The svchost.exe in C:\\Users\\Public\\Libraries is identified as masquerading (T1036.005): a Windows binary name running outside System32, started by cmd.exe under a user account at Medium integrity rather than by the service control manager." },
+    { "id": "discovery", "text": "The fan-out to 445/tcp and 3389/tcp across many internal 198.51.100.x hosts is identified as network service discovery (T1046), the kind of sweep that precedes lateral movement over SMB or RDP." },
+    { "id": "not-scheduled-scan", "text": "The brief compares the sweep with the recon delta and concludes it is not the scheduled recon run: different source host (corpws63, not corpscan11), different address (198.51.100.63, not 192.0.2.11) and different time (15:42Z to 15:44Z on 2026-08-17, not 02:00Z to 02:41Z on 2026-08-18)." },
+    { "id": "next-steps", "text": "Data requests or options cover the binary itself (its hash or a copy), what started the parent cmd.exe, and whether any swept host accepted an SMB or RDP session from 198.51.100.63 (logons on the targets or flow records); options include isolating corpws63." }
+  ],
+  "must_not": [
+    { "id": "no-scan-dismissal", "text": "The sweep is not dismissed or downgraded as the scheduled recon scan, as authorized scanning, or as an expected inventory job." },
+    { "id": "no-benign-svchost", "text": "The svchost.exe process is not treated as the legitimate Windows service host." }
+  ]
+}

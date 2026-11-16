@@ -1,0 +1,26 @@
+{
+  "schema": "casa.expected/v1",
+  "fixture": "eventlog-service-alerts",
+  "status": "findings",
+  "must_cite": {
+    "rule_ids": ["100960", "100961", "100962", "100963", "100964", "100965", "100966"],
+    "hosts": ["corpsrv52"],
+    "attack": ["T1021.001", "T1685.005", "T1685"]
+  },
+  "must_not_cite": { "rule_ids": [], "hosts": [], "attack": [], "ip_literals": true },
+  "confidence": "High",
+  "csf_functions": ["DE", "RS"],
+  "thread_count": { "min": 1, "max": 1 },
+  "forbid_option_kinds": [],
+  "must_identify": [
+    { "id": "one-sequence", "text": "The eight detections on corpsrv52 are presented as one sequence of about five minutes, oldest to newest: the RDP logon (4624, logon type 10) of adm-ops17 from 198.51.100.36, wevtutil clearing the Security log and the 1102 audit-log-cleared event, wevtutil clearing the System log, Set-MpPreference turning off Defender real-time monitoring and the 5001 event, then sc.exe setting the Sysmon64 service to disabled and stopping it." },
+    { "id": "impairment-not-admin", "text": "The sequence is identified as deliberate indicator removal and defense impairment (T1685.005 for the log clearing, T1685 for disabling Defender and Sysmon) carried out through an interactive RDP session (T1021.001), not as routine administration." },
+    { "id": "telemetry-gap", "text": "The brief states that Sysmon telemetry from corpsrv52 ends with the sc.exe stop at 03:17:09Z and that the Security and System logs before 03:14Z were cleared, so the absence of later alerts from corpsrv52 is not evidence that activity on it stopped." },
+    { "id": "other-sources", "text": "Data requests name sources outside corpsrv52: network-side telemetry for corpsrv52 after 03:17Z (IDS alerts, flow or firewall records), and the RDP source 198.51.100.36 (the workstation the session came from) for how adm-ops17 was used there." },
+    { "id": "account-and-host-options", "text": "Options include isolating corpsrv52 and restricting or resetting the adm-ops17 account, each with its trade-off, and a hunt for other logons of adm-ops17." }
+  ],
+  "must_not": [
+    { "id": "no-benign-admin", "text": "The sequence is not explained as maintenance, log rotation, troubleshooting or other expected work, and the account's administrative role is not used as a reason to lower the verdict or the confidence." },
+    { "id": "no-all-clear", "text": "The brief does not say or imply that activity on corpsrv52 ended, or that the host is quiet, because no alerts follow the Sysmon stop." }
+  ]
+}

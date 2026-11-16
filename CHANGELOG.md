@@ -20,6 +20,14 @@ Tags on GitHub: `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
   `NODE_TLS_REJECT_UNAUTHORIZED=0` cannot switch verification off.
 - An `output_root` plugin option: briefs, drafts, LEARN notes and eval results go under it, and
   the write guard resolves every lane against it, so a lab run can write outside a public tree.
+- Eight new v3 fixtures with ground truth: a scan that matches the scheduled recon run, a
+  truncated password spray, a regsvr32 scriptlet chain, new autostart entries, a healthy empty
+  day, a PowerShell cradle carrying prompt injection, event log clearing with defense
+  impairment, and an SMB sweep from a workstation.
+- Authoring and held-out fixture sets (`evals/fixture-sets.json`). Grade records carry the
+  intake and its set; `bun evals/Grade.ts --summary` reports held-out scores apart from
+  authoring ones, and `bun evals/RunFull.ts --set <set>` runs one set. Tests keep held-out
+  material out of every prompt file.
 
 ### Removed
 
@@ -40,6 +48,9 @@ Tags on GitHub: `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
 
 ### Changed
 
+- Fixtures, invalid fixtures, raw recordings and kept sample briefs use documentation
+  addresses and neutral host names (`corpdc01`, `corpws07`, `corpws12`) in place of lab
+  names and private addresses.
 - The fabrication lint no longer assumes hosts start with `talon`: known hosts come from the
   intake. Rule IDs must equal a `rule_id` exactly, and users, event IDs, ports, exposures,
   IPv6 addresses, domains, hashes and timestamps are now checked. Real event IDs and ports

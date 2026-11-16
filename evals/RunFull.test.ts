@@ -10,7 +10,8 @@ import { test, expect } from "bun:test";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { STRIPPED_ENV, briefForRun, buildInvocation, childEnv, listFixtures } from "./RunFull.ts";
+import { STRIPPED_ENV, briefForRun, buildInvocation, childEnv, listFixtures, quarantineNotes, selectFixtures } from "./RunFull.ts";
+import { baseName, loadSets } from "./lib/sets.ts";
 
 // *--- Configuration ---*
 
@@ -101,5 +102,51 @@ test("brief: evaluate gets the brief this run's investigate step wrote", () => {
     expect(briefForRun(dir, "brute-force-dc-chain", start + 20_000)).toBeNull();
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// *--- Fixture sets (ISC-85) ---*
+
+test("set: --set runs exactly one set's variants, and every fixture family is in exactly one set", () => {
+  const sets = loadSets();
+  const all = listFixtures(FIXTURES_DIR, []);
+  // Both ways: no fixture family outside the manifest, no manifest entry without a fixture.
+  expect([...new Set(all.map(baseName))].sort()).toEqual(Object.keys(sets.fixtures).sort());
+  const held = selectFixtures(FIXTURES_DIR, ["--set", "held-out"], sets);
+  const authoring = selectFixtures(FIXTURES_DIR, ["--set", "authoring"], sets);
+  expect(held.length).toBeGreaterThan(0);
+  expect(held.every((v) => sets.fixtures[baseName(v)].set === "held-out")).toBe(true);
+  expect(authoring.every((v) => sets.fixtures[baseName(v)].set === "authoring")).toBe(true);
+  expect([...held, ...authoring].sort()).toEqual([...all].sort());
+  expect(() => selectFixtures(FIXTURES_DIR, ["--set", "nope"], sets)).toThrow(/--set needs one of/);
+  expect(() => selectFixtures(FIXTURES_DIR, ["--set"], sets)).toThrow(/--set needs one of/);
+  expect(() => selectFixtures(FIXTURES_DIR, ["--set", "held-out", "quiet-day"], sets)).toThrow(/no fixture names/);
+  expect(selectFixtures(FIXTURES_DIR, ["quiet-day"], sets)).toEqual(["quiet-day"]);
+});
+
+test("set: a held-out run's LEARN notes leave the approval queue, and nothing else moves", () => {
+  const root = mkdtempSync(join(tmpdir(), "casa-quarantine-"));
+  try {
+    const pending = join(root, "pending");
+    const dest = join(root, "held-out-learn");
+    const { mkdirSync } = require("node:fs") as typeof import("node:fs");
+    mkdirSync(pending, { recursive: true });
+    const write = (name: string, ageMs: number) => {
+      writeFileSync(join(pending, name), "note");
+      const t = (Date.now() - ageMs) / 1000;
+      utimesSync(join(pending, name), t, t);
+    };
+    write("2026-08-05-powershell-cradle-alert.v3-r1.md", 0); // this run's note: moves
+    write("2026-08-04-powershell-cradle-alert.v3-r0.md", 3_600_000); // written before the run: stays
+    write("2026-07-20-brute-force-dc-chain.v3-r1.md", 0); // another fixture: stays
+    const since = Date.now() - 60_000;
+    expect(quarantineNotes(pending, "powershell-cradle-alert.v3", since, dest)).toEqual(["2026-08-05-powershell-cradle-alert.v3-r1.md"]);
+    expect(readdirSync(dest)).toEqual(["2026-08-05-powershell-cradle-alert.v3-r1.md"]);
+    expect(readdirSync(pending).sort()).toEqual(["2026-07-20-brute-force-dc-chain.v3-r1.md", "2026-08-04-powershell-cradle-alert.v3-r0.md"]);
+    // The main loop calls it for held-out variants only.
+    const src = readFileSync(join(ROOT, "evals", "RunFull.ts"), "utf8");
+    expect(src).toMatch(/if \(setOf\(sets, f\) === "held-out"\) \{\s*const moved = quarantineNotes\(PENDING_DIR, f, started, HELD_OUT_LEARN\)/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });

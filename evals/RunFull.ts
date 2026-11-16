@@ -9,14 +9,17 @@
 // the plugin loaded in place (bun run plugin:link) and the workspace trusted for -p runs.
 //
 //   bun evals/RunFull.ts [fixture ...]   # default: every intake fixture of every version
+//   bun evals/RunFull.ts --set held-out  # every variant of one set in evals/fixture-sets.json
 //
 // Each step's JSON result goes to evals/results/runs/<iso>-<fixture>-<step>.json; the exit
-// code is non-zero if any step failed, timed out or returned no JSON.
+// code is non-zero if any step failed, timed out or returned no JSON. The run ends with the
+// grade summary, authoring and held-out totals apart.
 
 // *--- Imports ---*
 
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { SET_NAMES, formatSummary, loadSets, readGrades, setOf, summarize, variantsInSet, type FixtureSets, type SetName } from "./lib/sets.ts";
 
 // *--- Configuration ---*
 
@@ -24,6 +27,9 @@ const ROOT = join(import.meta.dir, "..");
 const FIXTURES_DIR = join(ROOT, "intake", "fixtures");
 const OUT = join(ROOT, "evals", "results", "runs");
 const BRIEFS_DIR = join(ROOT, "briefs");
+const PENDING_DIR = join(ROOT, "learn", "pending");
+// LEARN notes from held-out runs land here, outside the queue /casa:learn promotes from.
+const HELD_OUT_LEARN = join(ROOT, "evals", "results", "held-out-learn");
 const INVESTIGATE_TURNS = 80;
 const EVALUATE_TURNS = 30;
 // A hung child is killed at this bound so one stuck step cannot stall the whole loop.
@@ -90,6 +96,38 @@ export function listFixtures(dir: string, requested: string[]): string[] {
 }
 
 /**
+ * The variants a command line asks for: `--set <name>` takes every variant of that set's
+ * fixture families (ISC-85); anything else is a list of fixture names for listFixtures.
+ */
+export function selectFixtures(dir: string, argv: string[], sets: FixtureSets): string[] {
+  if (argv[0] !== "--set") return listFixtures(dir, argv);
+  const name = argv[1];
+  if (!(SET_NAMES as readonly (string | undefined)[]).includes(name)) throw new Error(`--set needs one of ${SET_NAMES.join(", ")}, got ${JSON.stringify(name ?? "")}`);
+  if (argv.length > 2) throw new Error("--set takes no fixture names after it");
+  const chosen = variantsInSet(sets, name as SetName, listFixtures(dir, []));
+  if (chosen.length === 0) throw new Error(`set ${name} has no fixtures in ${dir}`);
+  return chosen;
+}
+
+/**
+ * Move the LEARN notes a held-out run wrote out of the approval queue. A promoted lesson is read
+ * by every later investigation, so a note from a held-out run would carry that fixture into
+ * prompt text. Notes are named `<date>-<variant>-r<n>.md`; only ones written since `sinceMs` move.
+ */
+export function quarantineNotes(pendingDir: string, variant: string, sinceMs: number, destDir: string): string[] {
+  const moved: string[] = [];
+  for (const name of existsSync(pendingDir) ? readdirSync(pendingDir) : []) {
+    if (!name.endsWith(".md") || !name.includes(`-${variant}-r`)) continue;
+    const from = join(pendingDir, name);
+    if (statSync(from).mtimeMs < sinceMs) continue;
+    mkdirSync(destDir, { recursive: true });
+    renameSync(from, join(destDir, name));
+    moved.push(name);
+  }
+  return moved;
+}
+
+/**
  * The brief this run's investigate step wrote for `fixture`: the newest `*-<fixture>.brief.md`
  * in `dir` modified at or after `sinceMs`, or null. The dash and the full suffix keep a `.v2`
  * twin's brief from matching its base fixture.
@@ -142,7 +180,8 @@ async function runStep(step: string, fixture: string, prompt: string, maxTurns: 
 // *--- Entry Point ---*
 
 if (import.meta.main) {
-  const fixtures = listFixtures(FIXTURES_DIR, process.argv.slice(2));
+  const sets = loadSets();
+  const fixtures = selectFixtures(FIXTURES_DIR, process.argv.slice(2), sets);
   mkdirSync(OUT, { recursive: true });
   let allOk = true;
   for (const f of fixtures) {
@@ -152,8 +191,13 @@ if (import.meta.main) {
     // graded an old kept sample instead of the brief that had just been written.
     const brief = investigated ? briefForRun(BRIEFS_DIR, f, started) : null;
     if (investigated && brief === null) console.log(`${f} evaluate: skipped, investigate wrote no brief`);
+    if (setOf(sets, f) === "held-out") {
+      const moved = quarantineNotes(PENDING_DIR, f, started, HELD_OUT_LEARN);
+      if (moved.length > 0) console.log(`${f}: held-out LEARN note(s) moved out of the queue → ${relative(ROOT, HELD_OUT_LEARN)}/`);
+    }
     const evaluated = brief !== null && (await runStep("evaluate", f, `/casa:evaluate ${f} --brief ${relative(ROOT, brief)}`, EVALUATE_TURNS));
     allOk = allOk && investigated && evaluated;
   }
+  console.log(formatSummary(summarize(readGrades(join(ROOT, "evals", "results")), sets)));
   process.exit(allOk ? 0 : 1);
 }

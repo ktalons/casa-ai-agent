@@ -116,11 +116,18 @@ halves (the deterministic checks and the evaluator agent's rubric) and merge the
 bun evals/Grade.ts --brief briefs/<file>.brief.md --expected intake/fixtures/brute-force-dc-chain.expected.json --intake intake/fixtures/brute-force-dc-chain.intake.json
 claude -p "/casa:evaluate brute-force-dc-chain" --permission-mode acceptEdits
 bun evals/RunFull.ts     # the whole loop on every fixture; also the manual eval-full CI job
+bun evals/RunFull.ts --set held-out   # only the held-out fixtures
+bun evals/Grade.ts --summary          # newest grade per fixture, authoring and held-out apart
 ```
 
+Fixtures come in two sets, listed in `evals/fixture-sets.json`. Prompt text may be tuned
+against the authoring set. The held-out set is never named in skill, agent or card text
+and never tuned against, so its scores measure how CASA does on cases it was not shaped
+around; a held-out fixture used for tuning moves to authoring and is replaced.
+
 Do not use `--plugin-dir .` for this: Claude Code protects a plugin directory, so the brief
-cannot be written into the same checkout. Real briefs from the three fixtures are kept under
-`evals/samples/*.run1.brief.md`; the test suite lints and grades every one of them.
+cannot be written into the same checkout. Real briefs from the first three fixtures are kept
+under `evals/samples/*.run1.brief.md`; the test suite lints and grades every one of them.
 
 Layout: `agents/` · `skills/` · `intake/` (contract, fixtures, validator) · `evals/`
 (lint, grader, tests) · `briefs/` (run output, gitignored). Developer notes are in
