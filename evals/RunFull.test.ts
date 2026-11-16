@@ -7,9 +7,10 @@
 // *--- Imports ---*
 
 import { test, expect } from "bun:test";
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { STRIPPED_ENV, buildInvocation, childEnv, listFixtures } from "./RunFull.ts";
+import { STRIPPED_ENV, briefForRun, buildInvocation, childEnv, listFixtures } from "./RunFull.ts";
 
 // *--- Configuration ---*
 
@@ -77,4 +78,28 @@ test("fixtures: named fixtures are kept in order and an unknown name is refused"
   const [first, second] = listFixtures(FIXTURES_DIR, []);
   expect(listFixtures(FIXTURES_DIR, [second, first])).toEqual([second, first]);
   expect(() => listFixtures(FIXTURES_DIR, ["no-such-fixture"])).toThrow(/no-such-fixture/);
+});
+
+// *--- Brief hand-off to evaluate ---*
+
+test("brief: evaluate gets the brief this run's investigate step wrote", () => {
+  const dir = mkdtempSync(join(tmpdir(), "casa-briefs-"));
+  try {
+    const touch = (name: string, mtimeMs: number) => {
+      const p = join(dir, name);
+      writeFileSync(p, "# brief\n");
+      utimesSync(p, mtimeMs / 1000, mtimeMs / 1000);
+      return p;
+    };
+    const start = Date.now() - 60_000;
+    touch("2026-07-20-brute-force-dc-chain.brief.md", start - 10_000); // older than the run
+    const v1 = touch("2026-07-21-brute-force-dc-chain.brief.md", start + 5_000);
+    const v2 = touch("2026-07-21-brute-force-dc-chain.v2.brief.md", start + 9_000);
+    expect(briefForRun(dir, "brute-force-dc-chain", start)).toBe(v1);
+    expect(briefForRun(dir, "brute-force-dc-chain.v2", start)).toBe(v2);
+    expect(briefForRun(dir, "quiet-day", start)).toBeNull();
+    expect(briefForRun(dir, "brute-force-dc-chain", start + 20_000)).toBeNull();
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

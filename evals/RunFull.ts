@@ -15,14 +15,15 @@
 
 // *--- Imports ---*
 
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
 
 // *--- Configuration ---*
 
 const ROOT = join(import.meta.dir, "..");
 const FIXTURES_DIR = join(ROOT, "intake", "fixtures");
 const OUT = join(ROOT, "evals", "results", "runs");
+const BRIEFS_DIR = join(ROOT, "briefs");
 const INVESTIGATE_TURNS = 80;
 const EVALUATE_TURNS = 30;
 // A hung child is killed at this bound so one stuck step cannot stall the whole loop.
@@ -88,6 +89,23 @@ export function listFixtures(dir: string, requested: string[]): string[] {
   return requested;
 }
 
+/**
+ * The brief this run's investigate step wrote for `fixture`: the newest `*-<fixture>.brief.md`
+ * in `dir` modified at or after `sinceMs`, or null. The dash and the full suffix keep a `.v2`
+ * twin's brief from matching its base fixture.
+ */
+export function briefForRun(dir: string, fixture: string, sinceMs: number): string | null {
+  const suffix = `-${fixture}.brief.md`;
+  let best: { path: string; mtime: number } | null = null;
+  for (const name of existsSync(dir) ? readdirSync(dir) : []) {
+    if (!name.endsWith(suffix)) continue;
+    const path = join(dir, name);
+    const mtime = statSync(path).mtimeMs;
+    if (mtime >= sinceMs && (best === null || mtime > best.mtime)) best = { path, mtime };
+  }
+  return best?.path ?? null;
+}
+
 /** Narrow a parsed stdout to the result fields RunFull reports, or null if it is not an object. */
 function asRunResult(value: unknown): RunResult | null {
   return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as RunResult) : null;
@@ -128,8 +146,13 @@ if (import.meta.main) {
   mkdirSync(OUT, { recursive: true });
   let allOk = true;
   for (const f of fixtures) {
+    const started = Date.now();
     const investigated = await runStep("investigate", f, `/casa:investigate intake/fixtures/${f}.intake.json`, INVESTIGATE_TURNS);
-    const evaluated = investigated && (await runStep("evaluate", f, `/casa:evaluate ${f}`, EVALUATE_TURNS));
+    // NOTE: the brief is handed to evaluate by path. Left to resolve it in prose, one run
+    // graded an old kept sample instead of the brief that had just been written.
+    const brief = investigated ? briefForRun(BRIEFS_DIR, f, started) : null;
+    if (investigated && brief === null) console.log(`${f} evaluate: skipped, investigate wrote no brief`);
+    const evaluated = brief !== null && (await runStep("evaluate", f, `/casa:evaluate ${f} --brief ${relative(ROOT, brief)}`, EVALUATE_TURNS));
     allOk = allOk && investigated && evaluated;
   }
   process.exit(allOk ? 0 : 1);
