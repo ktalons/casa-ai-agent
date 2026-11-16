@@ -8,5 +8,16 @@
   "outside-window.intake.json": "outside window",
   "unknown-field.intake.json": "unexpected field \"extra\"",
   "truncated-mismatch.intake.json": "truncated: true but",
-  "bad-instant.intake.json": "does not match"
+  "bad-instant.intake.json": "does not match",
+  "v3-below-floor.intake.json": "is not in include_rule_ids",
+  "v3-counts-dates.intake.json": "counts: dates must be each UTC date",
+  "v3-counts-included.intake.json": "detection(s) fall on",
+  "v3-truncated-counts.intake.json": "truncated: false but counts show",
+  "v3-engine-mismatch.intake.json": "must equal rule_id",
+  "v3-suricata-engine.intake.json": "needs a suricata block",
+  "v3-sysmon-group.intake.json": "does not match event_id",
+  "v3-logon-type.intake.json": "carries no logon type",
+  "v3-bad-offset.intake.json": "is not a real instant",
+  "v3-micro-order.intake.json": "not newest-first",
+  "v3-single-user.intake.json": "unexpected field \"user\""
 }

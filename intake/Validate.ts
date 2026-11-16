@@ -1,12 +1,13 @@
 #!/usr/bin/env bun
 /**
- * Validate.ts — validator for talonsoclab.soc-intake artifacts (v1 and v2).
+ * Validate.ts — validator for talonsoclab.soc-intake artifacts (v1, v2 and v3).
  *
  * Two passes, zero dependencies:
  *   1. the JSON Schema in schema/soc-intake.<v>.schema.json, evaluated by lib/schema.ts, which
  *      supports exactly the keywords the schemas use and throws on anything else;
  *   2. the semantic rules in lib/semantic.ts (real instants, newest-first, level floor, cap and
- *      truncation agreement, duplicates, window containment).
+ *      truncation agreement, duplicates, window containment; for v3 also the include list,
+ *      per-day counts, and engine and typed-group agreement).
  *
  * Usage:
  *   bun intake/Validate.ts                 # validate every fixtures/*.intake.json
@@ -17,12 +18,13 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { validateAgainstSchema, type Schema } from "./lib/schema.ts";
-import { semanticV1, semanticV2 } from "./lib/semantic.ts";
+import { semanticV1, semanticV2, semanticV3 } from "./lib/semantic.ts";
 
 const INTAKE_DIR = dirname(Bun.fileURLToPath(import.meta.url));
 const VERSIONS: Record<string, { schema: string; semantic: (doc: any) => { errors: string[]; warnings: string[] } }> = {
   "talonsoclab.soc-intake/v1": { schema: "soc-intake.v1.schema.json", semantic: semanticV1 },
   "talonsoclab.soc-intake/v2": { schema: "soc-intake.v2.schema.json", semantic: semanticV2 },
+  "talonsoclab.soc-intake/v3": { schema: "soc-intake.v3.schema.json", semantic: semanticV3 },
 };
 const schemaCache = new Map<string, Schema>();
 function loadSchema(file: string): Schema {
