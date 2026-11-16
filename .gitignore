@@ -24,6 +24,10 @@ learn/archive/*
 engagements/*
 !engagements/README.md
 
+# Local planning: the project ISA and session plans stay on this machine
+/Plans/
+/ISA.md
+
 # Secrets — never commit
 .env
 .env.*

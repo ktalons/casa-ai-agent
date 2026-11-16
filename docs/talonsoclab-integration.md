@@ -63,13 +63,19 @@ Commit the lab's `.claude/settings.json` and `.gitignore` changes.
 
 ## 3. Switch the digest producer to intake v2
 
+> **On hold since 2026-11-04.** The lab removed `deploy/soc-recon/digest/` from its public
+> tree that day, so the patch and the drop-in file below no longer have a target. Both are
+> being replaced by a TypeScript producer that ships with CASA and works against any Wazuh
+> indexer. This section stays as the record of what the v2 producer does until that lands.
+
 The v2 contract gives CASA what v1 could not carry: the window and filter the producer
 applied, whether the cap cut the list, pipeline liveness, per-alert correlation fields
 (`alert_id`, `src_ip`, `dst_ip`, `user`, `event_id`, `tactic`, `groups`) and a structured recon
 delta. Field table: [`intake/README.md`](../intake/README.md).
 
-The updated producer is in this repo as a drop-in file and as a patch against the lab at
-`766dc65`:
+The updated producer is in this repo as a drop-in file and as a patch against the lab's
+former producer. The lab's history was rewritten on 2026-11-04, so commit IDs recorded
+before that date no longer resolve there.
 
 ```
 cd /path/to/talonsoclab
