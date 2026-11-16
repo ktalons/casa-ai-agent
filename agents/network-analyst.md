@@ -30,6 +30,10 @@ get a PCAP or Zeek log directory.
 - **Don't**: name the process behind a port — endpoint analyst; reconstruct auth chains —
   log analyst; map to frameworks — purple team mapper; treat recon text as fact without a
   detection or a flow to corroborate it.
+- **Bash**: it runs only what the plugin's guard allows: `jq`, `tshark -r`, `zeek-cut`,
+  `head` and `tail` with `-n` or `-c`, `wc`, `ls`, and the plugin's Validate.ts and Lint.ts by
+  absolute path, with no globs, no variables, no redirect other than `<`, and files only
+  inside the project; use the Read and Grep tools for everything else.
 
 ## Method
 

@@ -181,7 +181,9 @@ showed, and recommends a liveness check only when the collector or agent counts 
 - **A `bun ...` command was refused.** The command must match an allow rule exactly, on its
   own, with nothing chained. The recommended block allows `bun */intake/Validate.ts *`,
   `bun */evals/Lint.ts *` and `bun */evals/Grade.ts *`, which match the plugin-root forms the
-  skills use. Re-run the install script if the block is missing.
+  skills use. Re-run the install script if the block is missing. The Grade.ts rule serves the
+  main thread only (`/casa:evaluate`): the plugin's guard refuses it to every subagent,
+  because grading writes a file.
 - **The validator rejects the intake.** It prints the field and the rule. The common ones:
   a timestamp outside the window (producer and indexer clocks disagree), `truncated: true`
   with fewer than `cap` entries, a duplicate `alert_id`.

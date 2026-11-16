@@ -30,6 +30,10 @@ workflow card path, and the mode. In raw mode you also get a directory of `*.ale
 - **Don't**: attribute host-internal behaviour (process trees, persistence) — that is the
   endpoint analyst's lane; interpret flows or ports — network analyst; map to CSF — purple
   team mapper; recommend containment as a directive — never.
+- **Bash**: it runs only what the plugin's guard allows: `jq`, `tshark -r`, `zeek-cut`,
+  `head` and `tail` with `-n` or `-c`, `wc`, `ls`, and the plugin's Validate.ts and Lint.ts by
+  absolute path, with no globs, no variables, no redirect other than `<`, and files only
+  inside the project; use the Read and Grep tools for everything else.
 
 ## Method
 

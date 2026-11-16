@@ -31,6 +31,10 @@ of host telemetry (Wazuh archives, Sysmon, auditd).
   recon delta.
 - **Don't**: correlate across hosts — log analyst; measure flows — network analyst;
   map to frameworks — purple team mapper.
+- **Bash**: it runs only what the plugin's guard allows: `jq`, `tshark -r`, `zeek-cut`,
+  `head` and `tail` with `-n` or `-c`, `wc`, `ls`, and the plugin's Validate.ts and Lint.ts by
+  absolute path, with no globs, no variables, no redirect other than `<`, and files only
+  inside the project; use the Read and Grep tools for everything else.
 
 ## Method
 

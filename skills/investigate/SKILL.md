@@ -66,7 +66,9 @@ Specialists (invoke with the Agent tool, `subagent_type` as shown):
 
 Group, don't itemize. Start with one thread per host, then merge threads when any holds:
 (a) technique IDs form a tactic progression in time order (an earlier ATT&CK tactic on one
-host followed by a later tactic on the same or another host); (b) detections are within 15 minutes
+host followed by a later tactic on the same or another host); a chain that returns to an
+earlier tactic on another host, such as credential access, then lateral movement, then
+credential access again elsewhere, is still one chain; (b) detections are within 15 minutes
 of each other across hosts; (c) a `recon_delta` change names a host already in a thread.
 Cap at 6 threads; beyond that, merge by host. For each thread write one hypothesis sentence
 phrased as a claim that can be supported or refuted, pick the workflow card from
