@@ -31,6 +31,10 @@
 - **v2 intakes:** a `src_ip` on the target's logon that matches the source host, or a `user`
   shared across hosts, establishes H1 and H2 as data; `groups` naming the remote service
   settles which T1021 sub-technique applies.
+- **v3 intakes:** `logon_type` on the target's logon says how it was reached (3 network, 10
+  remote interactive); a `target_user` shared across hosts, or one that reappears as a later
+  `subject_user`, is the link; a Sysmon `network_connect` group names the `image` that opened
+  the session.
 
 ## 4. Data requests
 

@@ -273,3 +273,40 @@ test("containment: the detector flags a card that argues for containment below H
   expect(containmentGates("Containment options are appropriate at Medium or above because the cost is total.")).toHaveLength(1);
   expect(containmentGates("Containment options follow the standards skill's rule.")).toEqual([]);
 });
+
+// *--- Intake v3 and Output Root ---*
+
+test("v3 fields: the investigate skill names the split users, the typed groups, the include list and the counts", () => {
+  const text = read(INVESTIGATE);
+  for (const field of ["talonsoclab.soc-intake/v3", "subject_user", "target_user", "logon_type", "src_port", "dst_port", "engine", "include_rule_ids", "counts", "process_create", "network_connect", "file_create", "registry_value_set", "dns_query", "suricata"]) {
+    // Named inside a code span, alone or as a path such as `filter.include_rule_ids`.
+    const span = new RegExp("`[^`\\n]*\\b" + field.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&") + "\\b[^`\\n]*`");
+    expect([field, span.test(text)]).toEqual([field, true]);
+  }
+});
+
+test("v3 fields: every card with a v2 note has a v3 note that names a v3 field", () => {
+  const V3_FIELDS = /`(?:subject_user|target_user|logon_type|src_port|dst_port|proto|engine(?:\.rule_id)?|sysmon|process_create|network_connect|file_create|registry_value_set|dns_query|suricata|tls_sni|http_hostname|app_proto|image)`/;
+  const cards = readdirSync(join(ROOT, WORKFLOWS)).filter((f) => f.endsWith(".md"));
+  for (const card of cards) {
+    const text = read(join(WORKFLOWS, card));
+    if (!text.includes("**v2 intakes:**")) continue;
+    const note = text.split("**v3 intakes:**")[1]?.split(/\n- \*\*|\n\n/)[0] ?? "";
+    expect([card, V3_FIELDS.test(note)]).toEqual([card, true]);
+  }
+});
+
+test("output root: the manifest declares the option and every writing skill and agent resolves against it", () => {
+  const manifest = JSON.parse(read(join(".claude-plugin", "plugin.json")));
+  expect(manifest.userConfig?.output_root?.type).toBe("directory");
+  expect(manifest.userConfig.output_root.required).toBeUndefined();
+  const token = "${user_config.output_root}";
+  const standards = read(STANDARDS);
+  expect(standards).toContain(token);
+  expect(standards).toMatch(/empty[\s\S]{0,80}placeholder[\s\S]{0,80}project\s+directory/);
+  for (const rel of [INVESTIGATE, LEARN, join("skills", "evaluate", "SKILL.md")]) expect([rel, read(rel).includes(token)]).toEqual([rel, true]);
+  for (const rel of [INVESTIGATE, LEARN, join("skills", "evaluate", "SKILL.md"), DETECTION_ENGINEER, join("agents", "evaluator.md")]) {
+    expect([rel, /output root/i.test(read(rel))]).toEqual([rel, true]);
+  }
+  expect(read(join("skills", "evaluate", "SKILL.md"))).toContain("--out");
+});

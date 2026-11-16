@@ -29,6 +29,9 @@
   category and the host's role decide it, none of which v1 carries.
 - **v2 intakes:** `dst_ip` identifies the destination for categorisation and threat-intel;
   `user` ties the transfer to a session; `groups` says which sensor raised it.
+- **v3 intakes:** `dst_port`, `proto` and a `suricata` block's `app_proto`, `http_hostname` or
+  `tls_sni` categorise the destination; a Sysmon `file_create` group can show staging. Volume is
+  still not in the intake, so it stays a data request.
 - **High** needs the data in section 4: measured volume against a baseline, a destination
   outside approved services, and a staging artifact or a user action that explains it.
 

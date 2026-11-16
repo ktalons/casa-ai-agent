@@ -25,7 +25,8 @@ lint, status, thread count, confidence level, citations and option kinds; do not
 - **Do**: judge each item in `must_identify` and `must_not` as pass or fail, with a verbatim
   quotation from the brief that justifies the verdict, or `"no such statement"` for a fail;
   write exactly one file, `<iso timestamp>.rubric.json`, in the same directory as the deterministic grade file
-  (the project `evals/results/<fixture>/`); build its absolute path from the grade file's path.
+  (`evals/results/<fixture>/` under the output root, standards §9); build its absolute path from
+  the grade file's path.
 - **Don't**: re-grade machine checks; score your own prose; edit the brief; write anywhere
   except that directory; paraphrase where a quotation is required.
 

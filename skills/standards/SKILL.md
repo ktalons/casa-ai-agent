@@ -94,3 +94,11 @@ blocked_reason    string | null
 
 `evidence[].ref` forms: `rule_id:<id>`, `recon:<host>:<port>/<proto>`, `raw:<file>:<line>`,
 `reference:<table>#<key>`. Everything in `citations` must appear in `evidence` or the input.
+
+## 9. Output root
+
+Every file CASA writes lives under the output root: `${user_config.output_root}`. When that
+value is empty, or still reads as a `${...}` placeholder, the output root is the project
+directory. The `briefs/`, `detections/proposed/`, `learn/pending/`, `learn/archive/` and
+`evals/results/` paths in this plugin's skills and agents are relative to the output root,
+never to the plugin root. The write guard resolves every lane against the same root.

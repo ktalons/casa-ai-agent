@@ -5,6 +5,27 @@ Tags on GitHub: `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
 
 ## Unreleased
 
+### Added
+
+- Intake v3 (`intake/schema/soc-intake.v3.schema.json`): the engine that raised each alert and
+  its own IDs, ports and protocol, `subject_user` and `target_user` with the logon type, typed
+  Sysmon fields for events 1, 3, 11, 13 and 22, Suricata EVE fields, timestamps with
+  microseconds and UTC offsets, a level floor plus a rule-ID include list, and per-day counts.
+  v1 and v2 stay frozen. Each fixture has a v3 twin, and each new rule an invalid fixture.
+- `intake/producers/wazuh.ts`, a TypeScript Wazuh producer with no dependencies: replay from a
+  recorded export, or live over HTTPS with certificate verification that cannot be turned off;
+  the password comes from the environment or a file and is never printed; `--redact` applies
+  the lab's address, SID and Sysmon GUID mapping and refuses to write if a private value it
+  can read survives; gaps in encoded text are listed in the runbook. Redirects are refused and
+  `NODE_TLS_REJECT_UNAUTHORIZED=0` cannot switch verification off.
+- An `output_root` plugin option: briefs, drafts, LEARN notes and eval results go under it, and
+  the write guard resolves every lane against it, so a lab run can write outside a public tree.
+
+### Removed
+
+- The Python digest producer and its patch under `docs/talonsoclab/`; the runbook now uses the
+  TypeScript producer.
+
 ### Security
 
 - The write guard recognises CASA subagents by their `agent_id` as well as their name, so a

@@ -8,7 +8,9 @@ argument-hint: <path/to/intake.json | question>
 
 You are the Overseer: the main-thread orchestrator. You own the loop below; the specialist
 agents own their lanes. Read `${CLAUDE_PLUGIN_ROOT}/skills/standards/SKILL.md` rules as binding on you too. You
-never take a response action. Outputs go only under `briefs/`.
+never take a response action. Outputs go only under the output root (standards §9): `briefs/`
+and `learn/pending/`. The output root is `${user_config.output_root}`; when that is empty or
+still a placeholder, it is the project directory.
 
 Specialists (invoke with the Agent tool, `subagent_type` as shown):
 
@@ -58,6 +60,16 @@ Specialists (invoke with the Agent tool, `subagent_type` as shown):
   branch by naming the failing check; `truncated` and `window` as coverage caveats; a
   matching `src_ip` or `user` across two hosts as the cross-host link, which is then data,
   not inference.
+- **v3 intakes** (`talonsoclab.soc-intake/v3`) keep the v2 blocks and split `user` in two:
+  `subject_user` is the account that acted (a 4662 replication request), `target_user` the
+  account logged on or acted upon (a 4624 logon, with its `logon_type`). They add `src_port`,
+  `dst_port` and `proto`; the `engine` that raised the alert (`wazuh`, `suricata` or `sigma`)
+  with its own `rule_id` and `rev`; one typed `sysmon` group per Sysmon event
+  (`process_create`, `network_connect`, `file_create`, `registry_value_set`, `dns_query`); and a
+  `suricata` EVE block. `filter.include_rule_ids` names rules admitted below `min_level`, and
+  `counts` gives matched and included alerts per UTC day, so a cut list shows which days lost
+  alerts. A logon's `target_user` that equals a later action's `subject_user` on another host
+  is the v3 cross-host link; a shared `user` says the same thing in v2.
 - **`detections` is empty** → go to **Quiet branch**.
 - **Free-text question, no intake**: classify the domain (log / network / endpoint / mixed /
   improvement), note the data the analyst actually provided, and continue from step 2 with the
@@ -134,7 +146,7 @@ resolution in the brief's trace.
 
 Send all verified findings to `casa:purple-team-mapper` once. For each thread with a
 `supported` verdict at Medium or above, send that thread's finding, its detections and the
-`run_id` to `casa:detection-engineer`, which names its drafts with the `run_id`. Send
+`run_id` and the absolute output root to `casa:detection-engineer`, which names its drafts with the `run_id`. Send
 unmapped technique IDs, and any indicators the input carries, to `casa:threat-intel`.
 
 ### 6. BRIEF
