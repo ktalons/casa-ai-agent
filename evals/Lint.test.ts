@@ -379,3 +379,9 @@ test("v3 Sysmon hosts: a single-label hostname found only in source_hostname tra
   expect(hosts(block("wkstn-relay"))).toEqual([]);
   expect(hosts(block("wkstn-other"))).toEqual(["wkstn-other"]);
 });
+
+test("domain users: a user the intake names only as DOMAIN\\user traces when a brief writes the bare name", () => {
+  const ik = require("../intake/fixtures/powershell-cradle-alert.v3.intake.json");
+  expect(flagged("Reset adm-ops09, then review the account adm-ops09 and CORP\\adm-ops09.", ik)).toEqual([]);
+  expect(flagged("Reset adm-ops99, then review the account adm-ops99.", ik).length).toBeGreaterThan(0);
+});

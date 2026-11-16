@@ -28,6 +28,12 @@ Tags on GitHub: `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
   intake and its set; `bun evals/Grade.ts --summary` reports held-out scores apart from
   authoring ones, and `bun evals/RunFull.ts --set <set>` runs one set. Tests keep held-out
   material out of every prompt file.
+- The rubric merge fails a passing item whose quote the brief does not contain; the evaluator
+  keeps quotes verbatim and puts its reasoning in a new `note` field.
+- Standards §5 defines the missing-baseline modifier: it applies only when a finding rests on
+  activity being unusual for the environment. Two held-out fixtures that prompted the change
+  moved to authoring, and two new held-out fixtures replace them.
+- The lint learns the bare account from a `DOMAIN\user` value in the intake.
 
 ### Removed
 

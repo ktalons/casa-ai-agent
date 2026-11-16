@@ -51,8 +51,14 @@ is less likely. Gaps in the chain are stated, not bridged.
   are at least as likely.
 
 Modifiers, one level each: analyst-confirmed environment context (+), independent threat
-intelligence match (+), missing baseline (−), truncated window (−). A confidence statement
-about an empty input is about **coverage** (was the pipeline live?), never about a threat.
+intelligence match (+), missing baseline (−), truncated window (−). Missing baseline applies
+only when a finding rests on activity being unusual for this environment (a rare destination,
+a first-seen domain, an odd hour, a new listener) and the input gives nothing normal to
+compare it with. Behavior whose meaning does not depend on what is normal here, such as
+clearing a security log or switching off a defense, does not take it; nor does the plain
+absence of a change record or an account history, which no intake carries. A confidence
+statement about an empty input is about **coverage** (was the pipeline live?), never about a
+threat.
 
 ## 6. Citations
 

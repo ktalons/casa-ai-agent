@@ -1,0 +1,26 @@
+{
+  "schema": "casa.expected/v1",
+  "fixture": "linux-audit-alerts",
+  "status": "findings",
+  "must_cite": {
+    "rule_ids": ["101000", "101001", "101002", "101003", "101004", "101005", "101006", "101007"],
+    "hosts": ["corplnx73"],
+    "attack": ["T1021.004", "T1685.004", "T1685.006", "T1070.003"]
+  },
+  "must_not_cite": { "rule_ids": [], "hosts": [], "attack": [], "ip_literals": true },
+  "confidence": "High",
+  "csf_functions": ["DE", "RS"],
+  "thread_count": { "min": 1, "max": 1 },
+  "forbid_option_kinds": [],
+  "must_identify": [
+    { "id": "one-session", "text": "The eight detections on corplnx73 are presented as one session of under three minutes, oldest to newest: the SSH password logon of adm-infra62 from 198.51.100.58, sudo auditctl -e 0 and the kernel record that auditing was disabled, sudo systemctl stop auditd and the audit daemon stop record, sudo truncate of /var/log/auth.log and the file-integrity alert that it shrank to 0 bytes, then the file-integrity alert that the account's .bash_history was emptied." },
+    { "id": "tampering-not-admin", "text": "The sequence is identified as deliberate defense impairment and indicator removal (T1685.004 for disabling and stopping the audit system, T1685.006 for truncating auth.log, T1070.003 for clearing shell history) carried out in an SSH session (T1021.004), not as routine administration." },
+    { "id": "telemetry-gap", "text": "The brief states that the host's own audit telemetry stops once the audit system is switched off (the kernel trail ends with the auditd stop at 02:42:31Z), and that auth.log and the shell history were emptied, so the absence of later alerts from corplnx73 is not evidence that activity on it stopped." },
+    { "id": "other-sources", "text": "Data requests name sources outside corplnx73: network-side telemetry for corplnx73 after the auditd stop (IDS alerts, flow or firewall records), and the workstation at 198.51.100.58 for what opened the SSH session there." },
+    { "id": "account-and-host-options", "text": "Options include isolating corplnx73 and restricting or resetting the adm-infra62 account, each with its trade-off, and a hunt for other logons of adm-infra62." }
+  ],
+  "must_not": [
+    { "id": "no-benign-admin", "text": "The sequence is not explained as log rotation, disk-space cleanup, maintenance or troubleshooting (the auth.log truncation is a sudo command run by the logged-on account, not a rotation job), and the account's administrative role or sudo rights are not used as a reason to lower the verdict or the confidence." },
+    { "id": "no-all-clear", "text": "The brief does not say or imply that activity on corplnx73 ended, or that the host is quiet, because no alerts follow the emptied shell history or the auditd stop." }
+  ]
+}

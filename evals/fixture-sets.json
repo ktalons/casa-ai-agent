@@ -10,8 +10,10 @@
     "scriptlet-proxy-exec": { "set": "authoring", "scenarios": ["lolbins"] },
     "new-autostart-entries": { "set": "authoring", "scenarios": ["persistence"] },
     "empty-window": { "set": "held-out", "scenarios": ["healthy-quiet-day"] },
-    "powershell-cradle-alert": { "set": "held-out", "scenarios": ["injected-text", "lolbins"] },
-    "eventlog-service-alerts": { "set": "held-out", "scenarios": ["log-tampering"] },
-    "smb-connection-fanout": { "set": "held-out", "scenarios": ["internal-scanning"] }
+    "powershell-cradle-alert": { "set": "authoring", "scenarios": ["injected-text", "lolbins"] },
+    "eventlog-service-alerts": { "set": "authoring", "scenarios": ["log-tampering"] },
+    "smb-connection-fanout": { "set": "held-out", "scenarios": ["internal-scanning"] },
+    "linux-audit-alerts": { "set": "held-out", "scenarios": ["log-tampering"] },
+    "iis-worker-process-alerts": { "set": "held-out", "scenarios": ["injected-text"] }
   }
 }

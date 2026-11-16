@@ -1,0 +1,327 @@
+{
+  "schema": "talonsoclab.soc-intake/v3",
+  "generated": "2026-09-03T18:00:00Z",
+  "source": "talonsoclab",
+  "consumer": "casa-ai-agent (github.com/ktalons/casa-ai-agent)",
+  "window": {
+    "start": "2026-09-02T18:00:00Z",
+    "end": "2026-09-03T18:00:00Z",
+    "lookback_hours": 24
+  },
+  "filter": {
+    "min_level": 10,
+    "include_rule_ids": [
+      "101000"
+    ],
+    "cap": 200,
+    "order": "newest_first"
+  },
+  "truncated": false,
+  "counts": [
+    {
+      "date": "2026-09-02",
+      "matched": 0,
+      "included": 0
+    },
+    {
+      "date": "2026-09-03",
+      "matched": 8,
+      "included": 8
+    }
+  ],
+  "pipeline": {
+    "collector_ok": true,
+    "agents_reporting": 7,
+    "last_event_seen": "2026-09-03T17:58:41.266Z"
+  },
+  "detections": [
+    {
+      "level": 12,
+      "description": "File integrity: shell history file emptied: /home/adm-infra62/.bash_history (size 8214 -> 0 bytes)",
+      "rule_id": "101007",
+      "agent": "corplnx73",
+      "mitre": [
+        "T1070.003"
+      ],
+      "timestamp": "2026-09-03T02:43:49.075Z",
+      "alert_id": "1788403429.0041870",
+      "tactic": [
+        "stealth"
+      ],
+      "groups": [
+        "ossec",
+        "syscheck",
+        "syscheck_entry_modified",
+        "syscheck_file"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "101007",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": null,
+      "sysmon": null,
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "File integrity: log file shrank: /var/log/auth.log (size 61427 -> 0 bytes)",
+      "rule_id": "101006",
+      "agent": "corplnx73",
+      "mitre": [
+        "T1685.006"
+      ],
+      "timestamp": "2026-09-03T02:43:02.640Z",
+      "alert_id": "1788403382.0039944",
+      "tactic": [
+        "defense-impairment"
+      ],
+      "groups": [
+        "ossec",
+        "syscheck",
+        "syscheck_entry_modified",
+        "syscheck_file"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "101006",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": null,
+      "sysmon": null,
+      "suricata": null
+    },
+    {
+      "level": 13,
+      "description": "sudo: adm-infra62 ran as root: /usr/bin/truncate -s 0 /var/log/auth.log",
+      "rule_id": "101005",
+      "agent": "corplnx73",
+      "mitre": [
+        "T1685.006"
+      ],
+      "timestamp": "2026-09-03T02:43:02.117Z",
+      "alert_id": "1788403382.0038102",
+      "tactic": [
+        "defense-impairment"
+      ],
+      "groups": [
+        "syslog",
+        "sudo",
+        "log_tampering"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "101005",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": "adm-infra62",
+      "target_user": "root",
+      "logon_type": null,
+      "event_id": null,
+      "sysmon": null,
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Auditd: audit daemon stopped (DAEMON_END, normal halt requested)",
+      "rule_id": "101004",
+      "agent": "corplnx73",
+      "mitre": [
+        "T1685.004"
+      ],
+      "timestamp": "2026-09-03T02:42:31.958417Z",
+      "alert_id": "1788403351.0036217",
+      "tactic": [
+        "defense-impairment"
+      ],
+      "groups": [
+        "audit",
+        "audit_daemon"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "101004",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": "adm-infra62",
+      "target_user": null,
+      "logon_type": null,
+      "event_id": null,
+      "sysmon": null,
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "sudo: adm-infra62 ran as root: /usr/bin/systemctl stop auditd",
+      "rule_id": "101003",
+      "agent": "corplnx73",
+      "mitre": [
+        "T1685.004"
+      ],
+      "timestamp": "2026-09-03T02:42:31.902Z",
+      "alert_id": "1788403351.0034390",
+      "tactic": [
+        "defense-impairment"
+      ],
+      "groups": [
+        "syslog",
+        "sudo",
+        "audit_tampering"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "101003",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": "adm-infra62",
+      "target_user": "root",
+      "logon_type": null,
+      "event_id": null,
+      "sysmon": null,
+      "suricata": null
+    },
+    {
+      "level": 13,
+      "description": "Auditd: kernel audit system disabled by a configuration change (audit_enabled=0 old=1)",
+      "rule_id": "101002",
+      "agent": "corplnx73",
+      "mitre": [
+        "T1685.004"
+      ],
+      "timestamp": "2026-09-03T02:42:15.341204Z",
+      "alert_id": "1788403335.0032531",
+      "tactic": [
+        "defense-impairment"
+      ],
+      "groups": [
+        "audit",
+        "audit_config"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "101002",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": "adm-infra62",
+      "target_user": null,
+      "logon_type": null,
+      "event_id": null,
+      "sysmon": null,
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "sudo: adm-infra62 ran as root: /usr/sbin/auditctl -e 0",
+      "rule_id": "101001",
+      "agent": "corplnx73",
+      "mitre": [
+        "T1685.004"
+      ],
+      "timestamp": "2026-09-03T02:42:15.338Z",
+      "alert_id": "1788403335.0030688",
+      "tactic": [
+        "defense-impairment"
+      ],
+      "groups": [
+        "syslog",
+        "sudo",
+        "audit_tampering"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "101001",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": "adm-infra62",
+      "target_user": "root",
+      "logon_type": null,
+      "event_id": null,
+      "sysmon": null,
+      "suricata": null
+    },
+    {
+      "level": 3,
+      "description": "sshd: authentication success (password)",
+      "rule_id": "101000",
+      "agent": "corplnx73",
+      "mitre": [
+        "T1021.004",
+        "T1078"
+      ],
+      "timestamp": "2026-09-03T02:41:07.214Z",
+      "alert_id": "1788403267.0028759",
+      "tactic": [
+        "lateral-movement",
+        "initial-access"
+      ],
+      "groups": [
+        "syslog",
+        "sshd",
+        "authentication_success"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "101000",
+        "rev": null
+      },
+      "src_ip": "198.51.100.58",
+      "src_port": 52814,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": "adm-infra62",
+      "logon_type": null,
+      "event_id": null,
+      "sysmon": null,
+      "suricata": null
+    }
+  ],
+  "recon_delta": {
+    "markdown": "## Recon delta — 2026-09-03\n\nScheduled run completed against the 2026-08-27 baseline: no new or removed listeners.\n",
+    "baseline": "2026-08-27",
+    "changes": []
+  },
+  "note": "Deterministic intake. Reasoning happens in CASA, not here."
+}

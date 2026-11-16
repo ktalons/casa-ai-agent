@@ -553,7 +553,11 @@ export function intakeKnowledge(intake: unknown, opts: LintOptions = {}): Knowle
     }
   }
   for (const h of valuesUnder(intake, INTAKE_HOST_KEYS)) k.hosts.add(h.toLowerCase());
-  for (const u of valuesUnder(intake, INTAKE_USER_KEYS)) k.users.add(u.toLowerCase());
+  // A DOMAIN\user value also makes the bare account known: a brief may name it without the domain.
+  for (const u of valuesUnder(intake, INTAKE_USER_KEYS)) {
+    k.users.add(u.toLowerCase());
+    if (u.includes("\\")) k.users.add((u.split("\\").pop() as string).toLowerCase());
+  }
   // A typed DNS name is a domain whatever its TLD; learn the TLD unless it is a file extension.
   const domainTlds = new Set<string>();
   for (const v of valuesUnder(intake, INTAKE_DOMAIN_KEYS)) {
@@ -681,7 +685,8 @@ export function analyze(text: string, intake: unknown, opts: LintOptions = {}): 
 
   for (const r of t.rule_id) if (!k.rule_ids.has(r)) miss("rule_id", r, "not a detection rule_id in the intake");
   for (const a of t.alert_id) if (!k.alert_ids.has(a)) miss("alert_id", a, "not an alert_id in the intake");
-  for (const h of t.host) if (!k.hosts.has(h)) miss("host", h, "host not named in the intake");
+  // NOTE: an account name can look like a host (svc-portal31); one the intake names is not invented.
+  for (const h of t.host) if (!k.hosts.has(h) && !k.users.has(h)) miss("host", h, "host not named in the intake");
   const canonicalForm = (raw: string, table: Set<string>, what: string) =>
     table.has(raw.toUpperCase().replace(/\s/, (raw.match(/^[Tt]/) ? "" : "-"))) ? `${what} not written in its canonical form` : `${what} not in the reference table`;
   for (const a of t.attack) if (!refs.attack.has(a)) miss("attack", a, canonicalForm(a, refs.attack, "ATT&CK technique ID"));
