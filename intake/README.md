@@ -1,12 +1,12 @@
 # Intake — the TalonSocLab seam
 
-This directory is CASA's consumer side of the `talonsoclab.soc-intake/v1` contract. [TalonSocLab](https://github.com/ktalons/talonsoclab) is the deterministic **data plane**: it collects, filters, and cites SOC telemetry, then emits a JSON intake artifact. CASA is the **reasoning plane** that consumes it. The contract between the two is this schema — not a shared API or key.
+This directory is CASA's consumer side of the `talonsoclab.soc-intake` contract, versions v1 and v2, both frozen. [TalonSocLab](https://github.com/ktalons/talonsoclab) is the deterministic **data plane**: it collects, filters, and cites SOC telemetry, then emits a JSON intake artifact. CASA is the **reasoning plane** that consumes it. The contract between the two is this schema — not a shared API or key.
 
 There is **no live dependency** here. These are files: a schema, hand-authored fixtures, and a validator. They let CASA's workflows be written and evaluated against a stable data shape before the lab's pipeline is deployed.
 
 ## The `soc-intake/v1` artifact
 
-Produced by `deploy/soc-recon/digest/generate_digest.py` in TalonSocLab (functions `build_intake` / `normalize_alert`). One object per run:
+Produced by the lab's former Python digest collector (`build_intake` / `normalize_alert`), which the lab removed from its public tree on 2026-11-04. A TypeScript producer that ships with CASA replaces it. One object per run:
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -72,7 +72,7 @@ rule with `manifest.json` naming the expected error; `Validate.test.ts` runs the
 
 ## Layout
 
-```
+```text
 intake/
 ├── schema/soc-intake.v1.schema.json   JSON Schema (draft-07) — the human/tooling contract
 ├── schema/soc-intake.v2.schema.json   v2: window, filter, pipeline, correlation fields, structured recon delta

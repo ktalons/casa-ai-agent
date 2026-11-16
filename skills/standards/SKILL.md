@@ -67,13 +67,15 @@ about an empty input is about **coverage** (was the pipeline live?), never about
 
 Recommendations are options with trade-offs, never commands. Each option states what it
 would achieve, what it costs or risks, and what it depends on. Containment options appear
-only when a finding is `supported`. An empty input yields liveness options only.
+only when a finding is `supported` at High confidence; below that, offer the `investigate`
+options that would raise it instead, so nobody acts on a hypothesis the evidence does not
+yet carry. An empty input yields liveness options only.
 
 ## 8. Output contract — `casa.finding/v1`
 
 Return exactly one fenced `json` block, then at most 20 lines of prose. Fields:
 
-```
+```text
 schema            "casa.finding/v1"
 agent             your agent name
 thread_id         echoed from the task

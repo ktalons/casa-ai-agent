@@ -8,8 +8,8 @@ below so the steps can be repeated verbatim.
 Two repos, two planes. TalonSocLab is the data plane: it collects, filters, cites and writes
 `digest/<date>-intake.json`. CASA is the reasoning plane: a Claude Code plugin installed
 **into the lab checkout**, so briefs, proposed detections and learn candidates land next to
-the telemetry they came from. CASA never writes into its own repo from a lab run, with one
-deliberate exception, promoted lessons (see step 2).
+the telemetry they came from. CASA never writes into its own repo from a lab run; lessons you
+approve go to the plugin's data directory (see step 2).
 
 ## 1. Prerequisites
 
@@ -26,13 +26,13 @@ Check: `claude --version`, `bun --version`, `jq --version`, `python3 --version`.
 
 From the lab checkout root (`talonsoclab/`), on the machine where you also maintain CASA:
 
-```
+```bash
 bash /path/to/casa-ai-agent/scripts/install-into-project.sh --source /path/to/casa-ai-agent
 ```
 
 On any other machine, install from GitHub instead:
 
-```
+```bash
 curl -fsSL https://raw.githubusercontent.com/ktalons/casa-ai-agent/v5.0.1/scripts/install-into-project.sh | bash
 ```
 
@@ -42,36 +42,47 @@ The script is idempotent. It:
    the lab's `.claude/settings.json` so every clone of the lab gets the same plugin (pass
    `--scope local` to keep it in the gitignored `settings.local.json` instead);
 2. merges CASA's recommended permission block into `.claude/settings.json` (array union, the
-   previous file kept as `settings.json.bak`): the read-only analysis commands the specialists
-   use are allowed, destructive and network commands are denied, secrets stay unreadable,
+   previous file kept as `settings.json.bak`): the read-only analysis commands are allowed,
+   destructive and network commands are denied, secrets stay unreadable,
    and reads under the plugin root are allowed (the skills' templates and reference tables
    live there, outside the project, so without that rule a headless run stops at the first
-   template read);
+   template read). The specialists have no shell, so these Bash rules are for the main
+   thread: the validator, the lint, the grader, and any raw-data queries (`jq`, `tshark -r`,
+   `zeek-cut`) you approve when you hand CASA raw telemetry;
 3. creates `briefs/`, `detections/proposed/`, `detections/accepted/`, `learn/pending/`,
    `learn/archive/`, `evals/results/`, `engagements/`;
 4. appends a marked block to `.gitignore` so run output is never committed (only
    `detections/accepted/` is tracked);
 5. prints `claude plugin list` filtered to casa and the smoke-test command.
 
-**Why the checkout path matters.** `/casa:learn` promotes an approved lesson into the plugin's
-own `skills/standards/references/lessons.md`. With `--source /path/to/casa-ai-agent` the plugin is
-read in place, so the promoted lesson lands in your CASA checkout and you commit it there.
-With a GitHub install it lands in the installed copy under `~/.claude/plugins/`, which the next
-update overwrites; copy it back by hand if you run that way.
+**Where approved lessons live.** `/casa:learn` appends each lesson you approve to
+`lessons.md` in the plugin's data directory, `${CLAUDE_PLUGIN_DATA}`, which Claude Code keeps
+under `~/.claude/plugins/data/` and leaves alone when the plugin updates. The plugin's own
+`skills/standards/references/lessons.md` is a read-only seed that ships with each release.
+Every investigation reads both, so a lesson is in force from the next run whichever way you
+installed. To share a lesson with other installs, copy it into the seed in your CASA checkout
+and commit it there. `--source` still matters for one thing: it reads the plugin in place, so
+an edit to a card or agent in your checkout takes effect without a reinstall.
 
 Commit the lab's `.claude/settings.json` and `.gitignore` changes.
 
 ## 3. Switch the digest producer to intake v2
+
+> **On hold since 2026-11-04.** The lab removed `deploy/soc-recon/digest/` from its public
+> tree that day, so the patch and the drop-in file below no longer have a target. Both are
+> being replaced by a TypeScript producer that ships with CASA and works against any Wazuh
+> indexer. This section stays as the record of what the v2 producer does until that lands.
 
 The v2 contract gives CASA what v1 could not carry: the window and filter the producer
 applied, whether the cap cut the list, pipeline liveness, per-alert correlation fields
 (`alert_id`, `src_ip`, `dst_ip`, `user`, `event_id`, `tactic`, `groups`) and a structured recon
 delta. Field table: [`intake/README.md`](../intake/README.md).
 
-The updated producer is in this repo as a drop-in file and as a patch against the lab at
-`766dc65`:
+The updated producer is in this repo as a drop-in file and as a patch against the lab's
+former producer. The lab's history was rewritten on 2026-11-04, so commit IDs recorded
+before that date no longer resolve there.
 
-```
+```bash
 cd /path/to/talonsoclab
 git apply /path/to/casa-ai-agent/docs/talonsoclab/generate_digest-v2.patch
 # or: cp /path/to/casa-ai-agent/docs/talonsoclab/generate_digest.py deploy/soc-recon/digest/
@@ -100,7 +111,7 @@ What changed in `deploy/soc-recon/digest/generate_digest.py`:
 Dry run before touching cron, with a recorded alert file (two ship with CASA under
 `intake/raw/`):
 
-```
+```bash
 cd deploy/soc-recon
 python3 digest/generate_digest.py --alerts-file /path/to/casa-ai-agent/intake/raw/brute-force-dc-chain.v2.alerts.jsonl --out-dir /tmp/casa-dry
 bun /path/to/casa-ai-agent/intake/Validate.ts /tmp/casa-dry/*-intake.json
@@ -109,7 +120,7 @@ bun /path/to/casa-ai-agent/intake/Validate.ts /tmp/casa-dry/*-intake.json
 In replay mode the window is anchored to the recording, not to now, so old data validates.
 Then a live run with the lab up, and validate that too:
 
-```
+```bash
 set -a && . ./.env && set +a
 python3 digest/generate_digest.py
 bun /path/to/casa-ai-agent/intake/Validate.ts digest/$(date -u +%F)-intake.json
@@ -122,7 +133,7 @@ window whose span disagrees with `lookback_hours`) do not fail.
 
 From the lab checkout root, where the plugin is installed:
 
-```
+```bash
 claude -p "/casa:investigate deploy/soc-recon/digest/$(date -u +%F)-intake.json" --permission-mode acceptEdits
 bun /path/to/casa-ai-agent/evals/Lint.ts --brief briefs/$(date -u +%F).brief.md --intake deploy/soc-recon/digest/$(date -u +%F)-intake.json
 ```
@@ -139,8 +150,8 @@ What CASA writes, all under the lab checkout and all gitignored except the last:
 | Path | Written by | Contents |
 |---|---|---|
 | `briefs/<date>.brief.md` | the Overseer (main thread) | one `casa.brief/v1` block plus the readable brief |
-| `detections/proposed/<date>-<thread>.*` | `casa:detection-engineer` | Sigma and Wazuh drafts for a supported finding at Medium or above |
-| `learn/pending/<date>-<slug>.md` | the Overseer | one LEARN candidate per run with findings |
+| `detections/proposed/<run_id>-<thread>.*` | `casa:detection-engineer` | Sigma and Wazuh drafts for a supported finding at Medium or above; `<run_id>` is the brief name plus `-r<N>`, new for every run, so a second run never overwrites the first run's drafts |
+| `learn/pending/<run_id>.md` | the Overseer | one LEARN candidate per run with findings |
 | `evals/results/` | `casa:evaluator`, fixtures only | grades and rubric files |
 | `detections/accepted/` | you, by hand | the rules you tested and kept (tracked) |
 
@@ -148,7 +159,7 @@ What CASA writes, all under the lab checkout and all gitignored except the last:
 
 Add the digest to cron after the recon run, as `crontab.example` already plans:
 
-```
+```text
 0 7 * * *  cd /opt/soc-recon && set -a && . ./.env && set +a && python3 digest/generate_digest.py >> /var/log/soc-recon.log 2>&1
 ```
 
@@ -159,7 +170,8 @@ Then, each day you review:
 3. If rules were proposed, test them on the manager (`/var/ossec/bin/wazuh-logtest` with a real
    event), then move the keepers to `detections/accepted/` and commit.
 4. `/casa:learn` when `learn/pending/` has something worth keeping. Approve or discard each
-   note; approved ones append to the lessons file in the CASA checkout, which you commit there.
+   note; approved ones append to the lessons file in the plugin's data directory, and the next
+   investigation reads them.
 
 A quiet day is a real result: the brief says no findings, states what the `pipeline` block
 showed, and recommends a liveness check only when the collector or agent counts look wrong.
@@ -171,7 +183,9 @@ showed, and recommends a liveness check only when the collector or agent counts 
 - **A `bun ...` command was refused.** The command must match an allow rule exactly, on its
   own, with nothing chained. The recommended block allows `bun */intake/Validate.ts *`,
   `bun */evals/Lint.ts *` and `bun */evals/Grade.ts *`, which match the plugin-root forms the
-  skills use. Re-run the install script if the block is missing.
+  skills use. Re-run the install script if the block is missing. Every one of these rules serves
+  the main thread; the plugin's guard refuses all shell commands to subagents, so the Grade.ts
+  rule in particular is for the main thread only (`/casa:evaluate`).
 - **The validator rejects the intake.** It prints the field and the rule. The common ones:
   a timestamp outside the window (producer and indexer clocks disagree), `truncated: true`
   with fewer than `cap` entries, a duplicate `alert_id`.

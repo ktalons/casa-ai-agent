@@ -31,7 +31,7 @@ Prerequisites: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and
 
 As a plugin, in any project:
 
-```
+```text
 /plugin marketplace add ktalons/casa-ai-agent
 /plugin install casa@casa
 ```
@@ -46,13 +46,15 @@ bun run dev          # claude --plugin-dir .
 
 Then:
 
-```
+```text
 /casa:investigate intake/fixtures/brute-force-dc-chain.intake.json
 ```
 
 Permissions do not travel with a plugin. The repo's `.claude/settings.json` is the recommended
 allowlist (read-only analysis commands, destructive commands denied, secrets unreadable);
-copy it into projects where you install CASA.
+copy it into projects where you install CASA. The specialists have no shell: their Bash rules
+exist for the main thread, which runs the validator, the lint, the grader and any raw-data
+queries you approve, and hands the output to the specialists.
 
 ## How it works
 
@@ -87,9 +89,9 @@ adds the marketplace, installs `casa@casa`, merges `docs/settings.recommended.js
 project's `.claude/settings.json` and creates the output directories. Then run
 `/casa:investigate <path to intake.json>` there. Briefs, proposed detections, grades and learn
 candidates are written under that project, never into the plugin; the skills reach the
-plugin's own validator, lint and reference tables through `${CLAUDE_PLUGIN_ROOT}`. The write
-guard travels with the plugin; the Bash allowlist does not, which is why the settings snippet
-exists. The full runbook for the lab, including the v2 digest producer, is
+plugin's own validator, lint and reference tables through `${CLAUDE_PLUGIN_ROOT}`. The guard
+travels with the plugin and refuses every subagent shell command; the main thread's Bash
+allowlist does not travel, which is why the settings snippet exists. The full runbook for the lab, including the v2 digest producer, is
 [`docs/talonsoclab-integration.md`](docs/talonsoclab-integration.md).
 
 ## Development

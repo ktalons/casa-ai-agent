@@ -24,12 +24,12 @@
 - A T1071.* detection asserting periodicity makes H1 `supported` at **Medium** at most:
   periodicity inferred by a rule is suggestive, and the intake carries no interval, jitter,
   destination or byte counts. Name the measurement that would confirm it.
-- Two C2-tactic detections on the same host in the window (for example periodic HTTPS plus
-  a high-entropy DNS query) stay **Medium** but become one thread; they corroborate each
-  other only weakly because both rest on the same host's rule evaluations.
+- Two C2-tactic detections on the same host in the window become one thread; they
+  corroborate each other only weakly because both rest on the same host's rule evaluations,
+  so they do not count as two independent sources.
 - A recon-delta listener on that host is corroborating context for H3; it does not raise H1
-  by itself. A self-signed certificate on a workstation port is as consistent with H4 as
-  with H3; say so in `alternatives`.
+  by itself. A new listener is often as consistent with H4 as with H3; say so in
+  `alternatives`.
 - **v2 intakes:** `dst_ip` on the detections is an indicator the threat-intel agent can look
   up, and a structured `recon_delta.changes[]` entry for the host is the listener fact.
 - **High** is reachable in intake-only mode only when an independent source corroborates:
@@ -44,20 +44,24 @@
 | Destination identity | Zeek `ssl.log`, `dns.log`; proxy logs | `server_name`, `issuer`, `validation_status`, `query`, `answers`, `rcode_name` |
 | DNS channel signs | `dns.log` | query length, label entropy, record type (`TXT`, `NULL`), NXDOMAIN rate, distinct subdomains per domain |
 | The process behind the connection | Sysmon event 3 (network connection), event 1 (process create) | `Image`, `ProcessId`, `DestinationIp`, `DestinationPort`, `ParentImage` |
-| What owns the new listener | Sysmon event 3 inbound, or `lsof -i :<port>` output supplied by the analyst | `Image`, `User`, listening socket |
+| What owns the new listener | Sysmon event 3 inbound, or a socket listing from the host supplied by the analyst | `Image`, `User`, listening socket |
 | Destination reputation | threat-intel agent, offline tables first | ASN, registration age, known-C2 lists, with the source cited |
 
-## 5. Raw-telemetry mode
+## 5. Raw-data requests
 
-```
-# connections from the host to one destination, in time order (compute deltas from ts)
-zeek-cut ts id.orig_h id.resp_h id.resp_p orig_bytes resp_bytes < conn.log | grep '<host ip>' | sort -n
+A specialist never runs these: they are data requests, which the main thread runs under the
+user's own permission settings when raw telemetry exists, handing the output to the
+specialists, or which go into `data_requests` as exact commands for the human analyst.
+
+```bash
+# connections from the host, in time order
+zeek-cut ts id.orig_h id.resp_h id.resp_p orig_bytes resp_bytes < conn.log | jq -R -s -r 'split("\n") | map(select(length>0) | split("\t") | select(.[1]=="<host ip>")) | sort_by(.[0]|tonumber) | .[] | @tsv'
 
 # inter-arrival deltas and spread (jitter) for one destination
-zeek-cut ts < conn.log | jq -s -R 'split("\n") | map(select(length>0)|tonumber) | sort | [.[1:], .[:-1]] | transpose | map(.[0]-.[1]) | {n:length, mean:(add/length), min:min, max:max}'
+zeek-cut ts id.orig_h id.resp_h < conn.log | jq -R -s 'split("\n") | map(select(length>0) | split("\t") | select(.[1]=="<host ip>" and .[2]=="<destination ip>") | .[0]|tonumber) | sort | [.[1:], .[:-1]] | transpose | map(.[0]-.[1]) | {n:length, mean:(add/length), min:min, max:max}'
 
-# DNS queries by length and type
-zeek-cut ts query qtype_name rcode_name < dns.log | grep '<host ip>'
+# DNS queries from the host by length and type
+zeek-cut ts id.orig_h query qtype_name rcode_name < dns.log | jq -R -r 'split("\t") | select(.[1]=="<host ip>") | @tsv'
 
 # TLS to the destination from a capture
 tshark -r <capture.pcap> -Y 'tls.handshake.type == 1' -T fields -e frame.time_epoch -e ip.src -e ip.dst -e tls.handshake.extensions_server_name
@@ -77,4 +81,4 @@ excluded by destination before the signature counts.
 | High | A measured interval with low jitter over ten or more connections, plus a destination with a cited malicious reputation or a suspicious owning process |
 
 CSF 2.0: DE.CM-01, DE.CM-09, DE.AE-02, DE.AE-07; hardening PR.IR-01, PR.PS-05; response
-RS.AN-03, RS.AN-07. Posture is investigate before respond: containment options only at High.
+RS.AN-03, RS.AN-07. Containment options follow the standards skill's rule.

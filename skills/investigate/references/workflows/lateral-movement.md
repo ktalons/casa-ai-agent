@@ -44,9 +44,13 @@
 | Kerberos anomalies | 4768, 4769, 4771 | `TicketEncryptionType`, `ServiceName`, failure codes |
 | East-west flows | Zeek `conn.log` | `id.orig_h`, `id.resp_h`, `id.resp_p`, `duration`, `orig_bytes` |
 
-## 5. Raw-telemetry mode
+## 5. Raw-data requests
 
-```
+A specialist never runs these: they are data requests, which the main thread runs under the
+user's own permission settings when raw telemetry exists, handing the output to the
+specialists, or which go into `data_requests` as exact commands for the human analyst.
+
+```bash
 # network and remote-interactive logons per source host and account
 jq -r 'select(.data.win.system.eventID=="4624") | select(.data.win.eventdata.LogonType=="3" or .data.win.eventdata.LogonType=="10") | [.timestamp, .agent.name, .data.win.eventdata.IpAddress, .data.win.eventdata.TargetUserName, .data.win.eventdata.LogonType] | @tsv' <alerts.jsonl>
 
@@ -54,7 +58,7 @@ jq -r 'select(.data.win.system.eventID=="4624") | select(.data.win.eventdata.Log
 jq -r 'select(.data.win.system.eventID=="7045" or (.data.win.system.eventID=="4688" and (.data.win.eventdata.ParentProcessName|test("WmiPrvSE")))) | [.timestamp, .agent.name, .data.win.system.eventID, (.data.win.eventdata.ServiceName // .data.win.eventdata.NewProcessName)] | @tsv' <alerts.jsonl>
 
 # east-west connections to admin ports
-zeek-cut ts id.orig_h id.resp_h id.resp_p duration orig_bytes < conn.log | grep -E '\s(445|3389|22|5985|5986|135)\s'
+zeek-cut ts id.orig_h id.resp_h id.resp_p duration orig_bytes < conn.log | jq -R -r 'split("\t") | select(.[3] | IN("445","3389","22","5985","5986","135")) | @tsv'
 ```
 
 Thresholds worth stating: one account on more than 3 hosts within an hour; one source

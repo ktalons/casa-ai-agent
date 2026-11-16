@@ -24,19 +24,21 @@ advisory and comes from `casa:evaluator`. Nothing here edits a brief.
    so and stop.
 2. **Machine grade.** Run, as a single Bash command:
 
-   ```
+   ```bash
    bun ${CLAUDE_PLUGIN_ROOT}/evals/Grade.ts --brief <brief> --expected <expected> --intake <intake> --json
    ```
 
-   Run it on its own, with nothing chained to it. Keep the printed `path` (the grade file). A
-   non-zero exit means a machine check failed;
+   Run it on its own, with nothing chained to it, from the project directory: the grade file
+   goes to `evals/results/<fixture>/` under the current working directory, never under the
+   plugin root. Keep the printed `path` (the grade file). A non-zero exit means a machine check failed;
    continue to the rubric anyway so the record is complete, but say which checks failed.
 3. **Rubric grade.** Use the Agent tool once with `subagent_type` `casa:evaluator` and a prompt
    that gives the four paths (brief, expected, intake, grade file) and asks for the rubric file
-   under `evals/results/<fixture>/`. Take the rubric file path from its reply.
+   in the same directory as the grade file. Take the rubric file path from its reply.
+   Both files now sit in one project `evals/results/<fixture>/` directory.
 4. **Merge.** Run:
 
-   ```
+   ```bash
    bun ${CLAUDE_PLUGIN_ROOT}/evals/Grade.ts --brief <brief> --expected <expected> --intake <intake> --rubric <rubric file>
    ```
 

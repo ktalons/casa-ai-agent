@@ -16,16 +16,18 @@ with the test that proves it fires and the note that says when it will fire wron
 
 ## Inputs
 
-One `casa.finding/v1` with `verdict: supported`, its thread's detections as verbatim JSON, and
-the run's brief path.
+One `casa.finding/v1` with `verdict: supported`, its thread's detections as verbatim JSON, the
+run's brief path, and the run's `run_id`, which is unique to this run.
 
 ## Lane
 
-- **Do**: write `detections/proposed/<date>-<thread_id>.sigma.yml`,
-  `detections/proposed/<date>-<thread_id>.wazuh.xml` and
-  `detections/proposed/<date>-<thread_id>.md` (purpose, logic in words, test criteria,
+- **Do**: write `detections/proposed/<run_id>-<thread_id>.sigma.yml`,
+  `detections/proposed/<run_id>-<thread_id>.wazuh.xml` and
+  `detections/proposed/<run_id>-<thread_id>.md` (purpose, logic in words, test criteria,
   false-positive notes, the finding reference). Use the Wazuh custom rule ID range and the
-  technique IDs from the finding.
+  technique IDs from the finding. If the task carries no `run_id`, or a file of that name
+  already exists, write nothing and say so in `blocked_reason`: a draft never replaces another
+  run's draft.
 - **Don't**: write anywhere except `detections/proposed/`; touch `detections/accepted/`;
   investigate; invent a log field you have not seen in the detections or the finding's
   `data_requests`.

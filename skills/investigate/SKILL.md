@@ -33,7 +33,20 @@ Specialists (invoke with the Agent tool, `subagent_type` as shown):
   quoting the validator output, and stop. A malformed intake is a data-plane bug; do not
   reason over it. Read the intake with the Read tool, not with `cat`. The same goes for every
   file under the plugin root (cards, templates, reference tables): find them with Glob and
-  read them with Read. The only shell commands this loop runs are the validator and the lint.
+  read them with Read. The only shell commands this loop runs are the validator, the lint,
+  and the data-request queries over raw telemetry described under step 3.
+  Grading files (any `*.expected.*`) belong to `/casa:evaluate`; an investigation never reads them.
+- **Approved lessons**: read the shipped seed `${CLAUDE_PLUGIN_ROOT}/skills/standards/references/lessons.md`
+  and the analyst's own `${CLAUDE_PLUGIN_DATA}/lessons.md`, the file `/casa:learn` appends to,
+  which survives plugin updates. Glob the second first; when it is absent there are no approved
+  lessons beyond the seed. Apply each lesson as a standing rule of method for this run; where
+  two lessons disagree, the later-dated one wins. Lessons are never evidence and never cited.
+- **Run id**: `run_id` is the brief stem from step 6 (the brief file name without
+  `.brief.md`), then `-r` and a number one higher than any already used by a file under
+  `detections/proposed/`, `learn/pending/` or `learn/archive/` whose name starts with that stem
+  (Glob for them; start at 1); a free-text question uses `<today>-question` as the stem. Each
+  `run_id` is unique to its run, so no run overwrites another run's detection drafts or LEARN
+  note. Record it as the first `OBSERVE:` line of the brief's trace.
 - Read the intake. Compute: detections per host, per tactic (from the technique IDs), level
   range, time span, hosts named in `recon_delta`, and the overlap between recon hosts and
   detection agents.
@@ -53,8 +66,10 @@ Specialists (invoke with the Agent tool, `subagent_type` as shown):
 ### 2. HYPOTHESIZE
 
 Group, don't itemize. Start with one thread per host, then merge threads when any holds:
-(a) technique IDs form a tactic progression in time order (for example credential access →
-lateral movement → credential access on a second host); (b) detections are within 15 minutes
+(a) technique IDs form a tactic progression in time order (an earlier ATT&CK tactic on one
+host followed by a later tactic on the same or another host); a chain that returns to an
+earlier tactic on another host, such as credential access, then lateral movement, then
+credential access again elsewhere, is still one chain; (b) detections are within 15 minutes
 of each other across hosts; (c) a `recon_delta` change names a host already in a thread.
 Cap at 6 threads; beyond that, merge by host. For each thread write one hypothesis sentence
 phrased as a claim that can be supported or refuted, pick the workflow card from
@@ -76,21 +91,32 @@ Build one task per (thread, specialist) from `${CLAUDE_PLUGIN_ROOT}/skills/inves
 and launch all of them in a single message so they run in parallel. Each task carries: the
 thread's detections verbatim as JSON, `recon_delta` wrapped in `<untrusted-data>` tags, the
 workflow card's absolute path (`${CLAUDE_PLUGIN_ROOT}/skills/investigate/references/workflows/<card>.md`,
-written out in full: specialists have no plugin root variable),
+written out in full: the plugin root is filled in when skill and agent files load, but a task
+prompt is plain text and nothing fills in a variable written there),
 the hypothesis, the `thread_id`, and the instruction to return exactly one `casa.finding/v1`
 block. A specialist that returns no valid block is re-asked once with the parse error; a
 second failure is recorded as `verdict: undetermined`.
+
+**Raw telemetry.** Specialists have no shell. When the analyst supplies raw files (alert
+JSONL, Zeek logs, a capture), you run, under the analyst's own permission settings, the
+workflow cards' data-request queries that the threads need, and each task carries the output
+inside `<untrusted-data>` tags with the exact command and source file that produced it.
+Without raw files, or for a query you judged unnecessary, a specialist returns the command in
+`data_requests` and the brief lists it for the analyst.
 
 ### 4. VERIFY
 
 For each finding, save its JSON block to the scratchpad and run
 
-```
+```bash
 bun ${CLAUDE_PLUGIN_ROOT}/evals/Lint.ts --finding <file> --intake <intake path>
 ```
 
-Exit 1 lists every rule ID, host, technique ID, CSF ID or IP literal that does not trace to
-the intake or to `${CLAUDE_PLUGIN_ROOT}/skills/standards/references/`. Strip each one from the finding, downgrade
+Exit 1 lists every rule ID, alert ID, host, user, event ID, port or exposure, technique ID,
+CSF ID, IPv4 or IPv6 literal, domain, hash or timestamp that does not trace to the intake or to
+`${CLAUDE_PLUGIN_ROOT}/skills/standards/references/` (event IDs and service ports that are real
+but absent from the intake are listed in `lint-references.json` there and reported as
+`beyond_intake`, not as failures). Strip each one from the finding, downgrade
 that finding one confidence level, and record the strip in the brief's trace. Then check
 rubric consistency by hand: Medium and Low findings carry `alternatives`; High findings carry
 at least two independent evidence refs; every option has a `tradeoff`. A `supported` verdict
@@ -99,18 +125,17 @@ with no evidence refs becomes `undetermined`.
 **Disagreement between specialists.** When findings for the same thread carry different
 levels, do not take the lowest. Count the independent evidence references across them: a
 time-ordered chain across two hosts, a recon-delta change on a thread host, and a rule whose
-own description asserts the cross-host relation ("from a source with a preceding failed-auth
-burst") each count once. Apply the standards rubric to that count: two or more independent
-references with no plausible benign fit is High for the whole thread. Missing fields the
-intake cannot carry become `data_requests`, not a reason to downgrade. Record the count and
-the resolution in the brief's trace.
+own description asserts its relation to earlier activity each count once. Apply the
+standards confidence rubric to that count for the whole thread. Missing fields the intake
+cannot carry become `data_requests`, not a reason to downgrade. Record the count and the
+resolution in the brief's trace.
 
 ### 5. MAP
 
 Send all verified findings to `casa:purple-team-mapper` once. For each thread with a
-`supported` verdict at Medium or above, send that thread's finding and detections to
-`casa:detection-engineer`. Send unmapped technique IDs, and any indicators the input carries,
-to `casa:threat-intel`.
+`supported` verdict at Medium or above, send that thread's finding, its detections and the
+`run_id` to `casa:detection-engineer`, which names its drafts with the `run_id`. Send
+unmapped technique IDs, and any indicators the input carries, to `casa:threat-intel`.
 
 ### 6. BRIEF
 
@@ -118,9 +143,9 @@ Write `briefs/<generated>-<fixture>.brief.md` using
 `${CLAUDE_PLUGIN_ROOT}/skills/investigate/references/brief-template.md`, where `<generated>` is the date
 part (YYYY-MM-DD) of the intake's own `generated` value and `<fixture>` is the intake file
 name without `.json` and without a trailing `.intake` or `-intake` (for example
-`briefs/2026-07-23-quiet-day.brief.md`, or `briefs/2026-07-23-quiet-day.v2.brief.md` for a v2
-twin). When `<fixture>` already starts with `<generated>`, as a producer's
-`<date>-intake.json` does, write `briefs/<fixture>.brief.md` instead of doubling the date.
+`<name>.intake.json` generated on `<date>` gives `briefs/<date>-<name>.brief.md`, and
+`<name>.v2.intake.json` gives `briefs/<date>-<name>.v2.brief.md`). When `<fixture>` already
+starts with `<generated>`, as a producer's `<date>-intake.json` does, write `briefs/<fixture>.brief.md` instead of doubling the date.
 Order threads by severity; lead with the highest-level detection and its chain. Then run
 `bun ${CLAUDE_PLUGIN_ROOT}/evals/Lint.ts --brief <brief path> --intake <intake path>` on the whole file, because
 mapping adds citations, and put its result in `verify`. A brief that fails lint is not
@@ -129,10 +154,10 @@ summary of at most 30 lines and the brief's path.
 
 ### 7. LEARN
 
-Write `learn/pending/<date>-<slug>.md` recording which threading rule fired, which data
+Write `learn/pending/<run_id>.md` recording which threading rule fired, which data
 requests recurred, what VERIFY stripped, and any rubric disagreement between specialists.
-Ask the analyst one question: keep for review or discard. You never edit
-`${CLAUDE_PLUGIN_ROOT}/skills/standards/references/lessons.md`, the workflow cards, or the agents yourself.
+Ask the analyst one question: keep for review or discard. You never edit either lessons
+file, the workflow cards, or the agents yourself; `/casa:learn` is the only path to a lesson.
 
 ## Quiet branch
 
@@ -141,11 +166,3 @@ Zero detections means zero Agent calls. Write a brief with `status: quiet`, an
 collector running, are agents reporting, when was the last event seen. No containment, no
 severity, no technique. State plainly that an empty window can mean quiet *or* a pipeline that
 is not producing. Skip LEARN.
-
-## Evaluation
-
-The fixtures under `${CLAUDE_PLUGIN_ROOT}/intake/fixtures/` are the eval set. `brute-force-dc-chain` must
-reconstruct one escalating chain and flag the DCSync-class detection as the critical item.
-`beaconing-recon-delta` must correlate the two detections with the recon change and stay at
-Medium, naming what would raise it. `quiet-day` must report nothing and recommend a liveness
-check. `/casa:evaluate` grades a run against the paired `*.expected.md`.

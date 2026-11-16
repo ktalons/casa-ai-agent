@@ -1,0 +1,12 @@
+---
+# Markdown style linting skips generated text: kept eval briefs are model output graded as
+# written, and fixture expectations are test data. Security scanners still cover every path.
+engines:
+  markdownlint:
+    exclude_paths:
+      - "evals/samples/**"
+      - "intake/fixtures/**"
+  remark-lint:
+    exclude_paths:
+      - "evals/samples/**"
+      - "intake/fixtures/**"

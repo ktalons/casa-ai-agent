@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install -g @anthropic-ai/claude-code@2.1.289
+      - run: npm install -g @anthropic-ai/claude-code@2.1.325
       - run: claude plugin validate --strict .
 
   typecheck:
@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
       - run: bun install --frozen-lockfile
       - name: tsc --noEmit (strict)
         run: bun x tsc --noEmit
@@ -66,11 +66,11 @@ jobs:
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install -g @anthropic-ai/claude-code@2.1.289
+      - run: npm install -g @anthropic-ai/claude-code@2.1.325
       - run: bun install --frozen-lockfile
       - name: load the checkout as the plugin, in place
         run: bun run plugin:link

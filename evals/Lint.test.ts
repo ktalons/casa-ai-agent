@@ -1,12 +1,44 @@
+// *****************************************************************************
+// *Title: Fabrication Lint Tests*
+// *Author: Kyle Versluis*
+// *Description: Every token kind the standard names must trace or fail.*
+// *****************************************************************************
+
+// *--- Imports ---*
+
 import { test, expect } from "bun:test";
-import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { extractTokens, lint, loadReferences } from "./lib/extract.ts";
+import { extractTokens, lint, loadReferences, type Kind } from "./lib/extract.ts";
+
+// *--- Configuration ---*
 
 const ROOT = join(import.meta.dir, "..");
-const intake = JSON.parse(readFileSync(join(ROOT, "intake/fixtures/brute-force-dc-chain.intake.json"), "utf8"));
-const good = readFileSync(join(ROOT, "evals/samples/brute-force-dc-chain.good.brief.md"), "utf8");
-const bad = readFileSync(join(ROOT, "evals/samples/brute-force-dc-chain.bad.brief.md"), "utf8");
+const read = (p: string) => readFileSync(join(ROOT, p), "utf8");
+const json = (p: string) => JSON.parse(read(p));
+const intake = json("intake/fixtures/brute-force-dc-chain.intake.json");
+const intakeV2 = json("intake/fixtures/brute-force-dc-chain.v2.intake.json");
+const good = read("evals/samples/brute-force-dc-chain.good.brief.md");
+const bad = read("evals/samples/brute-force-dc-chain.bad.brief.md");
+const SHA256_A = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+const SHA256_B = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210";
+
+// *--- Helper Functions ---*
+
+/** The flagged tokens of one kind, as `kind:token` strings. */
+function flagged(text: string, ik: unknown, kind?: Kind): string[] {
+  return lint(text, ik).unknown.filter((u) => !kind || u.kind === kind).map((u) => `${u.kind}:${u.token}`);
+}
+
+/** A v2 intake with one detection's fields replaced, for kinds the fixtures never carry. */
+function intakeWith(fields: Record<string, unknown>): unknown {
+  const copy = structuredClone(intakeV2);
+  Object.assign(copy.detections[0], fields);
+  return copy;
+}
+
+// *--- Reference Tables ---*
 
 test("reference tables load and carry the IDs the fixtures rely on", () => {
   const refs = loadReferences();
@@ -15,12 +47,28 @@ test("reference tables load and carry the IDs the fixtures rely on", () => {
   // CSF 1.1 identifiers must not be present.
   for (const id of ["PR.AC-4", "RS.AN-01", "DE.CM-04", "ID.AM-06"]) expect(refs.csf.has(id)).toBe(false);
   expect(refs.csf.size).toBe(106);
+  for (const id of ["4624", "4625", "4662", "4688", "4738", "4769", "1", "3", "10"]) expect(refs.event_ids.has(id)).toBe(true);
+  for (const id of ["4999", "4600", "99"]) expect(refs.event_ids.has(id)).toBe(false);
+  for (const p of ["53", "88", "389", "443", "445", "3389"]) expect(refs.ports.has(p)).toBe(true);
+  expect(refs.ports.has("4444")).toBe(false);
 });
 
+test("TLD list holds only lowercase root-zone names; special-use names stay separate but still read as domains", () => {
+  const lr = json("skills/standards/references/lint-references.json");
+  const special = new Set<string>(lr.special_use_names.names);
+  expect(lr.tlds.filter((t: string) => t !== t.toLowerCase())).toEqual([]);
+  expect(lr.tlds.filter((t: string) => special.has(t))).toEqual([]);
+  expect([...extractTokens("talondc01 resolved dc01.corp and files.internal").domain].sort()).toEqual(["dc01.corp", "files.internal"]);
+  expect(flagged("talondc01 resolved dc01.corp", intakeV2)).toEqual(["domain:dc01.corp"]);
+});
+
+// *--- Extraction ---*
+
 test("extractTokens ignores sha256 blobs and IP octets when looking for rule IDs", () => {
-  const t = extractTokens("sha256 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef and 10.0.0.50 and rule 100220");
+  const t = extractTokens(`sha256 ${SHA256_A} and 10.0.0.50 and rule 100220`);
   expect([...t.rule_id]).toEqual(["100220"]);
   expect([...t.ip]).toEqual(["10.0.0.50"]);
+  expect([...t.hash]).toEqual([SHA256_A]);
 });
 
 test("extractTokens catches CSF 1.1 shapes so they can be rejected", () => {
@@ -28,7 +76,204 @@ test("extractTokens catches CSF 1.1 shapes so they can be rejected", () => {
   expect([...t.csf].sort()).toEqual(["DE.AE-03", "PR.AC-4"]);
 });
 
-test("good sample brief passes: every citation traces to the intake or a table", () => {
+test("port notations are not rule IDs, and a bare five-digit number needs a rule keyword to be one", () => {
+  const t = extractTokens("port 49152 open, talonmacbook:8443/tcp listening, ports 50000 and 60122/udp, rule 60122 fired, 12345 seen");
+  expect([...t.rule_id].sort()).toEqual(["60122"]);
+  expect([...t.port].sort()).toEqual(["49152", "50000", "60122", "8443"]);
+  expect([...t.exposure]).toEqual(["talonmacbook:8443"]);
+});
+
+test("the host prefix is a literal, not a regex: metacharacters are refused, the rest escaped", () => {
+  expect(() => extractTokens("x", { hostPrefixes: ["ta(lon"] })).toThrow("host prefix");
+  expect(() => extractTokens("x", { hostPrefixes: [".*"] })).toThrow("host prefix");
+  expect(() => extractTokens("x", { hostPrefixes: [""] })).toThrow("host prefix");
+  // Tokens without digits, so only the prefix rule can see them.
+  const t = extractTokens("lab-dc and lab-ws and lab- and labx and slab-dc", { hostPrefixes: ["lab-"] });
+  expect([...t.host].sort()).toEqual(["lab-dc", "lab-ws"]);
+  expect([...extractTokens("talondc talon talonx", { hostPrefixes: ["talon"] }).host].sort()).toEqual(["talondc", "talonx"]);
+});
+
+test("ordinary words, file names and technical tokens are not read as hosts, users or domains", () => {
+  const prose = "Pull sha256 and md5 for the ipv6 path; read conn.log, dce_rpc.log and lessons.md; level-12 alerts, " +
+    "the user and the account used, a host that is not a DC, x.run1.brief.md, System.IO.File, DR10, T1, id.resp_h.";
+  const t = extractTokens(prose);
+  expect([...t.host]).toEqual([]);
+  expect([...t.user]).toEqual([]);
+  expect([...t.domain]).toEqual([]);
+  expect([...t.timestamp]).toEqual([]);
+});
+
+// *--- F3 Criteria ---*
+
+test("invented host: a hostname with no talon prefix fails in prose, notation, keyword and JSON forms", () => {
+  const cases = [
+    "Lateral movement from web07 to talondc01 (rule 100215).",
+    "The host WEB07 authenticated to talondc01.",
+    "New exposure on web07:3389/tcp.",
+    "```json\n{ \"schema\": \"casa.brief/v1\", \"threads\": [ { \"hosts\": [\"webserver\"] } ] }\n```",
+  ];
+  for (const text of cases) expect(flagged(text, intakeV2, "host").length).toBe(1);
+  // The intake's own hosts, in any case, pass.
+  expect(flagged("TALONDC01 and talondellbox, talondellbox:3389/tcp", intakeV2)).toEqual([]);
+  // A host the intake names only inside recon_delta markdown is known.
+  expect(flagged("talondc01:445/tcp is unchanged", intake)).toEqual([]);
+  // A real host bound to a port the intake never reported for it is an invented exposure.
+  expect(flagged("talondc01:3389/tcp is open", intakeV2)).toEqual(["port:talondc01:3389"]);
+});
+
+test("rule id exact: digits found only inside an alert_id fail as a rule ID", () => {
+  // 418001 is the fractional part of the first detection's alert_id, never a rule.
+  expect(flagged("rule 418001 fired on talondc01", intakeV2)).toEqual(["rule_id:418001"]);
+  expect(flagged("rule 100220 fired on talondc01", intakeV2)).toEqual([]);
+  // The alert_id itself traces; an invented one does not.
+  expect(flagged("alert 1784600387.418001 on talondc01", intakeV2)).toEqual([]);
+  expect(flagged("alert 1784600387.999999 on talondc01", intakeV2)).toEqual(["alert_id:1784600387.999999"]);
+});
+
+test("token kinds: an invented user, event ID, port, IPv6 address, domain, hash and timestamp each fail (7 of 7)", () => {
+  const invented: [Kind, string][] = [
+    ["user", "The logon used account svc-sqlagent on talondc01."],
+    ["event_id", "talondc01 logged event 4999 during the replication."],
+    ["port", "talondellbox also listened on 4444/tcp."],
+    ["ipv6", "The request came from 2001:db8::bad:1."],
+    ["domain", "talondellbox resolved update-check.example.net before the burst."],
+    ["hash", `The dropped binary had sha256 ${SHA256_A}.`],
+    ["timestamp", "The replication began at 2026-07-20T03:41:07Z."],
+  ];
+  const caught = invented.filter(([kind, text]) => flagged(text, intakeV2, kind).length === 1);
+  expect(caught.map(([k]) => k)).toEqual(invented.map(([k]) => k));
+
+  // The same kinds pass when they trace to the intake.
+  expect(flagged("user svc-backup; event 4662 then 4624; port 3389/tcp; at 02:19:47Z on 2026-07-20, about 02:20Z", intakeV2)).toEqual([]);
+  const rich = intakeWith({ src_ip: "2001:db8:0:0::14", description: `query for cdn-sync.example.net, file ${SHA256_B}` });
+  expect(flagged(`from 2001:db8::14 resolving cdn-sync.example.net, sha256 ${SHA256_B.toUpperCase()}`, rich)).toEqual([]);
+
+  // Data requests may name real event IDs and service ports from the reference tables.
+  expect(flagged("Security 4688 and Sysmon events 1, 3 and 10 would show the process; Kerberos on 88/tcp.", intakeV2)).toEqual([]);
+  expect(lint("Security 4688 would show the process.", intakeV2).beyond_intake.event_id).toEqual(["4688"]);
+
+  // A user named in backticks after the keyword is checked even without separators.
+  expect(flagged("the account `jdoe` logged on", intakeV2)).toEqual(["user:jdoe"]);
+  // An HH:MM time outside the intake window and more than a rounding away from any intake time is
+  // invented. The v1 intake has no window field, so its window is the detection span.
+  expect(flagged("between 02:14Z and 02:30Z", intake)).toEqual(["timestamp:02:30Z"]);
+});
+
+test("honest phrasing: ordinary SOC prose, lookup sites and in-window ranges lint clean", () => {
+  const honest = [
+    "Pull logs from 01:30Z to 03:30Z.",
+    "Query 2026-07-20 02:00-03:00 on the DC.",
+    "Check user sign-in logs, account lock-out and user re-authentication.",
+    "Pull events 30 minutes either side.",
+    "Scan ports 1-1024 on the segment.",
+    "The app used oauth2 and ran a ps1 script.",
+    "Windows 10.0.19045.3693, Windows build 19045, PID 12345, CVE-2021-44228, ISO 27001, mem 65536 KB, TCP 31337.",
+    "Agent version 2.0.1.5 is current.",
+    "A ratio 10:30 and a score 12:34 are not times.",
+    "Look the indicator up on virustotal.com, abuse.ch, urlhaus.abuse.ch, shodan.io, greynoise.io and otx.alienvault.com.",
+    "See attack.mitre.org and learn.microsoft.com; placeholders use example.com, example.org and example.net.",
+    "The service listened on 0.0.0.0 and 127.0.0.1.",
+    "It ran as NT AUTHORITY\\SYSTEM under BUILTIN\\Administrators and loaded System.Net and Microsoft.Win32.",
+  ];
+  const failing = honest.map((text) => ({ text, flagged: flagged(text, intakeV2) })).filter((r) => r.flagged.length > 0);
+  expect(failing).toEqual([]);
+});
+
+test("fabricated phrasing: obfuscated, re-cased and loosely written tokens each fail as their kind", () => {
+  const hex = (pair: string, n: number) => pair.repeat(n / 2);
+  const cases: [Kind, string, unknown][] = [
+    ["domain", "talondc01 resolved evil[.]com.", intakeV2],
+    ["domain", "Beacon to hxxp://evil[.]com/gate.", intakeV2],
+    ["ip", "talondc01 talked to 10[.]9[.]9[.]9.", intakeV2],
+    ["ip", "talondc01 talked to 10(.)9(.)9(.)9.", intakeV2],
+    ["domain", "talondc01 resolved EVIL.com.", intakeV2],
+    ["domain", "talondc01 resolved Evil.Com.", intakeV2],
+    ["ip", "The source was ip10.9.9.9 per the log.", intakeV2],
+    ["ip", "The source was ip_10.9.9.9 per the log.", intakeV2],
+    ["host", "Lateral movement reached FILESERVER01.", intakeV2],
+    ["host", "Lateral movement reached fileserver-01.", intakeV2],
+    ["host", "Lateral movement reached WS-0042.", intakeV2],
+    ["host", "Lateral movement reached ws_0042.", intakeV2],
+    ["user", "The logon was CORP\\bob.", intakeV2],
+    ["user", "Mail went to bob.smith@corp.example.", intakeV2],
+    ["user", "Then user `mallory` logged on.", intakeV2],
+    ["user", "Then user \"mallory\" logged on.", intakeV2],
+    ["attack", "This maps to t9999.", intakeV2],
+    ["attack", "This maps to T 9999.", intakeV2],
+    ["csf", "This maps to de.cm-01.", intakeV2],
+    ["csf", "This maps to DE.CM 01.", intakeV2],
+    ["timestamp", "It started Dec 31 2026.", intakeV2],
+    ["timestamp", "It started 12/31/2026.", intakeV2],
+    ["rule_id", "Then rule 1003400 fired.", intakeV2],
+    ["rule_id", "Check rule numbers 100341, 99999 next.", intakeV2],
+    ["rule_id", "Then the rule fired (99999).", intakeV2],
+    ["hash", `The payload hash was 0x${SHA256_A}.`, intakeV2],
+    ["hash", `The payload was hash_${SHA256_A}.`, intakeV2],
+    ["hash", `The SHA-224 was ${hex("ab", 56)}.`, intakeV2],
+    ["hash", `The SHA-384 was ${hex("cd", 96)}.`, intakeV2],
+    // Inside the window but outside query context, a time must match an intake time.
+    ["timestamp", "The logon at 02:47Z came from the same source.", intakeV2],
+    ["timestamp", "The logon succeeded at 2026-07-20 02:47Z.", intakeV2],
+    // Outside the intake window, ranges and bare UTC times still fail.
+    ["timestamp", "Query 2026-07-21 02:00-03:00 on the DC.", intakeV2],
+    ["timestamp", "Pull logs from 01:30Z to 03:30Z.", intake],
+  ];
+  const wrong = cases
+    .map(([kind, text, ik]) => ({ kind, text, kinds: [...new Set(lint(text, ik).unknown.map((u) => u.kind))] }))
+    .filter((r) => r.kinds.length !== 1 || r.kinds[0] !== r.kind);
+  expect(wrong).toEqual([]);
+});
+
+test("linear time: a 100,000-character brief of one repeated shape lints in under a second", () => {
+  const n = 100_000;
+  const spaces = " ".repeat(n);
+  const inputs: Record<string, string> = {
+    "a run": "a".repeat(n),
+    "1 run": "1".repeat(n),
+    "colon run": ":".repeat(n),
+    "dot run": ".".repeat(n),
+    "dotted numbers": "10.0.0.1.".repeat(n / 9),
+    "defanged dots": "[.]".repeat(n / 3),
+    // Blanked spans become whitespace, so keyword-then-whitespace is a real shape, not a contrived one.
+    "space run": spaces,
+    "events then spaces": "events" + spaces,
+    "ports then spaces": "ports" + spaces,
+    "rule then spaces": "rule" + spaces,
+    "list comma then spaces": "events 1," + spaces,
+  };
+  const slow: string[] = [];
+  for (const [name, text] of Object.entries(inputs)) {
+    const t0 = performance.now();
+    lint(text, intakeV2);
+    const ms = performance.now() - t0;
+    if (ms >= 1000) slow.push(`${name}: ${ms.toFixed(0)} ms`);
+  }
+  expect(slow).toEqual([]);
+}, 60_000);
+
+test("the brief's own intake hash is provenance, not evidence, and a stale one is reported as a note", () => {
+  const raw = readFileSync(join(ROOT, "intake/fixtures/brute-force-dc-chain.intake.json"));
+  const sha = createHash("sha256").update(raw).digest("hex");
+  const brief = (h: string) => "```json\n" + JSON.stringify({ schema: "casa.brief/v1", intake: { sha256: h } }) + "\n```\n";
+  expect(lint(brief(sha), intake, { intakeSha256: sha })).toMatchObject({ pass: true, notes: [] });
+  const stale = lint(brief(SHA256_B), intake, { intakeSha256: sha });
+  expect(stale.pass).toBe(true);
+  expect(stale.notes.length).toBe(1);
+  // Cited anywhere else, the same value is an ordinary hash claim.
+  expect(flagged(brief(SHA256_B) + `\nThe payload hash was ${SHA256_B}.`, intake)).toEqual([`hash:${SHA256_B}`]);
+});
+
+test("quiet-day intake: any host, rule ID or technique is a fabrication", () => {
+  const quiet = json("intake/fixtures/quiet-day.intake.json");
+  const r = lint("No findings. Pipeline liveness unconfirmed.", quiet);
+  expect(r.pass).toBe(true);
+  const r2 = lint("talondc01 fired rule 100220 (T1003.006)", quiet);
+  expect(r2.unknown.map((u) => u.kind).sort()).toEqual(["host", "rule_id"]);
+});
+
+// *--- Kept Samples ---*
+
+test("samples: good sample brief passes, every citation traces to the intake or a table", () => {
   const r = lint(good, intake);
   expect(r.unknown).toEqual([]);
   expect(r.pass).toBe(true);
@@ -37,45 +282,21 @@ test("good sample brief passes: every citation traces to the intake or a table",
   expect(r.counts.ip).toBe(0);
 });
 
-test("bad sample brief fails on exactly the planted fabrications", () => {
+test("samples: bad sample brief fails on exactly the planted fabrications", () => {
   const r = lint(bad, intake);
   expect(r.pass).toBe(false);
-  const flagged = r.unknown.map((u) => `${u.kind}:${u.token}`).sort();
-  expect(flagged).toEqual(["attack:T9999", "csf:PR.AC-4", "host:talonghost", "ip:10.0.0.50", "rule_id:100999"].sort());
+  const got = r.unknown.map((u) => `${u.kind}:${u.token}`).sort();
+  expect(got).toEqual(["attack:T9999", "csf:PR.AC-4", "host:talonghost", "ip:10.0.0.50", "rule_id:100999"].sort());
 });
 
-test("quiet-day intake: any host, rule ID or technique is a fabrication", () => {
-  const quiet = JSON.parse(readFileSync(join(ROOT, "intake/fixtures/quiet-day.intake.json"), "utf8"));
-  const r = lint("No findings. Pipeline liveness unconfirmed.", quiet);
-  expect(r.pass).toBe(true);
-  const r2 = lint("talondc01 fired rule 100220 (T1003.006)", quiet);
-  expect(r2.unknown.map((u) => u.kind).sort()).toEqual(["host", "rule_id"]);
-});
-
-// Real briefs produced by /casa:investigate on the fixtures (kept as *.run1.brief.md) must
+// Real briefs produced by /casa:investigate on the fixtures (kept as *.runN.brief.md) must
 // stay lint-clean against the intake they came from.
-import { readdirSync } from "node:fs";
 for (const f of readdirSync(join(ROOT, "evals/samples")).filter((n) => /\.run\d+\.brief\.md$/.test(n)).sort()) {
-  const fixture = f.replace(/\.run\d+\.brief\.md$/, ""); // may carry a .v2 suffix: same intake name
-  test(`run sample ${f} traces every citation to ${fixture}`, () => {
-    const brief = readFileSync(join(ROOT, "evals/samples", f), "utf8");
-    const ik = JSON.parse(readFileSync(join(ROOT, `intake/fixtures/${fixture}.intake.json`), "utf8"));
-    const r = lint(brief, ik);
+  // May carry a .v2 suffix: the intake file has the same name.
+  const fixture = f.replace(/\.run\d+\.brief\.md$/, "");
+  test(`samples: run sample ${f} traces every citation to ${fixture}`, () => {
+    const r = lint(read(`evals/samples/${f}`), json(`intake/fixtures/${fixture}.intake.json`));
     expect(r.unknown).toEqual([]);
     expect(r.pass).toBe(true);
   });
 }
-
-test("port notations are not rule IDs; a bare five-digit number still is", () => {
-  const t = extractTokens("port 49152 open, talonmacbook:8443/tcp listening, ports 50000 and 60122/udp, rule 60122 fired, 12345 seen");
-  expect([...t.rule_id].sort()).toEqual(["12345", "60122"]);
-});
-
-test("the host prefix is a literal, not a regex: metacharacters are refused, the rest escaped", () => {
-  expect(() => extractTokens("x", "ta(lon")).toThrow("host prefix");
-  expect(() => extractTokens("x", ".*")).toThrow("host prefix");
-  expect(() => extractTokens("x", "")).toThrow("host prefix");
-  const t = extractTokens("lab-dc01 and lab-ws02 and lab- and labx and slab-dc01", "lab-");
-  expect([...t.host].sort()).toEqual(["lab-dc01", "lab-ws02"]);
-  expect([...extractTokens("talondc01 talon talonx", "talon").host].sort()).toEqual(["talondc01", "talonx"]);
-});

@@ -1,49 +1,185 @@
+// *****************************************************************************
+// *Title: Evidence Token Extraction*
+// *Author: Kyle Versluis*
+// *Description: Token extraction and intake knowledge for the lint and grader.*
+// *****************************************************************************
+
 /**
- * extract.ts — shared token extraction and knowledge sets for the fabrication lint and the
- * grader. Zero dependencies. Everything here is deterministic string work.
+ * Every token kind the standards skill names (hosts, addresses, rule IDs, event IDs, techniques,
+ * users, ports, timestamps) plus domains, hashes and alert IDs is pulled out of a document and
+ * checked against what the same extraction finds in the intake, or against a reference table.
+ * Zero dependencies; everything here is deterministic string work.
  */
+
+// *--- Imports ---*
+
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
+// *--- Configuration ---*
+
 export const REFERENCES_DIR = join(import.meta.dir, "..", "..", "skills", "standards", "references");
+const LINT_REFERENCES = join(import.meta.dir, "..", "..", "skills", "standards", "references", "lint-references.json");
 
-export type Kind = "rule_id" | "host" | "attack" | "csf" | "ip";
+export const KINDS = ["rule_id", "alert_id", "host", "attack", "csf", "ip", "ipv6", "user", "event_id", "port", "domain", "hash", "timestamp"] as const;
 
-export interface Tokens {
-  rule_id: Set<string>;
-  host: Set<string>;
-  attack: Set<string>;
-  csf: Set<string>;
-  ip: Set<string>;
+// A host prefix is a plain prefix, never a regular expression: it is validated against the
+// hostname character set and escaped before it is placed in a regex.
+const RE_HOST_PREFIX = /^[a-z0-9-]{1,63}$/;
+
+const HASH_LENGTHS = new Set([32, 40, 56, 64, 96, 128]);
+// Hex runs use hex-only lookarounds, so 0x-prefixed and underscore-glued hashes are still seen.
+const RE_HEX_BLOB = /(?<![0-9a-f])(?:0x)?([0-9a-f]{32,})(?![0-9a-f])/gi;
+const RE_GUID = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+const RE_MAC = /\b(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}\b/gi;
+const RE_EMAIL = /(?<![\w.+-])[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,24}(?![\w-]|\.[A-Za-z0-9])/g;
+// NetBIOS domains are written uppercase; a lowercase `corp\bob` is a known gap, because a single
+// backslash inside a JSON string is an escape (`line\nnext`) and would read as an account.
+const RE_DOMAIN_USER = /(?<![\w\\.:\/$%-])([A-Z][A-Z0-9-]{0,14})\\{1,2}([A-Za-z0-9._$-]*[A-Za-z0-9$])(?![\w\\]|[.$-]\w)/g;
+// Registry hives and the built-in principals (NT AUTHORITY\SYSTEM, BUILTIN\Administrators) are not accounts to trace.
+const RE_NOT_A_DOMAIN_USER = /^(?:HKLM|HKCU|HKU|HKCR|HKCC|AUTHORITY|BUILTIN)$/;
+// .NET namespaces read like domains under a real TLD (System.Net); they are written PascalCase.
+const RE_DOTNET_NAMESPACE = /^(?:System|Microsoft)\.[A-Z]/;
+const RE_IPV6_CANDIDATE = /(?<![\w:.])(?:[0-9a-f]{0,4}:){2,7}(?:(?:\d{1,3}\.){3}\d{1,3}|[0-9a-f]{0,4})(?![\w:])/gi;
+// A numeric offset is read only after seconds; "02:00-03:00" is a range, so its tail is a second time.
+const RE_DATETIME = /\b(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:?\d{2})?|Z)?)(?:\s*(?:-|–|to)\s*(\d{2}:\d{2}(?::\d{2})?)Z?)?(?:\s*UTC\b)?(?![\w:]|\.\d)/g;
+// A date glued to more file-name characters is part of a path, not a timestamp claim.
+const RE_DATE = /(?<![\w\/.-])\d{4}-\d{2}-\d{2}(?![\w]|-[A-Za-z0-9]|[.\/][A-Za-z0-9])/g;
+const RE_DATE_ANY = /\b\d{4}-\d{2}-\d{2}\b/g;
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const RE_DATE_MONTH_FIRST = /\b(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/gi;
+const RE_DATE_DAY_FIRST = /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?,?\s+(\d{4})\b/gi;
+const RE_DATE_SLASH = /(?<![\w\/.])(\d{1,2})\/(\d{1,2})\/(\d{4})(?![\w\/]|\.\d)/g;
+// Compact dates (20261231) and epoch numbers are not read as timestamps: they collide with rule IDs,
+// counts and PIDs. A keyword-gated form could be added if briefs start writing them.
+// A bare HH:MM needs Z, UTC or a preceding "at" to count as a time; "ratio 10:30" is not one.
+// Gap kept: the first half of "02:14-02:18Z" carries no zone and is not checked.
+const RE_TIME = /(?<![\w:.])(\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?)(Z)?(\s*UTC\b)?(?![\w:]|\.\d)/gi;
+// Query context: a time within three words after a query word, or the far end of a range ("02:14Z to 02:30Z").
+// Only there may a time pass by falling inside the intake window; "to" alone is too common to count.
+const RE_QUERY_BEFORE = /(?:\b(?:from|between|until|till|window|quer(?:y|ies|ying)|pull\w*|request\w*)\b|\beither\s+side(?:\s+of)?|\u00b1)(?:\s+[^\s.;]+){0,3}\s*$/i;
+const RE_RANGE_BEFORE = /(?:\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?Z?|\bUTC)\s*(?:to|and|through|until|-|\u2013)\s*$/i;
+const RE_ALERT_ID = /(?<![\w.])\d{9,11}\.\d{3,9}(?![\w]|\.\d)/g;
+const RE_HOST_PORT = /(?<![\w.\/-])((?:\d{1,3}\.){3}\d{1,3}|[A-Za-z][A-Za-z0-9.-]*[A-Za-z0-9]):(\d{1,5})(\/(?:tcp|udp|sctp))?(?![\w:]|\.\d)/gi;
+const RE_PORT_PROTO = /(?<![\w.:\/])(\d{1,5})\/(?:tcp|udp|sctp)\b/gi;
+// A range ("ports 1-1024") is a query scope, not a claim about one port, so it is not checked.
+// Separators are written so no two \s* sit side by side: that pairing backtracks quadratically on long whitespace.
+const RE_PORT_LIST = /\b(?:ports?|dst_port|src_port|dest_port|dport|sport|destinationport|sourceport)\b\s*(?:[:=]\s*)?((?:\d{1,5}(?:\s*-\s*\d{1,5})?(?![\d:.]\d|\d)(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)?)+)/gi;
+// Lookarounds rather than \b, so `ip10.9.9.9` and `ip_10.9.9.9` are seen. A version string is not an
+// address; that context is checked on the 20 characters before each match, never in a lookbehind.
+// WARN: a variable-length lookbehind here made every whitespace run quadratic (16k spaces took 6 s).
+const RE_IPV4 = /(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?!\d|\.\d)/g;
+const RE_VERSION_BEFORE = /(?:\bversions?|\bver|\bv|\bbuild|\brelease|\bfirmware)[\s:=]{0,3}$/i;
+const RE_DOMAIN = /(?<![\w.-])((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+([a-z]{2,24}))(?![\w-]|\.[a-z0-9])/gi;
+// Loose shapes (t9999, T 9999, de.cm-01, DE.CM 01) are extracted as written and must match the table exactly.
+const RE_ATTACK = /(?<![\w.])[Tt]\s?\d{4}(?:\.\d{3})?(?![\w]|\.\d)/g;
+const RE_CSF = /\b(?:GV|ID|PR|DE|RS|RC)\.[A-Z]{2}(?:-|\s)\d{1,2}\b/gi;
+// A bare CSF category (DE.CM) would otherwise read as a domain under a ccTLD.
+const RE_CSF_CATEGORY = /\b(?:GV|ID|PR|DE|RS|RC)\.[A-Z]{2}\b/g;
+const RE_EVENT_LIST = /\b(?:sysmon|security|event\s*ids?|events?|eids?|event_ids?|eventcodes?|event\s+codes?)\b\s*(?:[:=#]\s*)?((?:\d{1,5}(?![\d:.]\d|\d|\/(?:tcp|udp))(?!\s*(?:-\s*)?(?:ms|s|secs?|seconds?|m|mins?|minutes?|h|hrs?|hours?|d|days?)\b)(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+|\s*\/\s*)?)+)/gi;
+// Bare four-digit numbers in this block are Windows Security event IDs in SOC prose.
+const RE_EVENT_BARE = /(?<![\w.:-])4[6-9]\d\d(?![\w]|[.:]\d)/g;
+// A rule ID needs a rule keyword (rule, rule_id, sid) or a JSON rule_ids key. A bare five- or
+// six-digit number is a build, PID, CVE suffix or count as often as a rule, so it is not checked;
+// four-digit built-in Wazuh rules are not checked either (they share a shape with event IDs).
+// Up to three words or an opening parenthesis may sit between the keyword and the numbers ("rule
+// numbers 100341", "the rule fired (99999)"), but not another ID keyword ("rule on build 19045").
+const RE_RULE_LIST = /\b(?:rules?|rule_ids?|rule\s+ids?|sids?|signature\s+ids?)\b(?:\s+(?!(?:build|pid|ports?|events?|eids?|cve|version|kb|sp|line|level|alert|alert_id)\b)[A-Za-z][\w-]*){0,3}\s*(?:[:=#(]\s*)?((?:\d{5,7}(?![\d:.\/-]\d|\d)(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+|\s*\/\s*)?)+)/gi;
+const RE_HOST_KEYWORD = /\b(?:host|hosts|hostname|endpoint|workstation|server|machine|computer)\s+([A-Za-z][A-Za-z0-9_-]*\d[A-Za-z0-9_-]*)\b/gi;
+// Letters (hyphen or underscore groups allowed) then at least two digits: web07, FILESERVER01, WS-0042, ws_0042.
+// One trailing digit (oauth2, ps1, md5) is too often a protocol or file type to be read as a host.
+const RE_HOST_SHAPE = /(?<![\w.\/\\:-])[A-Za-z]{2,}(?:[-_][A-Za-z]+)*[-_]?\d{2,}(?![\w-]|[.\/\\]\w)/g;
+const HOST_STOP_STEMS = new Set(["sha", "md", "ipv", "utf", "base", "aes", "rc", "des", "ntlmv", "smbv", "tls", "tlsv", "ssl", "sslv", "snmpv", "http", "https", "pkcs", "rfc", "cve", "cwe", "kb", "ms", "iso", "ecma", "es", "py", "python", "node", "bun", "java", "ver", "version", "run", "rev", "phase", "step", "round", "part", "page", "line", "level", "tier", "top", "gen", "win", "wow", "amd", "arm", "int", "uint", "float", "ec", "office", "windows", "server", "dr", "isc", "cl", "ta", "car", "sp", "nist", "port", "rule", "event", "eid", "alert", "build", "case", "ticket", "inc", "incident", "req", "chg", "cr", "sysmon", "iis", "ubuntu", "rhel", "debian", "kernel", "pid"]);
+const RE_BRIEF_ID = /^(?:T\d+(?:\.\d+)?|DR\d+)$/;
+const RE_USER_KEYWORD = /\b(?:user|users|account|accounts|username|targetusername|subjectusername)(?:\s*[:=]\s*|\s+)(`[^`\s]+`|"[^"\s]+"|'[^'\s]+'|[A-Za-z][A-Za-z0-9._$@\\-]*)/gi;
+// An unquoted name after the keyword must carry a digit or one of _ . $ @ \ to count as an account.
+// A hyphen alone does not (sign-in, lock-out, re-authentication); hyphenated accounts are still caught
+// through a learned prefix (svc-), quoting, or the JSON block. Bare `user mallory` is a known gap.
+const RE_USER_SHAPE = /[_.$@\\\d]/;
+
+// Keys that name a host or a user inside a brief's or finding's JSON block. `agent` is not one:
+// in casa.finding/v1 it is the CASA agent's own name.
+const DOC_HOST_KEYS = /^(?:hosts?|hostnames?|computers?|src_host|dst_host)$/i;
+const DOC_USER_KEYS = /^(?:users?|usernames?|user_name|accounts?|target_user|subject_user)$/i;
+const DOC_RULE_KEYS = /^(?:rule_ids?|rules?|sids?)$/i;
+// Keys that carry typed values inside an intake. In an intake, `agent` is the host.
+const INTAKE_HOST_KEYS = /^(?:agent|agent_name|hosts?|hostnames?|computer|src_host|dst_host|source_host|dest_host)$/i;
+const INTAKE_USER_KEYS = /^(?:users?|usernames?|user_name|accounts?|account_name|src_user|dst_user|subject_user|target_user|subjectusername|targetusername)$/i;
+const INTAKE_RULE_KEYS = /^rule_?id$/i;
+const INTAKE_ALERT_KEYS = /^alert_?id$/i;
+const INTAKE_EVENT_KEYS = /^event_?id$/i;
+const INTAKE_PORT_KEYS = /(?:^|_)port$/i;
+const INTAKE_ATTACK_KEYS = /^(?:mitre|mitre_ids?|techniques?)$/i;
+const PRODUCER_KEYS = new Set(["schema", "source", "consumer"]);
+const HOSTNAME_VALUE = /^[A-Za-z0-9][A-Za-z0-9.-]*$/;
+
+// *--- Types ---*
+
+export type Kind = (typeof KINDS)[number];
+// query_stamps: timestamp tokens written in query context, which may pass by falling inside the window.
+export type Tokens = Record<Kind, Set<string>> & { exposure: Set<string>; query_stamps: Set<string> };
+
+/** Naming patterns learned from the intake, used to recognize hosts and users in prose. */
+export interface NamePatterns {
+  knownHosts: string[];
+  hostPrefixes: string[];
+  hostStems: string[];
+  userPrefixes: string[];
 }
+
+export interface LintOptions {
+  hostPrefix?: string;
+  intakeSha256?: string;
+}
+
+interface Stamp { date?: string; time?: string; zone?: string }
 
 export interface Knowledge {
   rule_ids: Set<string>;
+  alert_ids: Set<string>;
   hosts: Set<string>;
+  users: Set<string>;
+  event_ids: Set<string>;
+  ports: Set<string>;
+  exposures: Set<string>;
+  ips: Set<string>;
+  ipv6: Set<string>;
+  domains: Set<string>;
+  hashes: Set<string>;
+  stamps: Stamp[];
+  dates: Set<string>;
   attack_in_intake: Set<string>;
-  attack_table: Set<string>;
-  csf_table: Set<string>;
   intake_text: string;
-  ips_in_intake: Set<string>;
+  patterns: NamePatterns;
+  // The intake window in epoch ms: v2 `window`, else the earliest and latest detection timestamp.
+  window: { start: number; end: number } | null;
 }
 
-// Hosts in the lab share a name prefix. The lint takes only that prefix, never a regular
-// expression: the prefix is validated against the hostname character set and escaped before
-// it is placed in a regex, so a caller cannot change the expression's meaning or its cost.
-export const DEFAULT_HOST_PREFIX = "talon";
-const RE_HOST_PREFIX = /^[a-z0-9-]{1,63}$/;
+export interface References {
+  attack: Set<string>;
+  csf: Set<string>;
+  attack_version: string;
+  event_ids: Set<string>;
+  ports: Set<string>;
+  domains: Set<string>;
+  tlds: Set<string>;
+  special_use: Set<string>;
+  special_addresses: Set<string>;
+}
 
-const RE_HEX_BLOB = /\b[0-9a-f]{32,}\b/gi; // sha256 and friends: never rule IDs
-// Rule IDs: five or six digits. Four-digit numbers are deliberately out of range, because
-// Windows event IDs (4624, 4662) and years share that shape; a four-digit built-in Wazuh rule is
-// therefore not lint-checked. Port notations ("port 49152", "49152/tcp", "host:49152") are
-// stripped before this pass so a high port is not read as a rule ID.
-const RE_RULE_ID = /\b\d{5,6}\b/g;
-const RE_PORT = /\b(?:ports?\s+\d{1,5}|\d{1,5}\/(?:tcp|udp))\b/gi;
-const RE_ATTACK = /\bT\d{4}(?:\.\d{3})?\b/g;
-// Catches both CSF 2.0 (DE.AE-03) and CSF 1.1 (PR.AC-4) shapes so 1.1 leftovers fail.
-const RE_CSF = /\b(?:GV|ID|PR|DE|RS|RC)\.[A-Z]{2}-\d{1,2}\b/g;
-const RE_IPV4 = /\b(?:\d{1,3}\.){3}\d{1,3}\b/g;
+export interface Unknown { token: string; kind: Kind; reason: string }
+
+export interface LintResult {
+  pass: boolean;
+  unknown: Unknown[];
+  counts: Record<Kind, number>;
+  beyond_intake: { attack: string[]; event_id: string[]; port: string[] };
+  notes: string[];
+}
+
+export interface Analysis { result: LintResult; tokens: Tokens; knowledge: Knowledge }
+
+// *--- Helper Functions ---*
 
 /** Escape every regex metacharacter so the string matches itself and nothing else. */
 function escapeRegExp(s: string): string {
@@ -56,65 +192,424 @@ export function assertHostPrefix(prefix: string): string {
   return prefix;
 }
 
-/** A global finder for whole host tokens that start with the prefix: <prefix><host chars>. */
-function hostRegex(prefix: string): RegExp {
-  return new RegExp(`\\b${escapeRegExp(assertHostPrefix(prefix))}[a-z0-9-]+\\b`, "g");
+function emptyTokens(): Tokens {
+  const t = { exposure: new Set<string>(), query_stamps: new Set<string>() } as Tokens;
+  for (const k of KINDS) t[k] = new Set<string>();
+  return t;
 }
 
-export function extractTokens(text: string, hostPrefix = DEFAULT_HOST_PREFIX): Tokens {
-  const cleaned = text.replace(RE_HEX_BLOB, " ");
-  const grab = (re: RegExp) => new Set((cleaned.match(re) ?? []).map((s) => s.trim()));
-  const ips = grab(RE_IPV4);
-  // Strip IPv4 literals and port notations before the rule-ID pass so "10.0.0.50" never
-  // yields a 5-digit run and "port 49152" is not a rule.
-  const noIps = cleaned.replace(RE_IPV4, " ").replace(RE_PORT, " ");
-  return {
-    rule_id: new Set((noIps.match(RE_RULE_ID) ?? [])),
-    host: grab(hostRegex(hostPrefix)),
-    attack: grab(RE_ATTACK),
-    csf: grab(RE_CSF),
-    ip: ips,
+/** Run a global regex over a mutable buffer, hand each match to `fn`, and blank what `fn` returns as consumed. */
+function consume(buf: { s: string }, re: RegExp, fn: (m: RegExpExecArray) => string | null): void {
+  buf.s = buf.s.replace(re, (...args) => {
+    const groups = args.slice(0, -2) as string[];
+    const m = Object.assign(groups, { index: args[args.length - 2] as number, input: buf.s }) as unknown as RegExpExecArray;
+    const keep = fn(m);
+    return keep === null ? m[0] : keep.padEnd(m[0].length, " ");
+  });
+}
+
+/** Expand an IPv6 address to eight lowercase groups without leading zeros, or null if it is not one. */
+export function canonicalIpv6(raw: string): string | null {
+  let s = raw.toLowerCase();
+  const halves = s.split("::");
+  if (halves.length > 2) return null;
+  let tail4: number[] = [];
+  const v4 = s.match(/(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (v4) {
+    const o = v4.slice(1).map(Number);
+    if (o.some((n) => n > 255)) return null;
+    tail4 = [(o[0] << 8) | o[1], (o[2] << 8) | o[3]];
+    s = s.slice(0, -v4[0].length).replace(/:$/, "");
+  }
+  const split = (h: string) => (h === "" ? [] : h.split(":"));
+  const [head, tail] = s.split("::").map(split) as [string[], string[] | undefined];
+  const groups = [...head, ...(tail ?? [])];
+  if (!groups.every((g) => /^[0-9a-f]{1,4}$/.test(g))) return null;
+  const total = groups.length + tail4.length;
+  if (tail === undefined ? total !== 8 : total >= 8) return null;
+  const fill = tail === undefined ? [] : Array(8 - total).fill("0");
+  const all = [...head, ...fill, ...(tail ?? [])].map((g) => parseInt(g, 16).toString(16));
+  return [...all, ...tail4.map((n) => n.toString(16))].join(":");
+}
+
+/** Split a timestamp token into its date, time-of-day and zone parts. */
+function parseStamp(token: string): Stamp {
+  const m = token.match(/^(\d{4}-\d{2}-\d{2})?[T ]?(\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?)?(Z|[+-]\d{2}:?\d{2})?$/);
+  if (!m) return {};
+  return { date: m[1], time: m[2], zone: m[3] };
+}
+
+/** Candidate ISO dates for a written-out (Dec 31 2026) or slash (12/31/2026) date; empty when it is neither. */
+function looseDates(token: string): string[] {
+  const iso = (y: string, mo: number, d: number): string | null => {
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+    const s = `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    return new Date(`${s}T00:00:00Z`).toISOString().startsWith(s) ? s : null;
   };
+  const month = (name: string) => MONTHS.indexOf(name.slice(0, 3).toLowerCase()) + 1;
+  let m = token.match(/^([a-z]+)\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})$/i);
+  if (m) return [iso(m[3], month(m[1]), Number(m[2]))].filter((x): x is string => x !== null);
+  m = token.match(/^(\d{1,2})(?:st|nd|rd|th)?\s+([a-z]+)\.?,?\s+(\d{4})$/i);
+  if (m) return [iso(m[3], month(m[2]), Number(m[1]))].filter((x): x is string => x !== null);
+  m = token.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  // Month-first and day-first are both accepted: an honest brief may use either convention.
+  if (m) return [...new Set([iso(m[3], Number(m[1]), Number(m[2])), iso(m[3], Number(m[2]), Number(m[1]))])].filter((x): x is string => x !== null);
+  return [];
 }
 
-export function loadReferences(): { attack: Set<string>; csf: Set<string>; attack_version: string } {
+function isUtc(zone: string | undefined): boolean {
+  return zone === undefined || zone === "Z" || /^[+-]00:?00$/.test(zone);
+}
+
+function minuteOf(time: string): number {
+  return Number(time.slice(0, 2)) * 60 + Number(time.slice(3, 5));
+}
+
+function validTime(time: string): boolean {
+  const [h, m, s] = time.split(":").map((p) => Number(p.slice(0, 2)));
+  return h < 24 && m < 60 && (s === undefined || s < 60);
+}
+
+/** Every JSON value reachable from `root`, with the key it sits under and that key's parent key. */
+function* walk(root: unknown, key = "", parent = ""): Generator<{ key: string; parent: string; value: unknown }> {
+  yield { key, parent, value: root };
+  if (Array.isArray(root)) for (const v of root) yield* walk(v, key, parent);
+  else if (root && typeof root === "object") for (const [k, v] of Object.entries(root)) yield* walk(v, k, key);
+}
+
+/** Every fenced json block in a markdown document, or the whole text when it is JSON. */
+function jsonBlocks(text: string): unknown[] {
+  const out: unknown[] = [];
+  const sources = [...text.matchAll(/```json\s*\n([\s\S]*?)\n```/g)].map((m) => m[1]);
+  if (sources.length === 0 && text.trim().startsWith("{")) sources.push(text.trim());
+  for (const src of sources) {
+    try {
+      out.push(JSON.parse(src));
+    } catch {
+      // A malformed block is the grader's concern (brief-json); prose extraction still covers it.
+    }
+  }
+  return out;
+}
+
+/** String values found under keys matching `keys`, from strings or arrays of strings. */
+function valuesUnder(doc: unknown, keys: RegExp): string[] {
+  const out: string[] = [];
+  for (const { key, value } of walk(doc)) {
+    if (!keys.test(key) || Array.isArray(value)) continue;
+    if (typeof value === "string" && value.length > 0) out.push(value);
+    else if (typeof value === "number") out.push(String(value));
+    else if (value && typeof value === "object" && typeof (value as { name?: unknown }).name === "string") out.push((value as { name: string }).name);
+  }
+  return out;
+}
+
+/** Longest common prefix of the hosts, trimmed to hostname characters. */
+function commonPrefix(hosts: string[]): string {
+  if (hosts.length < 2) return "";
+  let p = hosts[0];
+  for (const h of hosts.slice(1)) while (!h.startsWith(p)) p = p.slice(0, -1);
+  return RE_HOST_PREFIX.test(p) ? p : "";
+}
+
+// *--- Reference Tables ---*
+
+let cachedRefs: References | null = null;
+
+/** The ATT&CK and CSF tables under the standards skill plus the lint's own reference tables. */
+export function loadReferences(): References {
+  if (cachedRefs) return cachedRefs;
   const attack = JSON.parse(readFileSync(join(REFERENCES_DIR, "attack-techniques.json"), "utf8"));
   const csf = JSON.parse(readFileSync(join(REFERENCES_DIR, "csf-2.0.json"), "utf8"));
-  return {
+  const lr = JSON.parse(readFileSync(LINT_REFERENCES, "utf8"));
+  if (typeof lr?.event_ids !== "object" || typeof lr?.service_ports !== "object" || !Array.isArray(lr?.tlds) || !Array.isArray(lr?.reference_domains) || !Array.isArray(lr?.special_use_names?.names) || !Array.isArray(lr?.special_addresses?.addresses)) {
+    throw new Error(`${LINT_REFERENCES}: missing event_ids, service_ports, tlds, reference_domains, special_use_names or special_addresses`);
+  }
+  const excluded = new Set<string>([...(lr.excluded_tlds?.file_extensions ?? []), ...(lr.excluded_tlds?.field_path_words ?? [])]);
+  cachedRefs = {
     attack: new Set<string>(attack.techniques.map((t: { id: string }) => t.id)),
     csf: new Set<string>(Object.keys(csf.subcategories)),
     attack_version: String(attack.attack_version),
+    event_ids: new Set<string>(Object.values(lr.event_ids as Record<string, Record<string, string>>).flatMap((ch) => Object.keys(ch))),
+    ports: new Set<string>(Object.keys(lr.service_ports)),
+    domains: new Set<string>(lr.reference_domains),
+    tlds: new Set<string>((lr.tlds as string[]).filter((t) => !excluded.has(t))),
+    special_use: new Set<string>(lr.special_use_names.names),
+    special_addresses: new Set<string>((lr.special_addresses.addresses as string[]).map((a) => (a.includes(":") ? canonicalIpv6(a) ?? a : a))),
   };
+  return cachedRefs;
 }
 
-export function intakeKnowledge(intake: unknown, hostPrefix = DEFAULT_HOST_PREFIX): Knowledge {
-  const text = JSON.stringify(intake);
-  const refs = loadReferences();
-  const detections: Array<{ rule_id?: string; agent?: string; mitre?: string[] }> =
-    (intake as { detections?: typeof detections }).detections ?? [];
-  const hosts = new Set<string>();
-  for (const d of detections) if (d.agent) hosts.add(d.agent);
-  const recon = (intake as { recon_delta?: unknown }).recon_delta;
-  const reconText = typeof recon === "string" ? recon : JSON.stringify(recon ?? "");
-  for (const h of extractTokens(reconText, hostPrefix).host) hosts.add(h);
-  return {
-    rule_ids: new Set(detections.map((d) => d.rule_id).filter((r): r is string => typeof r === "string")),
-    hosts,
-    attack_in_intake: new Set(detections.flatMap((d) => d.mitre ?? [])),
-    attack_table: refs.attack,
-    csf_table: refs.csf,
-    intake_text: text,
-    ips_in_intake: new Set(text.match(RE_IPV4) ?? []),
-  };
+// *--- Core Logic ---*
+
+/** True when the text just before `index` puts a time there in query context. */
+function inQueryContext(input: string, index: number): boolean {
+  const before = input.slice(Math.max(0, index - 60), index);
+  return RE_QUERY_BEFORE.test(before) || RE_RANGE_BEFORE.test(before);
 }
 
-export interface Unknown { token: string; kind: Kind; reason: string }
+/** Undo common defanging (evil[.]com, 10(.)9(.)9(.)9, hxxp://) so obfuscated indicators are still checked. */
+function refang(text: string): string {
+  return text
+    .replace(/\[\.\]|\(\.\)|\{\.\}|\[dot\]|\(dot\)/gi, ".")
+    .replace(/\[:\]/g, ":")
+    .replace(/\bhxxp(s?):\/\//gi, "http$1://")
+    .replace(/\bfxp:\/\//gi, "ftp://");
+}
 
-export interface LintResult {
-  pass: boolean;
-  unknown: Unknown[];
-  counts: Record<Kind, number>;
-  attack_not_in_intake: string[];
+/** True when a host-shaped token is really a protocol, standard, version or brief identifier. */
+function isStopHost(token: string): boolean {
+  return RE_BRIEF_ID.test(token) || HOST_STOP_STEMS.has(token.replace(/[-_]?\d+$/, "").toLowerCase());
+}
+
+/** Every evidence token in `text`, recognized with the naming patterns learned from an intake. */
+export function extractTokens(text: string, patterns: Partial<NamePatterns> = {}): Tokens {
+  const p: NamePatterns = { knownHosts: [], hostPrefixes: [], hostStems: [], userPrefixes: [], ...patterns };
+  for (const prefix of [...p.hostPrefixes, ...p.hostStems]) assertHostPrefix(prefix);
+  const known = new Set(p.knownHosts.map((h) => h.toLowerCase()));
+  const { tlds, special_use: specialUse } = loadReferences();
+  const t = emptyTokens();
+  const buf = { s: refang(text) };
+
+  // Structured hosts, users and rule IDs first: the JSON block declares what each value is.
+  for (const doc of jsonBlocks(text)) {
+    for (const v of valuesUnder(doc, DOC_HOST_KEYS)) if (HOSTNAME_VALUE.test(v) && !/^[\d.]+$/.test(v)) t.host.add(v.toLowerCase());
+    for (const v of valuesUnder(doc, DOC_USER_KEYS)) if (!/\s/.test(v)) t.user.add(v.toLowerCase());
+    for (const v of valuesUnder(doc, DOC_RULE_KEYS)) if (/^\d{3,7}$/.test(v)) t.rule_id.add(v);
+  }
+
+  // Long hex runs, GUIDs and MACs go before any numeric pass so their digits are never read as IDs.
+  consume(buf, RE_HEX_BLOB, (m) => {
+    if (HASH_LENGTHS.has(m[1].length)) t.hash.add(m[1].toLowerCase());
+    return "";
+  });
+  consume(buf, RE_GUID, () => "");
+  consume(buf, RE_MAC, () => "");
+
+  // Accounts written as an address or DOMAIN\user, before the domain pass reads their suffix.
+  consume(buf, RE_EMAIL, (m) => (t.user.add(m[0].toLowerCase()), ""));
+  consume(buf, RE_DOMAIN_USER, (m) => {
+    if (RE_NOT_A_DOMAIN_USER.test(m[1])) return null;
+    t.user.add(`${m[1]}\\${m[2]}`.toLowerCase());
+    return "";
+  });
+
+  consume(buf, RE_IPV6_CANDIDATE, (m) => {
+    if (!m[0].includes("::") && (m[0].match(/:/g) ?? []).length < 7) return null;
+    if (!canonicalIpv6(m[0])) return null;
+    t.ipv6.add(m[0]);
+    return "";
+  });
+
+  // Timestamps (with a range tail), written-out and slash dates, ISO dates, then times of day.
+  consume(buf, RE_DATETIME, (m) => {
+    t.timestamp.add(m[1]);
+    // A range ("2026-07-20 02:00-03:00") is itself query context for both ends.
+    if (m[2] || inQueryContext(m.input, m.index)) t.query_stamps.add(m[1]);
+    if (m[2]) {
+      const end = `${m[1].slice(0, 10)} ${m[2]}`;
+      t.timestamp.add(end);
+      t.query_stamps.add(end);
+    }
+    return "";
+  });
+  for (const re of [RE_DATE_MONTH_FIRST, RE_DATE_DAY_FIRST, RE_DATE_SLASH]) {
+    consume(buf, re, (m) => {
+      if (looseDates(m[0]).length === 0) return null;
+      t.timestamp.add(m[0]);
+      return "";
+    });
+  }
+  consume(buf, RE_DATE, (m) => (t.timestamp.add(m[0]), ""));
+  consume(buf, RE_DATE_ANY, () => "");
+  consume(buf, RE_TIME, (m) => {
+    const before = m.input.slice(Math.max(0, m.index - 4), m.index);
+    const anchored = m[2] !== undefined || m[3] !== undefined || /\bat\s+$/i.test(before);
+    if (!anchored || !validTime(m[1])) return null;
+    t.timestamp.add(`${m[1]}Z`);
+    if (inQueryContext(m.input, m.index)) t.query_stamps.add(`${m[1]}Z`);
+    return "";
+  });
+  consume(buf, RE_ALERT_ID, (m) => (t.alert_id.add(m[0]), ""));
+  consume(buf, RE_CSF, (m) => (t.csf.add(m[0]), ""));
+  consume(buf, RE_CSF_CATEGORY, () => "");
+
+  // Ports: host:port exposures, then N/proto, then keyword lists.
+  consume(buf, RE_HOST_PORT, (m) => {
+    const [whole, host, port, proto] = m;
+    const isIp = /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host);
+    const lower = host.toLowerCase();
+    const hostLike = isIp || proto !== undefined || known.has(lower) || /\d/.test(host);
+    if (!hostLike || Number(port) > 65535) return null;
+    t.port.add(port);
+    if (!isIp) {
+      t.exposure.add(`${lower}:${port}`);
+      if (!lower.includes(".")) t.host.add(lower);
+    }
+    return whole.slice(0, host.length);
+  });
+  consume(buf, RE_PORT_PROTO, (m) => {
+    if (Number(m[1]) > 65535) return null;
+    t.port.add(m[1]);
+    return "";
+  });
+  consume(buf, RE_PORT_LIST, (m) => {
+    for (const item of m[1].match(/\d{1,5}(?:\s*-\s*\d{1,5})?/g) ?? []) if (!item.includes("-") && Number(item) <= 65535) t.port.add(item);
+    return m[0].slice(0, m[0].length - m[1].length);
+  });
+  consume(buf, RE_IPV4, (m) => {
+    if (RE_VERSION_BEFORE.test(m.input.slice(Math.max(0, m.index - 20), m.index))) return null;
+    t.ip.add(m[0]);
+    return "";
+  });
+
+  // Domains: dotted names with a recognized TLD, any case; an FQDN is a domain, not a host.
+  consume(buf, RE_DOMAIN, (m) => {
+    // Internal names under a special-use suffix (dc01.corp) are domain-shaped and checked too.
+    const tld = m[2].toLowerCase();
+    if ((!tlds.has(tld) && !specialUse.has(tld)) || RE_DOTNET_NAMESPACE.test(m[1])) return null;
+    t.domain.add(m[1].toLowerCase());
+    return "";
+  });
+
+  consume(buf, RE_ATTACK, (m) => (t.attack.add(m[0]), ""));
+  consume(buf, RE_EVENT_LIST, (m) => {
+    for (const n of m[1].match(/\d+/g) ?? []) t.event_id.add(String(Number(n)));
+    return m[0].slice(0, m[0].length - m[1].length);
+  });
+  consume(buf, RE_EVENT_BARE, (m) => (t.event_id.add(m[0]), ""));
+  consume(buf, RE_RULE_LIST, (m) => {
+    for (const n of m[1].match(/\d+/g) ?? []) t.rule_id.add(n);
+    return m[0].slice(0, m[0].length - m[1].length);
+  });
+
+  // Hosts in prose: learned prefixes and stems, a keyword before the name, or a letters-then-digits name.
+  for (const prefix of p.hostPrefixes) for (const m of buf.s.matchAll(new RegExp(`\\b${escapeRegExp(prefix)}[a-z0-9-]+\\b`, "gi"))) t.host.add(m[0].toLowerCase());
+  for (const stem of p.hostStems) for (const m of buf.s.matchAll(new RegExp(`\\b${escapeRegExp(stem)}\\d+\\b`, "gi"))) t.host.add(m[0].toLowerCase());
+  for (const m of buf.s.matchAll(RE_HOST_KEYWORD)) if (!isStopHost(m[1])) t.host.add(m[1].toLowerCase());
+  for (const m of buf.s.matchAll(RE_HOST_SHAPE)) if (!isStopHost(m[0])) t.host.add(m[0].toLowerCase());
+  for (const h of known) if (new RegExp(`(?<![\\w.-])${escapeRegExp(h)}(?![\\w-])`, "i").test(buf.s)) t.host.add(h);
+
+  // Users: a keyword before an account-shaped name (or a quoted one), or a learned account prefix.
+  for (const m of buf.s.matchAll(RE_USER_KEYWORD)) {
+    const quoted = /^[`"']/.test(m[1]);
+    const name = quoted ? m[1].slice(1, -1) : m[1].replace(/[.\\]+$/, "");
+    if (quoted || RE_USER_SHAPE.test(name)) t.user.add(name.toLowerCase());
+  }
+  for (const prefix of p.userPrefixes) for (const m of buf.s.matchAll(new RegExp(`(?<![\\w.-])${escapeRegExp(prefix)}[a-z0-9._$-]*[a-z0-9$]`, "gi"))) t.user.add(m[0].toLowerCase());
+  return t;
+}
+
+/** What the intake carries, per token kind, plus the naming patterns learned from it. */
+export function intakeKnowledge(intake: unknown, opts: LintOptions = {}): Knowledge {
+  const k: Knowledge = {
+    rule_ids: new Set(), alert_ids: new Set(), hosts: new Set(), users: new Set(), event_ids: new Set(), ports: new Set(),
+    exposures: new Set(), ips: new Set(), ipv6: new Set(), domains: new Set(), hashes: new Set(), stamps: [], dates: new Set(),
+    attack_in_intake: new Set(), intake_text: JSON.stringify(intake),
+    patterns: { knownHosts: [], hostPrefixes: [], hostStems: [], userPrefixes: [] },
+    window: null,
+  };
+  const bounds: Record<"start" | "end", number> = { start: NaN, end: NaN };
+  const detectionTimes: number[] = [];
+
+  // Typed fields first: these decide rule IDs and alert IDs on their own.
+  for (const { key, parent, value } of walk(intake)) {
+    const scalar = typeof value === "string" || typeof value === "number" ? String(value) : null;
+    if (scalar !== null && (INTAKE_RULE_KEYS.test(key) || (key === "id" && parent === "rule"))) k.rule_ids.add(scalar);
+    if (scalar !== null && INTAKE_ALERT_KEYS.test(key)) k.alert_ids.add(scalar);
+    if (scalar !== null && INTAKE_EVENT_KEYS.test(key)) k.event_ids.add(String(Number(scalar)));
+    if (scalar !== null && INTAKE_PORT_KEYS.test(key)) k.ports.add(scalar);
+    if (typeof value === "string" && INTAKE_ATTACK_KEYS.test(key)) k.attack_in_intake.add(value);
+    if (typeof value === "string" && parent === "window" && (key === "start" || key === "end")) bounds[key] = Date.parse(value);
+    if (typeof value === "string" && key === "timestamp" && !Number.isNaN(Date.parse(value))) detectionTimes.push(Date.parse(value));
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      const o = value as Record<string, unknown>;
+      const host = Object.keys(o).find((x) => INTAKE_HOST_KEYS.test(x));
+      const port = Object.keys(o).find((x) => INTAKE_PORT_KEYS.test(x));
+      if (host && port && typeof o[host] === "string" && (typeof o[port] === "number" || typeof o[port] === "string")) k.exposures.add(`${(o[host] as string).toLowerCase()}:${o[port]}`);
+    }
+  }
+  for (const h of valuesUnder(intake, INTAKE_HOST_KEYS)) k.hosts.add(h.toLowerCase());
+  for (const u of valuesUnder(intake, INTAKE_USER_KEYS)) k.users.add(u.toLowerCase());
+  if (!Number.isNaN(bounds.start) && !Number.isNaN(bounds.end)) k.window = { start: bounds.start, end: bounds.end };
+  else if (detectionTimes.length > 0) k.window = { start: Math.min(...detectionTimes), end: Math.max(...detectionTimes) };
+
+  const hosts = [...k.hosts];
+  if (opts.hostPrefix !== undefined) assertHostPrefix(opts.hostPrefix);
+  // A learned prefix shorter than three characters would match ordinary words.
+  const learned = commonPrefix(hosts);
+  const prefixes = [...(opts.hostPrefix ? [opts.hostPrefix] : []), ...(learned.length >= 3 ? [learned] : [])];
+  k.patterns = {
+    knownHosts: hosts,
+    hostPrefixes: [...new Set(prefixes)],
+    hostStems: [...new Set(hosts.map((h) => h.match(/^([a-z][a-z0-9-]*[a-z-])\d+$/)?.[1]).filter((s): s is string => !!s && RE_HOST_PREFIX.test(s) && s.length >= 2))],
+    userPrefixes: [...new Set([...k.users].map((u) => u.match(/^([a-z0-9]{2,}[-_.])/)?.[1]).filter((s): s is string => !!s))],
+  };
+
+  // Then the same extraction the document gets, over every intake string except producer metadata.
+  for (const { key, parent, value } of walk(intake)) {
+    if (typeof value !== "string" || (parent === "" && PRODUCER_KEYS.has(key))) continue;
+    const t = extractTokens(value, k.patterns);
+    for (const h of t.host) k.hosts.add(h);
+    for (const u of t.user) k.users.add(u);
+    for (const e of t.event_id) k.event_ids.add(e);
+    for (const p of t.port) k.ports.add(p);
+    for (const x of t.exposure) k.exposures.add(x);
+    for (const ip of t.ip) k.ips.add(ip);
+    for (const ip of t.ipv6) k.ipv6.add(canonicalIpv6(ip) as string);
+    for (const d of t.domain) k.domains.add(d);
+    for (const h of t.hash) k.hashes.add(h);
+    for (const a of t.attack) k.attack_in_intake.add(a);
+    for (const ts of t.timestamp) {
+      const st = parseStamp(ts);
+      k.stamps.push(st);
+      if (st.date) k.dates.add(st.date);
+    }
+  }
+  return k;
+}
+
+/** The UTC calendar dates the intake window touches, earliest first. */
+function windowDates(k: Knowledge): string[] {
+  if (!k.window) return [];
+  const out: string[] = [];
+  for (let d = Date.parse(new Date(k.window.start).toISOString().slice(0, 10)); d <= k.window.end; d += 86_400_000) out.push(new Date(d).toISOString().slice(0, 10));
+  return out;
+}
+
+function dateTraces(date: string, k: Knowledge): boolean {
+  return k.dates.has(date) || windowDates(k).includes(date);
+}
+
+/** True when a UTC date and time fall inside the intake window, ends included. */
+function inWindow(date: string, time: string, k: Knowledge): boolean {
+  const at = Date.parse(`${date}T${time}Z`);
+  return k.window !== null && !Number.isNaN(at) && at >= k.window.start && at <= k.window.end;
+}
+
+/**
+ * True when a timestamp token traces: it is an intake time at the precision the token gives, or,
+ * written in query context, it falls inside the intake window ("from 01:30Z to 03:30Z").
+ * Gap kept: a time placed in query context by its wording passes anywhere inside the window.
+ */
+function stampTraces(token: string, k: Knowledge, query: boolean): boolean {
+  const loose = looseDates(token);
+  if (loose.length > 0) return loose.some((d) => dateTraces(d, k));
+  const st = parseStamp(token);
+  if (!st.date && !st.time) return false;
+  if (!isUtc(st.zone)) return k.intake_text.includes(token);
+  if (!st.time) return dateTraces(st.date as string, k);
+  const time = st.time;
+  const matches = k.stamps.some((c) => {
+    if (!c.time || (st.date && c.date !== st.date)) return false;
+    if (time.length > 5) return c.time.startsWith(time);
+    // A minute-precision time is an intake time rounded down or up to the minute.
+    const floor = minuteOf(c.time);
+    const ceil = floor + (/^\d{2}:\d{2}:00(?:\.0+)?$/.test(c.time) || c.time.length === 5 ? 0 : 1);
+    return minuteOf(time) === floor || minuteOf(time) === ceil;
+  });
+  if (matches || !query) return matches;
+  return st.date ? inWindow(st.date, time, k) : windowDates(k).some((d) => inWindow(d, time, k));
 }
 
 /** Producer metadata (schema id, source, consumer) is not a citation; strip it before extraction. */
@@ -125,23 +620,69 @@ export function stripProducerStrings(text: string, intake: unknown): string {
   return out;
 }
 
-/** Every token in `text` must trace to the intake or to a reference table. */
-export function lint(text: string, intake: unknown, hostPrefix = DEFAULT_HOST_PREFIX): LintResult {
-  const k = intakeKnowledge(intake, hostPrefix);
-  const t = extractTokens(stripProducerStrings(text, intake), hostPrefix);
+/** Remove the brief's own record of the intake hash, which is provenance, and note a stale one. */
+function stripIntakeHash(text: string, opts: LintOptions): { text: string; notes: string[] } {
+  const notes: string[] = [];
+  for (const doc of jsonBlocks(text)) {
+    const recorded = (doc as { intake?: { sha256?: unknown } })?.intake?.sha256;
+    if (typeof recorded !== "string" || recorded.length === 0) continue;
+    if (opts.intakeSha256 && recorded.toLowerCase() !== opts.intakeSha256.toLowerCase()) {
+      notes.push(`intake.sha256 ${recorded} is not the hash of this intake file (${opts.intakeSha256}); the brief was written against another version of it`);
+    }
+    const keyed = new RegExp(`("sha256"\\s*:\\s*")${escapeRegExp(recorded)}"`);
+    return { text: text.replace(keyed, '$1"'), notes };
+  }
+  return { text, notes };
+}
+
+/** Extract every token from a document and check each against the intake and the reference tables. */
+export function analyze(text: string, intake: unknown, opts: LintOptions = {}): Analysis {
+  const k = intakeKnowledge(intake, opts);
+  const refs = loadReferences();
+  const stripped = stripIntakeHash(stripProducerStrings(text, intake), opts);
+  const t = extractTokens(stripped.text, k.patterns);
   const unknown: Unknown[] = [];
-  for (const r of t.rule_id) if (!k.rule_ids.has(r) && !k.intake_text.includes(r)) unknown.push({ token: r, kind: "rule_id", reason: "not a rule_id in the intake" });
-  for (const h of t.host) if (!k.hosts.has(h)) unknown.push({ token: h, kind: "host", reason: "host not named in the intake" });
-  for (const a of t.attack) if (!k.attack_table.has(a)) unknown.push({ token: a, kind: "attack", reason: "technique ID not in the ATT&CK reference table" });
-  for (const c of t.csf) if (!k.csf_table.has(c)) unknown.push({ token: c, kind: "csf", reason: "subcategory ID not in the CSF 2.0 reference table" });
-  for (const ip of t.ip) if (!k.ips_in_intake.has(ip)) unknown.push({ token: ip, kind: "ip", reason: "IPv4 literal not present in the intake" });
-  const attack_not_in_intake = [...t.attack].filter((a) => k.attack_table.has(a) && !k.attack_in_intake.has(a)).sort();
-  return {
+  const miss = (kind: Kind, token: string, reason: string) => unknown.push({ token, kind, reason });
+
+  for (const r of t.rule_id) if (!k.rule_ids.has(r)) miss("rule_id", r, "not a detection rule_id in the intake");
+  for (const a of t.alert_id) if (!k.alert_ids.has(a)) miss("alert_id", a, "not an alert_id in the intake");
+  for (const h of t.host) if (!k.hosts.has(h)) miss("host", h, "host not named in the intake");
+  const canonicalForm = (raw: string, table: Set<string>, what: string) =>
+    table.has(raw.toUpperCase().replace(/\s/, (raw.match(/^[Tt]/) ? "" : "-"))) ? `${what} not written in its canonical form` : `${what} not in the reference table`;
+  for (const a of t.attack) if (!refs.attack.has(a)) miss("attack", a, canonicalForm(a, refs.attack, "ATT&CK technique ID"));
+  for (const c of t.csf) if (!refs.csf.has(c)) miss("csf", c, canonicalForm(c, refs.csf, "CSF 2.0 subcategory ID"));
+  for (const ip of t.ip) if (!k.ips.has(ip) && !refs.special_addresses.has(ip)) miss("ip", ip, "IPv4 literal not present in the intake");
+  for (const ip of t.ipv6) {
+    const c = canonicalIpv6(ip) as string;
+    if (!k.ipv6.has(c) && !refs.special_addresses.has(c)) miss("ipv6", ip, "IPv6 literal not present in the intake");
+  }
+  // DOMAIN\user traces when the account part is known: the intake may carry the bare name.
+  for (const u of t.user) if (!k.users.has(u) && !k.users.has(u.split("\\").pop() as string)) miss("user", u, "user not named in the intake");
+  for (const e of t.event_id) if (!k.event_ids.has(e) && !refs.event_ids.has(e)) miss("event_id", e, "event ID neither in the intake nor in the event ID reference table");
+  for (const p of t.port) if (!k.ports.has(p) && !refs.ports.has(p)) miss("port", p, "port neither in the intake nor in the service port reference table");
+  for (const x of t.exposure) if (!k.exposures.has(x)) miss("port", x, "exposure (host and port together) not in the intake");
+  for (const d of t.domain) if (!k.domains.has(d) && !refs.domains.has(d)) miss("domain", d, "domain not present in the intake");
+  for (const h of t.hash) if (!k.hashes.has(h)) miss("hash", h, "hash not present in the intake");
+  for (const s of t.timestamp) if (!stampTraces(s, k, t.query_stamps.has(s))) miss("timestamp", s, "time or date not present in the intake at this precision");
+
+  const counts = Object.fromEntries(KINDS.map((kind) => [kind, t[kind].size])) as Record<Kind, number>;
+  const result: LintResult = {
     pass: unknown.length === 0,
     unknown: unknown.sort((a, b) => a.kind.localeCompare(b.kind) || a.token.localeCompare(b.token)),
-    counts: { rule_id: t.rule_id.size, host: t.host.size, attack: t.attack.size, csf: t.csf.size, ip: t.ip.size },
-    attack_not_in_intake,
+    counts,
+    beyond_intake: {
+      attack: [...t.attack].filter((a) => refs.attack.has(a) && !k.attack_in_intake.has(a)).sort(),
+      event_id: [...t.event_id].filter((e) => refs.event_ids.has(e) && !k.event_ids.has(e)).sort((a, b) => Number(a) - Number(b)),
+      port: [...t.port].filter((p) => refs.ports.has(p) && !k.ports.has(p)).sort((a, b) => Number(a) - Number(b)),
+    },
+    notes: stripped.notes,
   };
+  return { result, tokens: t, knowledge: k };
+}
+
+/** Every token in `text` must trace to the intake or to a reference table. */
+export function lint(text: string, intake: unknown, opts: LintOptions = {}): LintResult {
+  return analyze(text, intake, opts).result;
 }
 
 /** The first fenced ```json block in a markdown document, or the whole text if it is JSON. */

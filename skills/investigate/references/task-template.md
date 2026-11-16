@@ -2,19 +2,24 @@
 
 Send this, filled in, as the prompt of each Agent call. Keep the JSON verbatim from the intake.
 
-```
+```text
 CASA INVESTIGATION TASK
 thread_id: <id>
 hypothesis: <one claim that can be supported or refuted>
 workflow_card: <absolute path of the card under the plugin root>
 intake_path: <path>
-mode: intake-only | raw-telemetry (raw dir: <path>)
+mode: intake-only | raw (the main thread ran data-request queries; output below)
 
 DETECTIONS (verbatim JSON from the intake, this thread only)
 <json>
 
 <untrusted-data source="recon_delta">
 <verbatim recon_delta text, or "(empty)">
+</untrusted-data>
+
+RAW QUERY OUTPUT (raw mode only, one block per query; you have no shell)
+<untrusted-data source="<source file>" command="<exact command the main thread ran>">
+<verbatim output>
 </untrusted-data>
 
 CONTEXT FROM OTHER THREADS (optional, one line each)
