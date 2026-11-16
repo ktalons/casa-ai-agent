@@ -18,16 +18,32 @@ const FIXTURES_DIR = join(ROOT, "intake", "fixtures");
 
 // *--- Child environment (ISC-23) ---*
 
-test("env: the child env drops CLAUDECODE and both API-key variables", () => {
-  const parent = { CLAUDECODE: "1", ANTHROPIC_API_KEY: "k", ANTHROPIC_AUTH_TOKEN: "t", PATH: "/usr/bin", HOME: "/home/x" };
+// Each of these either blocks a nested claude or moves its billing off the subscription.
+const MUST_STRIP = [
+  "CLAUDECODE",
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_HEADERS",
+  "CLAUDE_CODE_USE_BEDROCK",
+  "CLAUDE_CODE_USE_VERTEX",
+  "AWS_BEARER_TOKEN_BEDROCK",
+];
+
+test("env: the strip list names every nesting and billing variable", () => {
+  for (const key of MUST_STRIP) expect([...STRIPPED_ENV] as string[]).toContain(key);
+});
+
+test("env: the child env drops every stripped variable and keeps the rest", () => {
+  const parent: Record<string, string> = { PATH: "/usr/bin", HOME: "/home/x", CLAUDE_CODE_OAUTH_TOKEN: "subscription" };
+  for (const key of STRIPPED_ENV) parent[key] = "set";
   const env = childEnv(parent);
-  for (const key of ["CLAUDECODE", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"]) {
-    expect([...STRIPPED_ENV] as string[]).toContain(key);
-    expect(key in env).toBe(false);
-  }
+  for (const key of STRIPPED_ENV) expect(key in env).toBe(false);
   expect(env.PATH).toBe("/usr/bin");
   expect(env.HOME).toBe("/home/x");
-  expect(parent.CLAUDECODE).toBe("1");
+  // The OAuth token is the subscription login itself; stripping it would break auth.
+  expect(env.CLAUDE_CODE_OAUTH_TOKEN).toBe("subscription");
+  expect(parent.CLAUDECODE).toBe("set");
 });
 
 test("env: the invocation RunFull spawns carries the stripped env", () => {

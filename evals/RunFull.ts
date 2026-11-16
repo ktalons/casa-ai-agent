@@ -28,9 +28,19 @@ const EVALUATE_TURNS = 30;
 // A hung child is killed at this bound so one stuck step cannot stall the whole loop.
 const STEP_TIMEOUT_MS = 45 * 60 * 1000;
 
-// SECURITY: a nested claude refuses to start under CLAUDECODE, and either key variable (or a
-// base URL pointing at a gateway) would silently move eval runs off the subscription.
-export const STRIPPED_ENV = ["CLAUDECODE", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL"] as const;
+// SECURITY: a nested claude refuses to start under CLAUDECODE; the rest would silently move eval
+// runs off the subscription (API keys, a gateway URL or headers, Bedrock or Vertex). The OAuth
+// token stays: it is the subscription login.
+export const STRIPPED_ENV = [
+  "CLAUDECODE",
+  "ANTHROPIC_API_KEY",
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_HEADERS",
+  "CLAUDE_CODE_USE_BEDROCK",
+  "CLAUDE_CODE_USE_VERTEX",
+  "AWS_BEARER_TOKEN_BEDROCK",
+] as const;
 
 // *--- Types ---*
 
