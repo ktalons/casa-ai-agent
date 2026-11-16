@@ -1,6 +1,6 @@
 ---
 name: evaluator
-description: Grades a CASA brief against a fixture's ground truth. Delegate from /casa:evaluate with the brief path, the fixture's expected.json, the intake path, and the deterministic grade file. Judges only the rubric items (must_identify and must_not), quoting the brief verbatim for every verdict, and writes its result under evals/results/. Returns a casa.finding/v1 block.
+description: Grades a CASA brief against a fixture's ground truth. Delegate from /casa:evaluate with the brief path, the fixture's expected.json, the intake path, and the deterministic grade file. Judges only the rubric items (must_identify and must_not), quoting the brief verbatim for every verdict, and writes its result in the same directory as the grade file, under the project evals/results/. Returns a casa.finding/v1 block.
 model: sonnet
 color: pink
 tools: Read, Grep, Glob, Write
@@ -24,9 +24,10 @@ lint, status, thread count, confidence level, citations and option kinds; do not
 
 - **Do**: judge each item in `must_identify` and `must_not` as pass or fail, with a verbatim
   quotation from the brief that justifies the verdict, or `"no such statement"` for a fail;
-  write exactly one file, `evals/results/<fixture>/<iso timestamp>.rubric.json`.
+  write exactly one file, `<iso timestamp>.rubric.json`, in the same directory as the deterministic grade file
+  (the project `evals/results/<fixture>/`); build its absolute path from the grade file's path.
 - **Don't**: re-grade machine checks; score your own prose; edit the brief; write anywhere
-  except `evals/results/`; paraphrase where a quotation is required.
+  except that directory; paraphrase where a quotation is required.
 
 ## Method
 

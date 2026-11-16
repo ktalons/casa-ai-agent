@@ -3,6 +3,37 @@
 All notable changes to CASA. The format follows Keep a Changelog; versions follow semver.
 Tags on GitHub: `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
 
+## Unreleased
+
+### Security
+
+- The write guard recognises CASA subagents by their `agent_id` as well as their name, so a
+  bare or changed name can no longer slip past it; any `..` in a write path is refused.
+- The guard now covers Bash. CASA analysts may run only a read-only allowlist (`jq`,
+  `tshark -r`, `zeek-cut`, `head`, `tail`, `wc`, `ls` and the plugin's own validator and lint),
+  each with an explicit option list. Every file they read must resolve inside the project or
+  the plugin and must not look like a secret. Redirects, substitutions, globs, comments and
+  quoted newlines are refused.
+- If `bun` is missing, the guard blocks CASA subagents instead of failing open.
+
+### Changed
+
+- The fabrication lint no longer assumes hosts start with `talon`: known hosts come from the
+  intake. Rule IDs must equal a `rule_id` exactly, and users, event IDs, ports, exposures,
+  IPv6 addresses, domains, hashes and timestamps are now checked. Real event IDs and ports
+  that are absent from the intake are reported, not failed.
+- Approved lessons are written to `${CLAUDE_PLUGIN_DATA}/lessons.md`, which survives plugin
+  updates, and every investigation reads them.
+- `/casa:evaluate` writes the grade and the rubric into the project's `evals/results/`.
+
+### Fixed
+
+- The investigate skill and the workflow cards no longer contain fixture answers or fixture
+  rule text, so eval scores measure the method rather than memory.
+- `evals/RunFull.ts` runs every intake version's fixtures and strips session and API-key
+  variables from the child environment.
+- Detection drafts get run-unique names; one rule decides when containment options appear.
+
 ## 5.0.1 (2026-10-05)
 
 The first published release of the v5 line. 5.0.0 tagged the rebuild's merge; 5.0.1 adds

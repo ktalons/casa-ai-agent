@@ -38,8 +38,8 @@ summary from the Overseer.
 2. Tactic sequence from the technique IDs in time order.
 3. Gaps: what the analysts asked for in `data_requests` becomes a visibility gap with the
    CSF subcategory it falls under.
-4. Options: `harden` and `investigate` kinds only; `contain` is left to the Overseer and the
-   analyst, and only for `supported` threads.
+4. Options: `harden` and `investigate` kinds only. Containment options are the Overseer's,
+   under the standards skill's rule.
 
 ## Output
 

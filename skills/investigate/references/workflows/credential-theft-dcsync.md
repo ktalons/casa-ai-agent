@@ -5,7 +5,7 @@
 - Technique IDs: T1003.006 (OS Credential Dumping: DCSync); often preceded by T1078 (Valid
   Accounts), T1021.002 (SMB/Windows Admin Shares) or T1110 (Brute Force) on the same chain.
 - Wazuh rule descriptions naming directory replication, DRSUAPI, GetNCChanges, or replication
-  requested from a host that is not a domain controller.
+  from a non-DC source.
 - Any detection on a domain controller whose `agent` is a DC and whose technique is in the
   credential-access tactic, within minutes of a lateral-movement detection reaching that DC.
 
@@ -32,16 +32,15 @@ does not carry the requesting account, the source address, or the replication GU
 - If the only detection is T1003.006 with no preceding chain, keep **Medium** and name H3 as
   the alternative; the data request in section 4 decides it.
 - **Cross-host chain (H2).** When a credential-attack detection on `<source host>` precedes
-  the DC logon, and the DC logon's own description asserts the relation ("from a source with
-  a preceding failed-auth burst"), that assertion plus the time order is the link; the intake
-  not naming the address is a data request, not a reason to hedge. A recon-delta change on
-  `<source host>` inside the window is a second, independent source. With both, H2 and H1 are
-  **High** for the whole chain, not only for the DC segment.
+  the DC logon and the DC logon's own rule description asserts its relation to that earlier
+  activity, the assertion plus the time order is the link; the intake not naming the address
+  is a data request, not a reason to hedge. Rate the chain with the standards confidence
+  rubric over all of its independent references (the detections on each host, a recon-delta
+  change on a chain host), and state that level for the whole chain, not only the DC segment.
 - **v2 intakes:** a `user` shared by the source-host success and the DC logon, or a `src_ip`
   shared by the DC logon and the replication request, establishes the link as data.
-- Severity: a `supported` H1 is the most critical item in any intake it appears in. Lead the
-  brief with it. Containment options are appropriate at Medium or above because the cost of
-  a completed DCSync (every domain hash, including krbtgt) is total.
+- Severity: a `supported` H1 is the most critical item in any intake it appears in, because a
+  completed DCSync yields every domain hash, including krbtgt. Lead the brief with it.
 
 ## 4. Data requests (what settles H1 and H3)
 
@@ -56,14 +55,14 @@ does not carry the requesting account, the source address, or the replication GU
 
 Every row becomes a `data_requests[]` entry with the exact `source` and `fields`.
 
-## 5. Raw-telemetry mode (allowlisted commands only)
+## 5. Raw-telemetry mode
 
 ```
 # 4662 events carrying a replication GUID, with the requesting account
 jq -c 'select(.data.win.system.eventID=="4662") | select(.data.win.eventdata.Properties|test("1131f6a[ad]|89e95b76")) | {t:.timestamp, who:.data.win.eventdata.SubjectUserName, host:.agent.name}' <alerts.jsonl>
 
 # DRSUAPI GetNCChanges over the wire, by source host
-zeek-cut ts id.orig_h id.resp_h endpoint operation < dce_rpc.log | grep -i DRSGetNCChanges
+zeek-cut ts id.orig_h id.resp_h endpoint operation < dce_rpc.log | jq -R -r 'split("\t") | select(.[4] | test("DRSGetNCChanges"; "i")) | @tsv'
 
 # same from a capture (DRSGetNCChanges is drsuapi opnum 3)
 tshark -r <capture.pcap> -Y 'drsuapi.opnum == 3' -T fields -e frame.time -e ip.src -e ip.dst
@@ -83,7 +82,8 @@ What moves Medium to High in intake-only mode is a second, independent detection
 chain. What refutes H1 is raw evidence that the requester is a DC or an authorized sync
 account. CSF 2.0: DE.AE-02, DE.AE-03, DE.CM-09, RS.AN-03, RS.MI-01; hardening PR.AA-05.
 
-**Options when H1 or H2 is supported.** One option per action, each named concretely:
+**Options to offer.** Containment options follow the standards skill's rule. One option per
+action, each named concretely:
 
 - `contain`: isolate the first host in the chain by its agent name, the one whose detection
   opened the chain, not "the host behind <address>". Name the DC separately only if the

@@ -1,8 +1,16 @@
-/**
- * grade.ts — the deterministic half of grading a CASA brief against a fixture's ground truth
- * (casa.expected/v1). Pure functions; evals/Grade.ts is the CLI. Zero dependencies.
- */
-import { extractTokens, firstJsonBlock, lint, stripProducerStrings, DEFAULT_HOST_PREFIX, type Kind, type LintResult } from "./extract.ts";
+// *****************************************************************************
+// *Title: Brief Grader*
+// *Author: Kyle Versluis*
+// *Description: Deterministic machine checks of a brief against ground truth.*
+// *****************************************************************************
+
+/** Pure functions for grading a brief against casa.expected/v1; evals/Grade.ts is the CLI. */
+
+// *--- Imports ---*
+
+import { analyze, firstJsonBlock, KINDS, type Kind, type LintOptions, type LintResult } from "./extract.ts";
+
+// *--- Types ---*
 
 export type Level = "High" | "Medium" | "Low";
 export interface Expected {
@@ -35,6 +43,8 @@ export interface GradeResult {
   score: { machine_pass: number; machine_total: number; rubric_pass: number | null; rubric_total: number | null };
 }
 
+// *--- Core Logic ---*
+
 const EXPECTED_KEYS = ["schema", "fixture", "status", "must_cite", "must_not_cite", "confidence", "csf_functions", "thread_count", "forbid_option_kinds", "must_identify", "must_not"];
 
 /** Structural check of an expected.json; throws with a reason on the first problem. */
@@ -52,6 +62,8 @@ export function assertExpected(e: unknown): asserts e is Expected {
   for (const r of [...(o.must_identify as { id: string }[]), ...(o.must_not as { id: string }[])]) if (!/^[a-z0-9-]+$/.test(r.id)) throw new Error(`expected: bad rubric id ${r.id}`);
 }
 
+// *--- Helper Functions ---*
+
 function parseBrief(text: string): Record<string, any> | null {
   const block = firstJsonBlock(text);
   if (!block) return null;
@@ -63,19 +75,17 @@ function parseBrief(text: string): Record<string, any> | null {
   }
 }
 
-export function gradeMachine(briefText: string, expected: Expected, intake: unknown, hostPrefix = DEFAULT_HOST_PREFIX): { lint: LintResult; machine: MachineCheck[]; fabrication: Fabrication[]; brief: Record<string, any> | null } {
+export function gradeMachine(briefText: string, expected: Expected, intake: unknown, opts: LintOptions = {}): { lint: LintResult; machine: MachineCheck[]; fabrication: Fabrication[]; brief: Record<string, any> | null } {
   const checks: MachineCheck[] = [];
   const brief = parseBrief(briefText);
   checks.push({ check: "brief-json", pass: brief !== null, detail: brief ? "first json block parses as casa.brief/v1" : "no parseable casa.brief/v1 block" });
 
-  const l = lint(briefText, intake, hostPrefix);
+  const { result: l, tokens, knowledge } = analyze(briefText, intake, opts);
   checks.push({ check: "lint", pass: l.pass, detail: l.pass ? "every citation traces to the intake or a reference table" : l.unknown.map((u) => `${u.kind}:${u.token}`).join(", ") });
 
-  const tokens = extractTokens(stripProducerStrings(briefText, intake), hostPrefix);
-  const intakeText = JSON.stringify(intake);
   const fabrication: Fabrication[] = [];
   const known = new Set(l.unknown.map((u) => `${u.kind}:${u.token}`));
-  for (const kind of ["rule_id", "host", "attack", "csf", "ip"] as Kind[]) for (const t of tokens[kind]) fabrication.push({ token: t, kind, present: !known.has(`${kind}:${t}`) });
+  for (const kind of KINDS) for (const t of tokens[kind]) fabrication.push({ token: t, kind, present: !known.has(`${kind}:${t}`) });
 
   if (brief) {
     checks.push({ check: "status", pass: brief.status === expected.status, detail: `brief ${brief.status}, expected ${expected.status}` });
@@ -98,23 +108,25 @@ export function gradeMachine(briefText: string, expected: Expected, intake: unkn
   // must_cite: every listed token must appear in the brief text.
   const missing: string[] = [];
   for (const r of expected.must_cite.rule_ids) if (!tokens.rule_id.has(r)) missing.push(`rule_id:${r}`);
-  for (const h of expected.must_cite.hosts) if (!tokens.host.has(h)) missing.push(`host:${h}`);
+  for (const h of expected.must_cite.hosts) if (!tokens.host.has(h.toLowerCase())) missing.push(`host:${h}`);
   for (const a of expected.must_cite.attack) if (!tokens.attack.has(a)) missing.push(`attack:${a}`);
   checks.push({ check: "must_cite", pass: missing.length === 0, detail: missing.length ? `missing ${missing.join(", ")}` : "all required citations present" });
 
-  // must_not_cite: listed tokens must be absent; "*" means nothing of that kind beyond the intake's own.
+  // must_not_cite: listed tokens must be absent; "*" means nothing of that kind beyond the intake's own typed values.
   const offending: string[] = [];
-  const kindMap: [keyof Expected["must_not_cite"], Kind][] = [["rule_ids", "rule_id"], ["hosts", "host"], ["attack", "attack"]];
-  for (const [field, kind] of kindMap) {
+  const kindMap: [keyof Expected["must_not_cite"], Kind, Set<string>][] = [["rule_ids", "rule_id", knowledge.rule_ids], ["hosts", "host", knowledge.hosts], ["attack", "attack", knowledge.attack_in_intake]];
+  for (const [field, kind, own] of kindMap) {
     const rule = expected.must_not_cite[field];
-    if (rule === "*") for (const t of tokens[kind]) if (!intakeText.includes(t)) offending.push(`${kind}:${t}`);
+    if (rule === "*") for (const t of tokens[kind]) if (!own.has(t)) offending.push(`${kind}:${t}`);
     if (Array.isArray(rule)) for (const t of rule) if (tokens[kind].has(t)) offending.push(`${kind}:${t}`);
   }
-  if (expected.must_not_cite.ip_literals) for (const ip of tokens.ip) if (!intakeText.includes(ip)) offending.push(`ip:${ip}`);
+  if (expected.must_not_cite.ip_literals) for (const ip of tokens.ip) if (!knowledge.ips.has(ip)) offending.push(`ip:${ip}`);
   checks.push({ check: "must_not_cite", pass: offending.length === 0, detail: offending.length ? `present: ${offending.join(", ")}` : "nothing forbidden cited" });
 
   return { lint: l, machine: checks, fabrication, brief };
 }
+
+// *--- Public Interfaces ---*
 
 export function buildGrade(fixture: string, briefPath: string, m: ReturnType<typeof gradeMachine>, rubric: RubricItem[] | null): GradeResult {
   const machine_pass = m.machine.filter((c) => c.pass).length;

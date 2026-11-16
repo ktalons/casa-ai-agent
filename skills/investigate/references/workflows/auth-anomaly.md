@@ -4,13 +4,13 @@
 
 - Technique IDs: T1110 and sub-techniques (.001 password guessing, .003 password spraying,
   .004 credential stuffing), T1078 (Valid Accounts), T1098 (Account Manipulation).
-- Wazuh rule descriptions naming multiple authentication failures, failures followed by a
-  success, lockouts, or logons at unusual times or from unusual sources.
+- Wazuh rule descriptions naming repeated authentication failures, a burst that ends in a
+  successful logon, lockouts, or logons at unusual times or from unusual sources.
 
 ## 2. Hypotheses
 
 - H1: `<host>` received a credential attack (burst of failures from one source) in the window.
-- H2: the attack succeeded: a success from the same source followed the burst.
+- H2: the attack succeeded: the same source logged on successfully after the burst.
 - H3: the pattern is spraying (few attempts per account, many accounts) rather than brute
   force (many attempts against one account); the response differs.
 - H4 (benign): a misconfigured service account, a user who changed a password, or a
@@ -20,22 +20,22 @@
 
 - A T1110 detection on `<host>` makes H1 `supported` at **Medium**: the rule counted failures,
   but the intake does not show the source or the accounts.
-- A second detection on the same host whose description says failures were followed by a
-  success (T1110.001 with T1078, or a "burst then success" rule) makes H2 `supported` at
-  **Medium**; it reaches **High** when a third detection shows what the success led to (a
-  lateral-movement or credential-access detection on another host within 15 minutes).
+- A second detection on the same host showing that the burst ended in a successful logon
+  makes H2 `supported` at **Medium**; it reaches **High** when a further detection shows what
+  the success led to (a lateral-movement or credential-access detection on another host
+  within 15 minutes).
 - H3 cannot be decided from v1: the intake has no account field. State it as undetermined
   and request the data in section 4.
 - H4 stays open until the source address is known. Say so in `alternatives`.
-- **Chain into another host.** If a later detection on a second host says in its own
-  description that the logon came from a source with a preceding failure burst, treat that
-  as the link to this burst; the missing address is a data request. With a recon-delta change
-  on this host in the window as well, the chain reaches **High**; hand it to the
-  lateral-movement or DCSync card for the second host.
+- **Chain into another host.** A later detection on a second host whose own rule description
+  asserts its relation to this burst, in time order, is the link between them; the missing
+  address is a data request. Rate the chain with the standards confidence rubric over all of
+  its independent references, and hand the second host to the lateral-movement or DCSync card.
 - **v2 intakes:** `src_ip` and `user` on each detection decide spraying versus brute force
   directly and tie the success to the burst; the ceilings above lift accordingly.
-- Threshold guidance from the lab's rules: a burst of 20 or more failures in 60 seconds from
-  one source is the level-12 floor; below that nothing reaches the intake.
+- Thresholds: the rule's own description and level state what it counted. A burst below the
+  producer's level floor never reaches the intake, so no burst detection is not evidence of no
+  failures.
 
 ## 4. Data requests
 
@@ -75,8 +75,8 @@ Brute force: one account, many attempts. Stuffing: varied accounts from many sou
 CSF 2.0: DE.CM-01, DE.CM-03, DE.AE-02, DE.AE-03; hardening PR.AA-01, PR.AA-03, PR.AA-05;
 response RS.AN-03, RS.MI-01.
 
-**Options when burst-then-success is supported.** One option per action, each named
-concretely: `contain` isolates the host that saw the success, by agent name; `contain` resets
+**Options to offer.** Containment options follow the standards skill's rule. One option per
+action, each named concretely: `contain` isolates the host that saw the success, by agent name; `contain` resets
 the account once it is named (v1: a `TargetUserName` data request listed first in
 `depends_on`; v2: the `user` field); `harden` closes a new exposure the recon delta shows on
 that host, named as `<host>:<port>/<proto>`, with the cost of closing it; `investigate` pulls

@@ -8,8 +8,8 @@ below so the steps can be repeated verbatim.
 Two repos, two planes. TalonSocLab is the data plane: it collects, filters, cites and writes
 `digest/<date>-intake.json`. CASA is the reasoning plane: a Claude Code plugin installed
 **into the lab checkout**, so briefs, proposed detections and learn candidates land next to
-the telemetry they came from. CASA never writes into its own repo from a lab run, with one
-deliberate exception, promoted lessons (see step 2).
+the telemetry they came from. CASA never writes into its own repo from a lab run; lessons you
+approve go to the plugin's data directory (see step 2).
 
 ## 1. Prerequisites
 
@@ -53,11 +53,14 @@ The script is idempotent. It:
    `detections/accepted/` is tracked);
 5. prints `claude plugin list` filtered to casa and the smoke-test command.
 
-**Why the checkout path matters.** `/casa:learn` promotes an approved lesson into the plugin's
-own `skills/standards/references/lessons.md`. With `--source /path/to/casa-ai-agent` the plugin is
-read in place, so the promoted lesson lands in your CASA checkout and you commit it there.
-With a GitHub install it lands in the installed copy under `~/.claude/plugins/`, which the next
-update overwrites; copy it back by hand if you run that way.
+**Where approved lessons live.** `/casa:learn` appends each lesson you approve to
+`lessons.md` in the plugin's data directory, `${CLAUDE_PLUGIN_DATA}`, which Claude Code keeps
+under `~/.claude/plugins/data/` and leaves alone when the plugin updates. The plugin's own
+`skills/standards/references/lessons.md` is a read-only seed that ships with each release.
+Every investigation reads both, so a lesson is in force from the next run whichever way you
+installed. To share a lesson with other installs, copy it into the seed in your CASA checkout
+and commit it there. `--source` still matters for one thing: it reads the plugin in place, so
+an edit to a card or agent in your checkout takes effect without a reinstall.
 
 Commit the lab's `.claude/settings.json` and `.gitignore` changes.
 
@@ -145,8 +148,8 @@ What CASA writes, all under the lab checkout and all gitignored except the last:
 | Path | Written by | Contents |
 |---|---|---|
 | `briefs/<date>.brief.md` | the Overseer (main thread) | one `casa.brief/v1` block plus the readable brief |
-| `detections/proposed/<date>-<thread>.*` | `casa:detection-engineer` | Sigma and Wazuh drafts for a supported finding at Medium or above |
-| `learn/pending/<date>-<slug>.md` | the Overseer | one LEARN candidate per run with findings |
+| `detections/proposed/<run_id>-<thread>.*` | `casa:detection-engineer` | Sigma and Wazuh drafts for a supported finding at Medium or above; `<run_id>` is the brief name plus `-r<N>`, new for every run, so a second run never overwrites the first run's drafts |
+| `learn/pending/<run_id>.md` | the Overseer | one LEARN candidate per run with findings |
 | `evals/results/` | `casa:evaluator`, fixtures only | grades and rubric files |
 | `detections/accepted/` | you, by hand | the rules you tested and kept (tracked) |
 
@@ -165,7 +168,8 @@ Then, each day you review:
 3. If rules were proposed, test them on the manager (`/var/ossec/bin/wazuh-logtest` with a real
    event), then move the keepers to `detections/accepted/` and commit.
 4. `/casa:learn` when `learn/pending/` has something worth keeping. Approve or discard each
-   note; approved ones append to the lessons file in the CASA checkout, which you commit there.
+   note; approved ones append to the lessons file in the plugin's data directory, and the next
+   investigation reads them.
 
 A quiet day is a real result: the brief says no findings, states what the `pipeline` block
 showed, and recommends a liveness check only when the collector or agent counts look wrong.

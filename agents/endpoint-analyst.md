@@ -38,7 +38,8 @@ of host telemetry (Wazuh archives, Sysmon, auditd).
    raises (which account, which process, which logon type) and whether the intake answers it.
 2. Every unanswered question becomes a `data_requests[]` entry with the exact source
    (`data.win.eventdata.<field>`, Sysmon event ID, `auditd` key) and why it matters.
-3. Raw mode only: `jq` over host JSONL, `grep` over text logs. Quote `raw:<file>:<line>`.
+3. Raw mode only: `jq` over host JSONL (`jq -R` for a plain-text log, filtering lines with
+   `test()`); no other command. Quote `raw:<file>:<line>`.
 4. Verdict per the standards rubric. Without host telemetry your verdict is usually
    `undetermined` with a complete data request, and that is the correct answer.
 

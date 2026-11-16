@@ -46,11 +46,11 @@
 ## 5. Raw-telemetry mode
 
 ```
-# outbound bytes per destination for the host
-zeek-cut id.orig_h id.resp_h id.resp_p orig_bytes resp_bytes < conn.log | grep '^<host ip>' | sort -k4 -n -r | head
+# the host's ten largest outbound sessions (Zeek writes "-" for an unknown byte count)
+zeek-cut id.orig_h id.resp_h id.resp_p orig_bytes resp_bytes < conn.log | jq -R -s -r 'split("\n") | map(select(length>0) | split("\t") | select(.[0]=="<host ip>")) | sort_by(-(.[3]|tonumber? // 0)) | .[:10][] | @tsv'
 
 # upload-heavy sessions (orig_bytes much larger than resp_bytes)
-zeek-cut ts id.orig_h id.resp_h orig_bytes resp_bytes < conn.log | jq -R -s 'split("\n")|map(select(length>0)|split("\t"))|map(select((.[3]|tonumber) > 10*(.[4]|tonumber) and (.[3]|tonumber) > 10000000))'
+zeek-cut ts id.orig_h id.resp_h orig_bytes resp_bytes < conn.log | jq -R -r 'split("\t") | select(((.[3]|tonumber? // 0) > 10*(.[4]|tonumber? // 0)) and ((.[3]|tonumber? // 0) > 10000000)) | @tsv'
 
 # long DNS labels
 zeek-cut ts query < dns.log | jq -R -s 'split("\n")|map(select(length>0)|split("\t"))|map(select(.[1]|length > 60))'

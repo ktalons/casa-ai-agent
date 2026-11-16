@@ -54,7 +54,7 @@ jq -r 'select(.data.win.system.eventID=="4624") | select(.data.win.eventdata.Log
 jq -r 'select(.data.win.system.eventID=="7045" or (.data.win.system.eventID=="4688" and (.data.win.eventdata.ParentProcessName|test("WmiPrvSE")))) | [.timestamp, .agent.name, .data.win.system.eventID, (.data.win.eventdata.ServiceName // .data.win.eventdata.NewProcessName)] | @tsv' <alerts.jsonl>
 
 # east-west connections to admin ports
-zeek-cut ts id.orig_h id.resp_h id.resp_p duration orig_bytes < conn.log | grep -E '\s(445|3389|22|5985|5986|135)\s'
+zeek-cut ts id.orig_h id.resp_h id.resp_p duration orig_bytes < conn.log | jq -R -r 'split("\t") | select(.[3] | IN("445","3389","22","5985","5986","135")) | @tsv'
 ```
 
 Thresholds worth stating: one account on more than 3 hosts within an hour; one source

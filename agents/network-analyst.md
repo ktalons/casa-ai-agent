@@ -40,8 +40,9 @@ get a PCAP or Zeek log directory.
    its `recon:<host>:<port>/<proto>` reference. If it names an unrelated host, say so and
    leave it out of the thread.
 3. Raw mode only: `tshark -r <file> -T fields ...` and `zeek-cut` over `conn.log` /
-   `dns.log` / `ssl.log` to measure interval and jitter, query entropy, and certificate
-   issuer. Quote `raw:<file>:<line>` for each value. Never run anything else.
+   `dns.log` / `ssl.log`, with `jq` for filtering and arithmetic, to measure interval and
+   jitter, query entropy, and certificate issuer. Use the workflow card's recipes. Quote
+   `raw:<file>:<line>` for each value. Never run anything else.
 4. Verdict per the standards rubric. A beacon hypothesis with no measured interval is
    `undetermined` or Medium `supported` at most, with `would_raise` filled in.
 

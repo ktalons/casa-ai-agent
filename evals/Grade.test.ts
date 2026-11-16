@@ -1,3 +1,11 @@
+// *****************************************************************************
+// *Title: Brief Grader Tests*
+// *Author: Kyle Versluis*
+// *Description: Machine checks, rubric merge and where grade files land.*
+// *****************************************************************************
+
+// *--- Imports ---*
+
 import { test, expect } from "bun:test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -68,4 +76,30 @@ test("mergeRubric keeps expected order, fails ungraded items, rejects malformed 
   expect(merged.find((r) => r.id === "no-findings")?.pass).toBe(false);
   expect(() => mergeRubric(e, { nope: [] })).toThrow();
   expect(() => mergeRubric(e, { rubric: [{ id: "x", pass: "yes" }] })).toThrow();
+});
+
+test("results dir: the machine grade and the evaluator's rubric land in one project evals/results directory", async () => {
+  const { mkdtempSync, realpathSync, writeFileSync: write, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { dirname } = await import("node:path");
+  // Run from a scratch project, as a marketplace install does: the plugin root is elsewhere.
+  // realpath: on macOS the temp dir sits behind a /var symlink, and the child reports the real cwd.
+  const project = realpathSync(mkdtempSync(join(tmpdir(), "casa-results-")));
+  try {
+    const args = ["--brief", join(ROOT, "evals/samples/brute-force-dc-chain.good.brief.md"), "--expected", join(ROOT, "intake/fixtures/brute-force-dc-chain.expected.json"), "--intake", join(ROOT, "intake/fixtures/brute-force-dc-chain.intake.json"), "--json"];
+    const grade = Bun.spawnSync(["bun", join(ROOT, "evals/Grade.ts"), ...args], { cwd: project });
+    const gradePath: string = JSON.parse(grade.stdout.toString()).path;
+    const want = join(project, "evals", "results", "brute-force-dc-chain");
+    expect(dirname(gradePath)).toBe(want);
+
+    // The evaluator is told to write its rubric beside the grade file; the merge lands there too.
+    const rubricPath = join(dirname(gradePath), "x.rubric.json");
+    write(rubricPath, JSON.stringify({ rubric: [] }));
+    const merged = Bun.spawnSync(["bun", join(ROOT, "evals/Grade.ts"), ...args, "--rubric", rubricPath], { cwd: project });
+    expect(dirname(JSON.parse(merged.stdout.toString()).path)).toBe(want);
+    expect(read("agents/evaluator.md")).toContain("in the same directory as the deterministic grade file");
+    expect(read("skills/evaluate/SKILL.md")).toContain("in the same directory as the grade file");
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+  }
 });
