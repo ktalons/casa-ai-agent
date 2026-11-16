@@ -63,22 +63,28 @@ const RE_ALERT_ID = /(?<![\w.])\d{9,11}\.\d{3,9}(?![\w]|\.\d)/g;
 const RE_HOST_PORT = /(?<![\w.\/-])((?:\d{1,3}\.){3}\d{1,3}|[A-Za-z][A-Za-z0-9.-]*[A-Za-z0-9]):(\d{1,5})(\/(?:tcp|udp|sctp))?(?![\w:]|\.\d)/gi;
 const RE_PORT_PROTO = /(?<![\w.:\/])(\d{1,5})\/(?:tcp|udp|sctp)\b/gi;
 // A range ("ports 1-1024") is a query scope, not a claim about one port, so it is not checked.
-const RE_PORT_LIST = /\b(?:ports?|dst_port|src_port|dest_port|dport|sport|destinationport|sourceport)\b\s*[:=]?\s*((?:\d{1,5}(?:\s*-\s*\d{1,5})?(?![\d:.]\d|\d)(?:\s*,\s*(?:and|or)?\s*|\s+(?:and|or)\s+)?)+)/gi;
-// Lookarounds rather than \b, so `ip10.9.9.9` and `ip_10.9.9.9` are seen; a version string is not an address.
-const RE_IPV4 = /(?<!(?:\bversions?|\bver|\bv|\bbuild|\brelease|\bfirmware)[\s:=]*)(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?!\d|\.\d)/gi;
+// Separators are written so no two \s* sit side by side: that pairing backtracks quadratically on long whitespace.
+const RE_PORT_LIST = /\b(?:ports?|dst_port|src_port|dest_port|dport|sport|destinationport|sourceport)\b\s*(?:[:=]\s*)?((?:\d{1,5}(?:\s*-\s*\d{1,5})?(?![\d:.]\d|\d)(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)?)+)/gi;
+// Lookarounds rather than \b, so `ip10.9.9.9` and `ip_10.9.9.9` are seen. A version string is not an
+// address; that context is checked on the 20 characters before each match, never in a lookbehind.
+// WARN: a variable-length lookbehind here made every whitespace run quadratic (16k spaces took 6 s).
+const RE_IPV4 = /(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?!\d|\.\d)/g;
+const RE_VERSION_BEFORE = /(?:\bversions?|\bver|\bv|\bbuild|\brelease|\bfirmware)[\s:=]{0,3}$/i;
 const RE_DOMAIN = /(?<![\w.-])((?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+([a-z]{2,24}))(?![\w-]|\.[a-z0-9])/gi;
 // Loose shapes (t9999, T 9999, de.cm-01, DE.CM 01) are extracted as written and must match the table exactly.
 const RE_ATTACK = /(?<![\w.])[Tt]\s?\d{4}(?:\.\d{3})?(?![\w]|\.\d)/g;
 const RE_CSF = /\b(?:GV|ID|PR|DE|RS|RC)\.[A-Z]{2}(?:-|\s)\d{1,2}\b/gi;
 // A bare CSF category (DE.CM) would otherwise read as a domain under a ccTLD.
 const RE_CSF_CATEGORY = /\b(?:GV|ID|PR|DE|RS|RC)\.[A-Z]{2}\b/g;
-const RE_EVENT_LIST = /\b(?:sysmon|security|event\s*ids?|events?|eids?|event_ids?|eventcodes?|event\s+codes?)\b\s*[:=#]?\s*((?:\d{1,5}(?![\d:.]\d|\d|\/(?:tcp|udp))(?!\s*-?\s*(?:ms|s|secs?|seconds?|m|mins?|minutes?|h|hrs?|hours?|d|days?)\b)(?:\s*,\s*(?:and|or)?\s*|\s+(?:and|or)\s+|\s*\/\s*)?)+)/gi;
+const RE_EVENT_LIST = /\b(?:sysmon|security|event\s*ids?|events?|eids?|event_ids?|eventcodes?|event\s+codes?)\b\s*(?:[:=#]\s*)?((?:\d{1,5}(?![\d:.]\d|\d|\/(?:tcp|udp))(?!\s*(?:-\s*)?(?:ms|s|secs?|seconds?|m|mins?|minutes?|h|hrs?|hours?|d|days?)\b)(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+|\s*\/\s*)?)+)/gi;
 // Bare four-digit numbers in this block are Windows Security event IDs in SOC prose.
 const RE_EVENT_BARE = /(?<![\w.:-])4[6-9]\d\d(?![\w]|[.:]\d)/g;
 // A rule ID needs a rule keyword (rule, rule_id, sid) or a JSON rule_ids key. A bare five- or
 // six-digit number is a build, PID, CVE suffix or count as often as a rule, so it is not checked;
 // four-digit built-in Wazuh rules are not checked either (they share a shape with event IDs).
-const RE_RULE_LIST = /\b(?:rules?|rule_ids?|rule\s+ids?|sids?|signature\s+ids?)\b\s*[:=#]?\s*((?:\d{5,7}(?![\d:.\/-]\d|\d)(?:\s*,\s*(?:and|or)?\s*|\s+(?:and|or)\s+|\s*\/\s*)?)+)/gi;
+// Up to three words or an opening parenthesis may sit between the keyword and the numbers ("rule
+// numbers 100341", "the rule fired (99999)"), but not another ID keyword ("rule on build 19045").
+const RE_RULE_LIST = /\b(?:rules?|rule_ids?|rule\s+ids?|sids?|signature\s+ids?)\b(?:\s+(?!(?:build|pid|ports?|events?|eids?|cve|version|kb|sp|line|level|alert|alert_id)\b)[A-Za-z][\w-]*){0,3}\s*(?:[:=#(]\s*)?((?:\d{5,7}(?![\d:.\/-]\d|\d)(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+|\s*\/\s*)?)+)/gi;
 const RE_HOST_KEYWORD = /\b(?:host|hosts|hostname|endpoint|workstation|server|machine|computer)\s+([A-Za-z][A-Za-z0-9_-]*\d[A-Za-z0-9_-]*)\b/gi;
 // Letters (hyphen or underscore groups allowed) then at least two digits: web07, FILESERVER01, WS-0042, ws_0042.
 // One trailing digit (oauth2, ps1, md5) is too often a protocol or file type to be read as a host.
@@ -451,7 +457,11 @@ export function extractTokens(text: string, patterns: Partial<NamePatterns> = {}
     for (const item of m[1].match(/\d{1,5}(?:\s*-\s*\d{1,5})?/g) ?? []) if (!item.includes("-") && Number(item) <= 65535) t.port.add(item);
     return m[0].slice(0, m[0].length - m[1].length);
   });
-  consume(buf, RE_IPV4, (m) => (t.ip.add(m[0]), ""));
+  consume(buf, RE_IPV4, (m) => {
+    if (RE_VERSION_BEFORE.test(m.input.slice(Math.max(0, m.index - 20), m.index))) return null;
+    t.ip.add(m[0]);
+    return "";
+  });
 
   // Domains: dotted names with a recognized TLD, any case; an FQDN is a domain, not a host.
   consume(buf, RE_DOMAIN, (m) => {

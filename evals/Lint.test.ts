@@ -205,6 +205,8 @@ test("fabricated phrasing: obfuscated, re-cased and loosely written tokens each 
     ["timestamp", "It started Dec 31 2026.", intakeV2],
     ["timestamp", "It started 12/31/2026.", intakeV2],
     ["rule_id", "Then rule 1003400 fired.", intakeV2],
+    ["rule_id", "Check rule numbers 100341, 99999 next.", intakeV2],
+    ["rule_id", "Then the rule fired (99999).", intakeV2],
     ["hash", `The payload hash was 0x${SHA256_A}.`, intakeV2],
     ["hash", `The payload was hash_${SHA256_A}.`, intakeV2],
     ["hash", `The SHA-224 was ${hex("ab", 56)}.`, intakeV2],
@@ -221,6 +223,33 @@ test("fabricated phrasing: obfuscated, re-cased and loosely written tokens each 
     .filter((r) => r.kinds.length !== 1 || r.kinds[0] !== r.kind);
   expect(wrong).toEqual([]);
 });
+
+test("linear time: a 100,000-character brief of one repeated shape lints in under a second", () => {
+  const n = 100_000;
+  const spaces = " ".repeat(n);
+  const inputs: Record<string, string> = {
+    "a run": "a".repeat(n),
+    "1 run": "1".repeat(n),
+    "colon run": ":".repeat(n),
+    "dot run": ".".repeat(n),
+    "dotted numbers": "10.0.0.1.".repeat(n / 9),
+    "defanged dots": "[.]".repeat(n / 3),
+    // Blanked spans become whitespace, so keyword-then-whitespace is a real shape, not a contrived one.
+    "space run": spaces,
+    "events then spaces": "events" + spaces,
+    "ports then spaces": "ports" + spaces,
+    "rule then spaces": "rule" + spaces,
+    "list comma then spaces": "events 1," + spaces,
+  };
+  const slow: string[] = [];
+  for (const [name, text] of Object.entries(inputs)) {
+    const t0 = performance.now();
+    lint(text, intakeV2);
+    const ms = performance.now() - t0;
+    if (ms >= 1000) slow.push(`${name}: ${ms.toFixed(0)} ms`);
+  }
+  expect(slow).toEqual([]);
+}, 60_000);
 
 test("the brief's own intake hash is provenance, not evidence, and a stale one is reported as a note", () => {
   const raw = readFileSync(join(ROOT, "intake/fixtures/brute-force-dc-chain.intake.json"));
