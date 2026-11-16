@@ -19,6 +19,13 @@
     "mitre-attack",
     "explainability"
   ],
+  "userConfig": {
+    "output_root": {
+      "type": "directory",
+      "title": "Output root",
+      "description": "Directory that receives briefs, proposed detections, LEARN notes and eval results. Leave it empty to write inside the project; for a lab run, pick a directory outside any tracked public repository."
+    }
+  },
   "experimental": {
     "evals": "./evals/plugin-eval"
   }
