@@ -56,16 +56,37 @@ jobs:
           # This will handover control about PR rejection to the GitHub side
           max-allowed-issues: 2147483647
 
-      # Codacy writes one SARIF run per scanner, and code scanning refuses several runs under one
-      # category. Give each run a stable category named after its scanner (a suffix only when a
-      # scanner appears twice), so alerts keep their identity between runs.
-      - name: Give each SARIF run its own category
+      # Codacy writes one SARIF run per scanner (33 on this repo). Code scanning refuses several
+      # runs under one category and more than 20 runs per upload. Give each run a stable category
+      # named after its scanner (a suffix only when a scanner appears twice), then split the runs
+      # into files of at most 20. Empty runs are kept on purpose: an upload with no results is
+      # what closes a scanner's old alerts. Zero runs, or more than the steps below cover, fails.
+      - name: Categorize SARIF runs and split them into uploads of 20
         run: |
           jq '.runs |= (group_by(.tool.driver.name) | map(to_entries | map(.value + {automationDetails: {id: ("codacy/" + (.value.tool.driver.name | ascii_downcase | gsub("[^a-z0-9]+"; "-") | ltrimstr("-") | rtrimstr("-")) + (if .key > 0 then "-\(.key)" else "" end) + "/")}})) | add // [])' results.sarif > results.categorized.sarif
-          mv results.categorized.sarif results.sarif
+          total=$(jq '.runs | length' results.categorized.sarif)
+          if [ "$total" -eq 0 ]; then echo "::error::Codacy produced no SARIF runs; check the analysis step"; exit 1; fi
+          if [ "$total" -gt 60 ]; then echo "::error::$total SARIF runs is more than the three 20-run upload steps cover"; exit 1; fi
+          mkdir -p sarif
+          for i in 0 1 2; do
+            jq --argjson i "$i" '.runs |= .[($i * 20):(($i + 1) * 20)]' results.categorized.sarif > "sarif/part-$i.sarif"
+            if [ "$(jq '.runs | length' "sarif/part-$i.sarif")" -eq 0 ]; then rm "sarif/part-$i.sarif"; fi
+          done
+          echo "SARIF runs: $total"
 
-      # Upload the SARIF file generated in the previous step
-      - name: Upload SARIF results file
+      - name: Upload SARIF results (runs 1-20)
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: results.sarif
+          sarif_file: sarif/part-0.sarif
+
+      - name: Upload SARIF results (runs 21-40)
+        if: hashFiles('sarif/part-1.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: sarif/part-1.sarif
+
+      - name: Upload SARIF results (runs 41-60)
+        if: hashFiles('sarif/part-2.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: sarif/part-2.sarif
