@@ -8,7 +8,7 @@
       "level": 12,
       "description": "Periodic outbound HTTPS to a rarely-contacted external host (regular interval, low jitter)",
       "rule_id": "100305",
-      "agent": "talonmacbook",
+      "agent": "corpws12",
       "mitre": [
         "T1071.001"
       ],
@@ -18,13 +18,13 @@
       "level": 12,
       "description": "DNS queries to a newly-observed high-entropy domain",
       "rule_id": "100310",
-      "agent": "talonmacbook",
+      "agent": "corpws12",
       "mitre": [
         "T1071.004"
       ],
       "timestamp": "2026-07-22T06:39:58.104Z"
     }
   ],
-  "recon_delta": "## Recon delta — 2026-07-22\n\n- **NEW** `talonmacbook:8443/tcp` responding with a self-signed TLS cert — not present in the 2026-07-15 baseline.\n",
+  "recon_delta": "## Recon delta — 2026-07-22\n\n- **NEW** `corpws12:8443/tcp` responding with a self-signed TLS cert — not present in the 2026-07-15 baseline.\n",
   "note": "Deterministic intake. Reasoning happens in CASA, not here."
 }

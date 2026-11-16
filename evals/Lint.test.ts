@@ -58,8 +58,8 @@ test("TLD list holds only lowercase root-zone names; special-use names stay sepa
   const special = new Set<string>(lr.special_use_names.names);
   expect(lr.tlds.filter((t: string) => t !== t.toLowerCase())).toEqual([]);
   expect(lr.tlds.filter((t: string) => special.has(t))).toEqual([]);
-  expect([...extractTokens("talondc01 resolved dc01.corp and files.internal").domain].sort()).toEqual(["dc01.corp", "files.internal"]);
-  expect(flagged("talondc01 resolved dc01.corp", intakeV2)).toEqual(["domain:dc01.corp"]);
+  expect([...extractTokens("corpdc01 resolved dc01.corp and files.internal").domain].sort()).toEqual(["dc01.corp", "files.internal"]);
+  expect(flagged("corpdc01 resolved dc01.corp", intakeV2)).toEqual(["domain:dc01.corp"]);
 });
 
 // *--- Extraction ---*
@@ -77,10 +77,10 @@ test("extractTokens catches CSF 1.1 shapes so they can be rejected", () => {
 });
 
 test("port notations are not rule IDs, and a bare five-digit number needs a rule keyword to be one", () => {
-  const t = extractTokens("port 49152 open, talonmacbook:8443/tcp listening, ports 50000 and 60122/udp, rule 60122 fired, 12345 seen");
+  const t = extractTokens("port 49152 open, corpws12:8443/tcp listening, ports 50000 and 60122/udp, rule 60122 fired, 12345 seen");
   expect([...t.rule_id].sort()).toEqual(["60122"]);
   expect([...t.port].sort()).toEqual(["49152", "50000", "60122", "8443"]);
-  expect([...t.exposure]).toEqual(["talonmacbook:8443"]);
+  expect([...t.exposure]).toEqual(["corpws12:8443"]);
 });
 
 test("the host prefix is a literal, not a regex: metacharacters are refused, the rest escaped", () => {
@@ -90,7 +90,7 @@ test("the host prefix is a literal, not a regex: metacharacters are refused, the
   // Tokens without digits, so only the prefix rule can see them.
   const t = extractTokens("lab-dc and lab-ws and lab- and labx and slab-dc", { hostPrefixes: ["lab-"] });
   expect([...t.host].sort()).toEqual(["lab-dc", "lab-ws"]);
-  expect([...extractTokens("talondc talon talonx", { hostPrefixes: ["talon"] }).host].sort()).toEqual(["talondc", "talonx"]);
+  expect([...extractTokens("corpdc corp corpx", { hostPrefixes: ["corp"] }).host].sort()).toEqual(["corpdc", "corpx"]);
 });
 
 test("ordinary words, file names and technical tokens are not read as hosts, users or domains", () => {
@@ -105,38 +105,38 @@ test("ordinary words, file names and technical tokens are not read as hosts, use
 
 // *--- F3 Criteria ---*
 
-test("invented host: a hostname with no talon prefix fails in prose, notation, keyword and JSON forms", () => {
+test("invented host: a hostname without the intake's prefix fails in prose, notation, keyword and JSON forms", () => {
   const cases = [
-    "Lateral movement from web07 to talondc01 (rule 100215).",
-    "The host WEB07 authenticated to talondc01.",
+    "Lateral movement from web07 to corpdc01 (rule 100215).",
+    "The host WEB07 authenticated to corpdc01.",
     "New exposure on web07:3389/tcp.",
     "```json\n{ \"schema\": \"casa.brief/v1\", \"threads\": [ { \"hosts\": [\"webserver\"] } ] }\n```",
   ];
   for (const text of cases) expect(flagged(text, intakeV2, "host").length).toBe(1);
   // The intake's own hosts, in any case, pass.
-  expect(flagged("TALONDC01 and talondellbox, talondellbox:3389/tcp", intakeV2)).toEqual([]);
+  expect(flagged("CORPDC01 and corpws07, corpws07:3389/tcp", intakeV2)).toEqual([]);
   // A host the intake names only inside recon_delta markdown is known.
-  expect(flagged("talondc01:445/tcp is unchanged", intake)).toEqual([]);
+  expect(flagged("corpdc01:445/tcp is unchanged", intake)).toEqual([]);
   // A real host bound to a port the intake never reported for it is an invented exposure.
-  expect(flagged("talondc01:3389/tcp is open", intakeV2)).toEqual(["port:talondc01:3389"]);
+  expect(flagged("corpdc01:3389/tcp is open", intakeV2)).toEqual(["port:corpdc01:3389"]);
 });
 
 test("rule id exact: digits found only inside an alert_id fail as a rule ID", () => {
   // 418001 is the fractional part of the first detection's alert_id, never a rule.
-  expect(flagged("rule 418001 fired on talondc01", intakeV2)).toEqual(["rule_id:418001"]);
-  expect(flagged("rule 100220 fired on talondc01", intakeV2)).toEqual([]);
+  expect(flagged("rule 418001 fired on corpdc01", intakeV2)).toEqual(["rule_id:418001"]);
+  expect(flagged("rule 100220 fired on corpdc01", intakeV2)).toEqual([]);
   // The alert_id itself traces; an invented one does not.
-  expect(flagged("alert 1784600387.418001 on talondc01", intakeV2)).toEqual([]);
-  expect(flagged("alert 1784600387.999999 on talondc01", intakeV2)).toEqual(["alert_id:1784600387.999999"]);
+  expect(flagged("alert 1784600387.418001 on corpdc01", intakeV2)).toEqual([]);
+  expect(flagged("alert 1784600387.999999 on corpdc01", intakeV2)).toEqual(["alert_id:1784600387.999999"]);
 });
 
 test("token kinds: an invented user, event ID, port, IPv6 address, domain, hash and timestamp each fail (7 of 7)", () => {
   const invented: [Kind, string][] = [
-    ["user", "The logon used account svc-sqlagent on talondc01."],
-    ["event_id", "talondc01 logged event 4999 during the replication."],
-    ["port", "talondellbox also listened on 4444/tcp."],
+    ["user", "The logon used account svc-sqlagent on corpdc01."],
+    ["event_id", "corpdc01 logged event 4999 during the replication."],
+    ["port", "corpws07 also listened on 4444/tcp."],
     ["ipv6", "The request came from 2001:db8::bad:1."],
-    ["domain", "talondellbox resolved update-check.example.net before the burst."],
+    ["domain", "corpws07 resolved update-check.example.net before the burst."],
     ["hash", `The dropped binary had sha256 ${SHA256_A}.`],
     ["timestamp", "The replication began at 2026-07-20T03:41:07Z."],
   ];
@@ -169,6 +169,7 @@ test("honest phrasing: ordinary SOC prose, lookup sites and in-window ranges lin
     "The app used oauth2 and ran a ps1 script.",
     "Windows 10.0.19045.3693, Windows build 19045, PID 12345, CVE-2021-44228, ISO 27001, mem 65536 KB, TCP 31337.",
     "Agent version 2.0.1.5 is current.",
+    "regsvr32 and rundll32 ran from System32 and SysWOW64.",
     "A ratio 10:30 and a score 12:34 are not times.",
     "Look the indicator up on virustotal.com, abuse.ch, urlhaus.abuse.ch, shodan.io, greynoise.io and otx.alienvault.com.",
     "See attack.mitre.org and learn.microsoft.com; placeholders use example.com, example.org and example.net.",
@@ -182,12 +183,12 @@ test("honest phrasing: ordinary SOC prose, lookup sites and in-window ranges lin
 test("fabricated phrasing: obfuscated, re-cased and loosely written tokens each fail as their kind", () => {
   const hex = (pair: string, n: number) => pair.repeat(n / 2);
   const cases: [Kind, string, unknown][] = [
-    ["domain", "talondc01 resolved evil[.]com.", intakeV2],
+    ["domain", "corpdc01 resolved evil[.]com.", intakeV2],
     ["domain", "Beacon to hxxp://evil[.]com/gate.", intakeV2],
-    ["ip", "talondc01 talked to 10[.]9[.]9[.]9.", intakeV2],
-    ["ip", "talondc01 talked to 10(.)9(.)9(.)9.", intakeV2],
-    ["domain", "talondc01 resolved EVIL.com.", intakeV2],
-    ["domain", "talondc01 resolved Evil.Com.", intakeV2],
+    ["ip", "corpdc01 talked to 10[.]9[.]9[.]9.", intakeV2],
+    ["ip", "corpdc01 talked to 10(.)9(.)9(.)9.", intakeV2],
+    ["domain", "corpdc01 resolved EVIL.com.", intakeV2],
+    ["domain", "corpdc01 resolved Evil.Com.", intakeV2],
     ["ip", "The source was ip10.9.9.9 per the log.", intakeV2],
     ["ip", "The source was ip_10.9.9.9 per the log.", intakeV2],
     ["host", "Lateral movement reached FILESERVER01.", intakeV2],
@@ -267,7 +268,7 @@ test("quiet-day intake: any host, rule ID or technique is a fabrication", () => 
   const quiet = json("intake/fixtures/quiet-day.intake.json");
   const r = lint("No findings. Pipeline liveness unconfirmed.", quiet);
   expect(r.pass).toBe(true);
-  const r2 = lint("talondc01 fired rule 100220 (T1003.006)", quiet);
+  const r2 = lint("corpdc01 fired rule 100220 (T1003.006)", quiet);
   expect(r2.unknown.map((u) => u.kind).sort()).toEqual(["host", "rule_id"]);
 });
 
@@ -286,7 +287,7 @@ test("samples: bad sample brief fails on exactly the planted fabrications", () =
   const r = lint(bad, intake);
   expect(r.pass).toBe(false);
   const got = r.unknown.map((u) => `${u.kind}:${u.token}`).sort();
-  expect(got).toEqual(["attack:T9999", "csf:PR.AC-4", "host:talonghost", "ip:10.0.0.50", "rule_id:100999"].sort());
+  expect(got).toEqual(["attack:T9999", "csf:PR.AC-4", "host:corpghost", "ip:203.0.113.250", "rule_id:100999"].sort());
 });
 
 // Real briefs produced by /casa:investigate on the fixtures (kept as *.runN.brief.md) must
@@ -323,15 +324,15 @@ function richV3(): unknown {
 test("v3 fields: subject and target users, ports, engine rule IDs and Sysmon names trace, and inventions fail", () => {
   const v3 = richV3();
   const honest = [
-    "Suricata SID 2024217 fired on talondc01 for files.example.io on 8443/tcp.",
-    "On talondellbox the target user svc-backup logged on from source port 51544.",
-    "On talondc01 the subject user svc-backup requested replication.",
+    "Suricata SID 2024217 fired on corpdc01 for files.example.io on 8443/tcp.",
+    "On corpws07 the target user svc-backup logged on from source port 51544.",
+    "On corpdc01 the subject user svc-backup requested replication.",
     "The resolver asked for sync-cdn.example.zz, and wkstn-07 then reached backhaul.example.com.",
   ];
   for (const line of honest) expect([line, flagged(line, v3)]).toEqual([line, []]);
   const invented: [Kind, string][] = [
-    ["rule_id", "Suricata SID 2024299 fired on talondc01."],
-    ["port", "talondc01 also reached 9443/tcp."],
+    ["rule_id", "Suricata SID 2024299 fired on corpdc01."],
+    ["port", "corpdc01 also reached 9443/tcp."],
     ["user", "The subject user svc-sqlagent requested replication."],
     ["domain", "The resolver asked for sync-cdn2.example.zz."],
   ];
@@ -340,8 +341,8 @@ test("v3 fields: subject and target users, ports, engine rule IDs and Sysmon nam
 
 test("v3 fields: a detection's own ports do not become host:port exposures", () => {
   const v3 = richV3();
-  expect(flagged("talondc01:8443 was exposed.", v3).length).toBeGreaterThan(0);
-  expect(flagged("talondellbox:3389 was exposed.", v3)).toEqual([]);
+  expect(flagged("corpdc01:8443 was exposed.", v3).length).toBeGreaterThan(0);
+  expect(flagged("corpws07:3389 was exposed.", v3)).toEqual([]);
 });
 
 test("v3 offsets: an intake time with a non-UTC offset traces by its UTC date and time, not its local clock", () => {

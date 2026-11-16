@@ -4,13 +4,13 @@ Hand-authored representative intake exercising network-beaconing reasoning plus 
 
 ## Must identify
 
-- [ ] The two detections are the **same host** (`talonmacbook`) and should be correlated: periodic HTTPS + new high-entropy DNS domain is a **candidate C2 beacon**, not two separate low-value alerts.
-- [ ] The recon delta (**new `talonmacbook:8443/tcp`, self-signed cert**) is on that same host — a plausible C2 listener/staging port and must be tied into the beaconing hypothesis.
+- [ ] The two detections are the **same host** (`corpws12`) and should be correlated: periodic HTTPS + new high-entropy DNS domain is a **candidate C2 beacon**, not two separate low-value alerts.
+- [ ] The recon delta (**new `corpws12:8443/tcp`, self-signed cert**) is on that same host — a plausible C2 listener/staging port and must be tied into the beaconing hypothesis.
 - [ ] This is a **hypothesis needing confirmation**, not a confirmed compromise: beaconing is inferred from periodicity, which a single intake cannot fully establish.
 
 ## Must cite
 
-- [ ] Rule IDs `100305`, `100310`; agent `talonmacbook`; the `:8443/tcp` recon finding.
+- [ ] Rule IDs `100305`, `100310`; agent `corpws12`; the `:8443/tcp` recon finding.
 - [ ] MITRE: T1071.001 (Application Layer Protocol: Web), T1071.004 (DNS).
 
 ## Must map / recommend
