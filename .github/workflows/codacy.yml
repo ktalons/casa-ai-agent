@@ -56,6 +56,14 @@ jobs:
           # This will handover control about PR rejection to the GitHub side
           max-allowed-issues: 2147483647
 
+      # Codacy writes one SARIF run per scanner, and code scanning refuses several runs under one
+      # category. Give each run a stable category named after its scanner (a suffix only when a
+      # scanner appears twice), so alerts keep their identity between runs.
+      - name: Give each SARIF run its own category
+        run: |
+          jq '.runs |= (group_by(.tool.driver.name) | map(to_entries | map(.value + {automationDetails: {id: ("codacy/" + (.value.tool.driver.name | ascii_downcase | gsub("[^a-z0-9]+"; "-") | ltrimstr("-") | rtrimstr("-")) + (if .key > 0 then "-\(.key)" else "" end) + "/")}})) | add // [])' results.sarif > results.categorized.sarif
+          mv results.categorized.sarif results.sarif
+
       # Upload the SARIF file generated in the previous step
       - name: Upload SARIF results file
         uses: github/codeql-action/upload-sarif@v4
