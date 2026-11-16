@@ -1,6 +1,6 @@
 {
   "schema": "casa.lint-references/v1",
-  "about": "Reference tables the fabrication lint accepts beyond the intake. A token in one of these tables is real, so a brief may name it (most often in a data request) even when the intake does not carry it; the lint lists such tokens under beyond_intake so a reviewer can see them. Sysmon and Windows Security event IDs were checked against Microsoft Learn and Sysinternals on 2026-11-15. Service ports were checked against the IANA registry; ports that are vendor conventions rather than IANA assignments are labelled de facto. A few System, PowerShell, Task Scheduler and Remote Desktop IDs rest on third-party sources. None of the tables is exhaustive: add a real ID here rather than weakening the lint.",
+  "about": "Reference tables the fabrication lint accepts beyond the intake. A token in one of these tables is real, so a brief may name it (most often in a data request) even when the intake does not carry it; the lint lists such tokens under beyond_intake so a reviewer can see them. Sysmon and Windows Security event IDs were checked against Microsoft Learn and Sysinternals on 2026-11-15. Service ports were checked against the IANA registry; ports that are vendor conventions rather than IANA assignments are labelled de facto. A few System, PowerShell, Task Scheduler and Remote Desktop IDs rest on third-party sources. reference_domains holds lookup and reference sites (threat-intel lookups, standards bodies) and the RFC 2606 example domains, never telemetry. None of the tables is exhaustive: add a real ID here rather than weakening the lint.",
   "event_ids": {
     "windows_security": {
       "1100": "The event logging service has shut down",
@@ -579,8 +579,29 @@
     "www.nist.gov",
     "www.cisa.gov",
     "learn.microsoft.com",
-    "docs.microsoft.com"
+    "docs.microsoft.com",
+    "virustotal.com",
+    "www.virustotal.com",
+    "abuse.ch",
+    "urlhaus.abuse.ch",
+    "bazaar.abuse.ch",
+    "threatfox.abuse.ch",
+    "shodan.io",
+    "greynoise.io",
+    "otx.alienvault.com",
+    "example.com",
+    "example.org",
+    "example.net"
   ],
+  "special_addresses": {
+    "about": "Unspecified and loopback addresses (RFC 1122, RFC 4291). Naming one says where a service listens, not which machine took part, so it never needs to be in the intake.",
+    "addresses": [
+      "0.0.0.0",
+      "127.0.0.1",
+      "::",
+      "::1"
+    ]
+  },
   "excluded_tlds": {
     "about": "Real TLDs the lint does not recognize as a domain ending, because file names (lessons.md, payload.zip) or dotted field paths (agent.id, decoder.name, data.win) end the same way. A domain under one of these is a known gap of the lint.",
     "file_extensions": [

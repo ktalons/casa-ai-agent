@@ -76,9 +76,9 @@ test("extractTokens catches CSF 1.1 shapes so they can be rejected", () => {
   expect([...t.csf].sort()).toEqual(["DE.AE-03", "PR.AC-4"]);
 });
 
-test("port notations are not rule IDs; a bare five-digit number still is", () => {
+test("port notations are not rule IDs, and a bare five-digit number needs a rule keyword to be one", () => {
   const t = extractTokens("port 49152 open, talonmacbook:8443/tcp listening, ports 50000 and 60122/udp, rule 60122 fired, 12345 seen");
-  expect([...t.rule_id].sort()).toEqual(["12345", "60122"]);
+  expect([...t.rule_id].sort()).toEqual(["60122"]);
   expect([...t.port].sort()).toEqual(["49152", "50000", "60122", "8443"]);
   expect([...t.exposure]).toEqual(["talonmacbook:8443"]);
 });
@@ -154,8 +154,72 @@ test("token kinds: an invented user, event ID, port, IPv6 address, domain, hash 
 
   // A user named in backticks after the keyword is checked even without separators.
   expect(flagged("the account `jdoe` logged on", intakeV2)).toEqual(["user:jdoe"]);
-  // An HH:MM time more than a rounding away from any intake time is invented.
-  expect(flagged("between 02:14Z and 02:30Z", intakeV2)).toEqual(["timestamp:02:30Z"]);
+  // An HH:MM time outside the intake window and more than a rounding away from any intake time is
+  // invented. The v1 intake has no window field, so its window is the detection span.
+  expect(flagged("between 02:14Z and 02:30Z", intake)).toEqual(["timestamp:02:30Z"]);
+});
+
+test("honest phrasing: ordinary SOC prose, lookup sites and in-window ranges lint clean", () => {
+  const honest = [
+    "Pull logs from 01:30Z to 03:30Z.",
+    "Query 2026-07-20 02:00-03:00 on the DC.",
+    "Check user sign-in logs, account lock-out and user re-authentication.",
+    "Pull events 30 minutes either side.",
+    "Scan ports 1-1024 on the segment.",
+    "The app used oauth2 and ran a ps1 script.",
+    "Windows 10.0.19045.3693, Windows build 19045, PID 12345, CVE-2021-44228, ISO 27001, mem 65536 KB, TCP 31337.",
+    "Agent version 2.0.1.5 is current.",
+    "A ratio 10:30 and a score 12:34 are not times.",
+    "Look the indicator up on virustotal.com, abuse.ch, urlhaus.abuse.ch, shodan.io, greynoise.io and otx.alienvault.com.",
+    "See attack.mitre.org and learn.microsoft.com; placeholders use example.com, example.org and example.net.",
+    "The service listened on 0.0.0.0 and 127.0.0.1.",
+    "It ran as NT AUTHORITY\\SYSTEM under BUILTIN\\Administrators and loaded System.Net and Microsoft.Win32.",
+  ];
+  const failing = honest.map((text) => ({ text, flagged: flagged(text, intakeV2) })).filter((r) => r.flagged.length > 0);
+  expect(failing).toEqual([]);
+});
+
+test("fabricated phrasing: obfuscated, re-cased and loosely written tokens each fail as their kind", () => {
+  const hex = (pair: string, n: number) => pair.repeat(n / 2);
+  const cases: [Kind, string, unknown][] = [
+    ["domain", "talondc01 resolved evil[.]com.", intakeV2],
+    ["domain", "Beacon to hxxp://evil[.]com/gate.", intakeV2],
+    ["ip", "talondc01 talked to 10[.]9[.]9[.]9.", intakeV2],
+    ["ip", "talondc01 talked to 10(.)9(.)9(.)9.", intakeV2],
+    ["domain", "talondc01 resolved EVIL.com.", intakeV2],
+    ["domain", "talondc01 resolved Evil.Com.", intakeV2],
+    ["ip", "The source was ip10.9.9.9 per the log.", intakeV2],
+    ["ip", "The source was ip_10.9.9.9 per the log.", intakeV2],
+    ["host", "Lateral movement reached FILESERVER01.", intakeV2],
+    ["host", "Lateral movement reached fileserver-01.", intakeV2],
+    ["host", "Lateral movement reached WS-0042.", intakeV2],
+    ["host", "Lateral movement reached ws_0042.", intakeV2],
+    ["user", "The logon was CORP\\bob.", intakeV2],
+    ["user", "Mail went to bob.smith@corp.example.", intakeV2],
+    ["user", "Then user `mallory` logged on.", intakeV2],
+    ["user", "Then user \"mallory\" logged on.", intakeV2],
+    ["attack", "This maps to t9999.", intakeV2],
+    ["attack", "This maps to T 9999.", intakeV2],
+    ["csf", "This maps to de.cm-01.", intakeV2],
+    ["csf", "This maps to DE.CM 01.", intakeV2],
+    ["timestamp", "It started Dec 31 2026.", intakeV2],
+    ["timestamp", "It started 12/31/2026.", intakeV2],
+    ["rule_id", "Then rule 1003400 fired.", intakeV2],
+    ["hash", `The payload hash was 0x${SHA256_A}.`, intakeV2],
+    ["hash", `The payload was hash_${SHA256_A}.`, intakeV2],
+    ["hash", `The SHA-224 was ${hex("ab", 56)}.`, intakeV2],
+    ["hash", `The SHA-384 was ${hex("cd", 96)}.`, intakeV2],
+    // Inside the window but outside query context, a time must match an intake time.
+    ["timestamp", "The logon at 02:47Z came from the same source.", intakeV2],
+    ["timestamp", "The logon succeeded at 2026-07-20 02:47Z.", intakeV2],
+    // Outside the intake window, ranges and bare UTC times still fail.
+    ["timestamp", "Query 2026-07-21 02:00-03:00 on the DC.", intakeV2],
+    ["timestamp", "Pull logs from 01:30Z to 03:30Z.", intake],
+  ];
+  const wrong = cases
+    .map(([kind, text, ik]) => ({ kind, text, kinds: [...new Set(lint(text, ik).unknown.map((u) => u.kind))] }))
+    .filter((r) => r.kinds.length !== 1 || r.kinds[0] !== r.kind);
+  expect(wrong).toEqual([]);
 });
 
 test("the brief's own intake hash is provenance, not evidence, and a stale one is reported as a note", () => {
