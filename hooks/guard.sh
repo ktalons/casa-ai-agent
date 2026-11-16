@@ -16,14 +16,15 @@ is_casa_caller() {
   flat=$(printf '%s' "$payload" | tr '\n\r\t' '   ')
   key='[{,][[:space:]]*"'
   sep='"[[:space:]]*:[[:space:]]*'
-  if printf '%s' "$flat" | grep -Eq "${key}agent_type${sep}\"casa:"; then
+  # Names match case-insensitively, as guard-write-path.ts lowercases them.
+  if printf '%s' "$flat" | grep -Eiq "${key}agent_type${sep}\"casa:"; then
     return 0
   fi
   # Bare names and a missing agent_type count only for subagents, which carry agent_id.
   printf '%s' "$flat" | grep -Eq "${key}agent_id${sep}" || return 1
   printf '%s' "$flat" | grep -Eq "${key}agent_type${sep}" || return 0
   bare='(detection-engineer|endpoint-analyst|evaluator|log-analyst|network-analyst|pentester|purple-team-mapper|threat-intel)'
-  printf '%s' "$flat" | grep -Eq "${key}agent_type${sep}\"${bare}\""
+  printf '%s' "$flat" | grep -Eiq "${key}agent_type${sep}\"${bare}\""
 }
 
 # *--- Entry Point ---*

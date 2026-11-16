@@ -68,7 +68,8 @@ type HookInput = {
 
 /** Work out who is asking from the agent fields of the hook input. */
 function identify(i: HookInput): Caller {
-  const type = typeof i.agent_type === "string" ? i.agent_type : "";
+  // SECURITY: names compare lowercased so a case variant cannot slip past the CASA checks.
+  const type = typeof i.agent_type === "string" ? i.agent_type.toLowerCase() : "";
   const subagent = i.agent_id !== undefined && i.agent_id !== null;
   if (type.startsWith(PREFIX)) return { kind: "casa", name: type.slice(PREFIX.length) };
   if (!subagent) return { kind: "foreign" };
@@ -93,7 +94,8 @@ function hasParentSegment(raw: string): boolean {
 
 /** Judge a file write by a CASA agent against its lane. */
 function decideWrite(agent: string, i: HookInput): Decision {
-  const lanes = LANES[agent];
+  // SECURITY: own keys only, so casa:__proto__ or casa:constructor cannot reach a prototype member.
+  const lanes = Object.hasOwn(LANES, agent) ? LANES[agent] : undefined;
   if (!lanes) return deny(`guard: casa:${agent} may not write files; return findings in your response instead`);
 
   const cwd = typeof i.cwd === "string" ? i.cwd : "";

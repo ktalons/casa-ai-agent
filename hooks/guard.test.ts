@@ -181,6 +181,30 @@ test("bare agent name: a CASA agent is judged whether its name arrives prefixed 
   expect(decide(write(sub("general-purpose"), "agents/x.md"))).toEqual({ exit: 0 });
 });
 
+// *--- Name Edge Cases ---*
+
+test("prototype names: casa:__proto__ and friends get the normal no-writes deny, not an exception", () => {
+  for (const name of ["__proto__", "constructor", "toString", "hasOwnProperty", "valueOf"]) {
+    for (const who of [sub(`casa:${name}`), { agent_type: `casa:${name}` }]) {
+      const d = decide(write(who, "detections/proposed/x.yml"));
+      expect(reasonOf(d)).toContain("may not write files");
+    }
+  }
+});
+
+test("name case: a mixed-case CASA name is judged like the lowercase one", () => {
+  for (const type of ["Casa:evaluator", "CASA:LOG-ANALYST", "Log-Analyst", "EVALUATOR"]) {
+    expect(reasonOf(decide(bash(sub(type), "ls")))).toContain(DATA_REQUESTS);
+    expect(isDeny(decide(write(sub(type), "agents/x.md")))).toBe(true);
+  }
+  expect(decide(write(sub("Casa:Evaluator"), "evals/results/x.json"))).toEqual({ exit: 0 });
+  // Without the hook, a mixed-case CASA name is still blocked when bun is missing.
+  expect(runHook(write(sub("Casa:evaluator"), "agents/x.md"), NO_BUN_PATH).exit).toBe(2);
+  expect(runHook(write(sub("Log-Analyst"), "agents/x.md"), NO_BUN_PATH).exit).toBe(2);
+  // Other names keep their case-insensitive non-CASA status.
+  expect(decide(bash(sub("Other:foo"), "ls"))).toEqual({ exit: 0 });
+});
+
 // *--- ISC-14 Traversal ---*
 
 test("traversal: a '..' segment in a CASA write path is denied even when it resolves inside the lane", () => {
