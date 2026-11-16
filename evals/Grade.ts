@@ -83,7 +83,7 @@ const intakeSha256 = createHash("sha256").update(intakeRaw).digest("hex");
 const briefText = readFileSync(briefPath, "utf8");
 
 const m = gradeMachine(briefText, expected, intake, { hostPrefix, intakeSha256 });
-const rubric = rubricPath ? mergeRubric(expected, JSON.parse(readFileSync(rubricPath, "utf8"))) : null;
+const rubric = rubricPath ? mergeRubric(expected, JSON.parse(readFileSync(rubricPath, "utf8")), briefText) : null;
 const grade = buildGrade(expected.fixture, briefPath, m, rubric, { intake: intakePath, set: sets ? setOf(sets, expected.fixture) : "unlisted" });
 
 const dir = join(outDir, expected.fixture);
@@ -97,7 +97,7 @@ if (process.argv.includes("--json")) {
   console.log(`${expected.fixture} (${grade.set}): ${briefPath}`);
   for (const c of grade.machine) console.log(`  ${c.pass ? "✓" : "✗"} ${c.check.padEnd(20)} ${c.detail}`);
   for (const n of m.lint.notes) console.log(`  note: ${n}`);
-  if (rubric) for (const r of rubric) console.log(`  ${r.pass ? "✓" : "✗"} rubric:${r.id.padEnd(22)} ${r.quote.slice(0, 100)}`);
+  if (rubric) for (const r of rubric) console.log(`  ${r.pass ? "✓" : "✗"} rubric:${r.id.padEnd(22)} ${r.quote.slice(0, 100)}${r.note ? ` [${r.note.slice(0, 80)}]` : ""}`);
   const s = grade.score;
   console.log(`  machine ${s.machine_pass}/${s.machine_total}${rubric ? `, rubric ${s.rubric_pass}/${s.rubric_total}` : ", rubric pending"} → ${outPath}`);
 }

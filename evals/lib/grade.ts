@@ -30,7 +30,7 @@ export interface Expected {
 
 export interface MachineCheck { check: string; pass: boolean; detail: string }
 export interface Fabrication { token: string; kind: Kind; present: boolean }
-export interface RubricItem { id: string; text: string; pass: boolean; quote: string }
+export interface RubricItem { id: string; text: string; pass: boolean; quote: string; note?: string }
 
 export interface GradeResult {
   schema: "casa.grade/v1";
@@ -148,19 +148,42 @@ export function buildGrade(fixture: string, briefPath: string, m: ReturnType<typ
   };
 }
 
+/** Text as compared for a verbatim quote: Markdown emphasis and code marks dropped, curly quotes straightened, whitespace collapsed. */
+function forQuote(s: string): string {
+  return s.replace(/[*_`]+/g, "").replace(/[\u201C\u201D]/g, '"').replace(/[\u2018\u2019]/g, "'").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * True when every passage of `quote` appears in the brief. Passages are joined by " ... ", an
+ * ellipsis character or " | ", in any order; a JSON value may be quoted with its escapes undone.
+ */
+export function quoteInBrief(quote: string, brief: string): boolean {
+  const parts = quote.split(/\s*(?:\.\.\.|\u2026)\s*|\s+\|\s+/).map(forQuote).filter(Boolean);
+  if (parts.length === 0) return false;
+  for (const hay of [forQuote(brief), forQuote(brief.replace(/\\(["\\/])/g, "$1"))]) {
+    if (parts.every((part) => hay.includes(part))) return true;
+  }
+  return false;
+}
+
 /** Validate an evaluator rubric file against the expected rubric ids; returns the items in expected order. */
-export function mergeRubric(expected: Expected, rubricDoc: unknown): RubricItem[] {
+export function mergeRubric(expected: Expected, rubricDoc: unknown, briefText?: string): RubricItem[] {
   const items = (rubricDoc as { rubric?: unknown })?.rubric;
   if (!Array.isArray(items)) throw new Error("rubric file: missing rubric[]");
   const byId = new Map<string, RubricItem>();
   for (const it of items as RubricItem[]) {
-    if (typeof it?.id !== "string" || typeof it?.pass !== "boolean" || typeof it?.quote !== "string") throw new Error(`rubric file: bad item ${JSON.stringify(it).slice(0, 80)}`);
+    if (typeof it?.id !== "string" || typeof it?.pass !== "boolean" || typeof it?.quote !== "string" || (it.note !== undefined && typeof it.note !== "string")) throw new Error(`rubric file: bad item ${JSON.stringify(it).slice(0, 80)}`);
     byId.set(it.id, it);
   }
   const wanted = [...expected.must_identify, ...expected.must_not];
   return wanted.map((w) => {
     const it = byId.get(w.id);
     if (!it) return { id: w.id, text: w.text, pass: false, quote: "(not graded by the evaluator)" };
-    return { id: w.id, text: w.text, pass: it.pass, quote: it.quote };
+    const out: RubricItem = { id: w.id, text: w.text, pass: it.pass, quote: it.quote, ...(it.note !== undefined ? { note: it.note } : {}) };
+    // ISC-88: a pass rests on a quotation the brief really contains; the evaluator's word is not enough.
+    if (briefText !== undefined && it.pass && !quoteInBrief(it.quote, briefText)) {
+      return { ...out, pass: false, note: `quote not verbatim in the brief, failed at the merge${it.note ? `; evaluator note: ${it.note}` : ""}` };
+    }
+    return out;
   });
 }

@@ -195,3 +195,41 @@ test("held-out: review fixes - a legacy record keeps its variant, a cross-fixtur
     rmSync(cwd, { recursive: true, force: true });
   }
 });
+
+// *--- Verbatim quotes at the merge (ISC-88) ---*
+
+test("verbatim: a passing rubric item whose quote is not in the brief is failed at the merge", () => {
+  const expected = { ...json("intake/fixtures/quiet-day.expected.json") } as Expected;
+  const brief = [
+    "The intake carries **no detections** for the window.",
+    "Confirm whether the SIEM manager and its collector were running.",
+    "```json",
+    '{ "path": "C:\\\\ProgramData\\\\x.exe", "summary": "a \\"quoted\\" word" }',
+    "```",
+    "Check the   service state and newest indexed event.",
+  ].join("\n");
+  const item = (id: string, quote: string, pass = true) => ({ id, text: "", pass, quote });
+  const ids = [...expected.must_identify, ...expected.must_not].map((m) => m.id);
+  const merged = (quotes: Array<[string, boolean?]>) =>
+    mergeRubric(expected, { rubric: ids.map((id, i) => item(id, quotes[i]?.[0] ?? "The intake carries no detections", quotes[i]?.[1] ?? true)) }, brief);
+  const cases: Array<[string, boolean]> = [
+    ["The intake carries no detections for the window.", true], // Markdown emphasis dropped
+    ["Check the service state and newest indexed event.", true], // whitespace collapsed
+    ["Confirm whether the SIEM manager ... newest indexed event", true], // passages joined by an ellipsis
+    ["newest indexed event | Confirm whether the SIEM manager", true], // or by a bar, in any order
+    ["newest indexed event | the collector was down", false], // one passage the brief lacks
+    ["Confirm whether the SIEM manager and its newest indexed event", false], // spliced, no marker
+    ["Confirm whether the SIEM manager (the brief hedges here)", false], // commentary inside the quote
+    ['C:\\ProgramData\\x.exe ... a "quoted" word', true], // a JSON value quoted unescaped
+  ];
+  for (const [quote, ok] of cases) {
+    const r = merged([[quote]])[0];
+    expect([quote, r.pass]).toEqual([quote, ok]);
+    if (!ok) expect(r.note).toContain("not verbatim");
+  }
+  // A failed item keeps its verdict and quote untouched, whatever the quote says.
+  const failed = merged([["no such statement", false]])[0];
+  expect([failed.pass, failed.quote]).toEqual([false, "no such statement"]);
+  // Without the brief (older callers) the merge takes the verdict as given.
+  expect(mergeRubric(expected, { rubric: ids.map((id) => item(id, "spliced text")) }).every((r) => r.pass)).toBe(true);
+});
