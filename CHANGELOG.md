@@ -32,7 +32,7 @@ Tags on GitHub: `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
   rule text, so eval scores measure the method rather than memory.
 - `evals/RunFull.ts` runs every intake version's fixtures and strips session and API-key
   variables from the child environment.
-- Detection drafts get run-unique names; one rule decides when containment options appear.
+- Detection drafts get run-unique names. One rule decides when containment options appear: only for a supported finding at High confidence.
 
 ## 5.0.1 (2026-10-05)
 
