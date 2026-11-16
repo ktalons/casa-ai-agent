@@ -521,18 +521,25 @@ test.skipIf(!HAS_OPENSSL)("tls verification: an unknown CA is refused and --ca-f
     const refused = await run(["--stdout"], { env, fetch: real, now: () => Date.now() });
     expect(refused.code).toBe(1);
     expect(refused.err).toMatch(/failed \((?:UNABLE_TO_VERIFY_LEAF_SIGNATURE|SELF_SIGNED_CERT_IN_CHAIN|DEPTH_ZERO_SELF_SIGNED_CERT|[A-Z_]*CERT[A-Z_]*)\)/);
-    // A process-wide override must not turn verification off for this tool.
-    const before = process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
-    let overridden: Ran;
-    try {
-      overridden = await run(["--stdout"], { env, fetch: real, now: () => Date.now() });
-    } finally {
-      if (before === undefined) delete process.env.NODE_TLS_REJECT_UNAUTHORIZED;
-      else process.env.NODE_TLS_REJECT_UNAUTHORIZED = before;
-    }
-    expect(overridden.code).toBe(1);
-    expect(overridden.err).toMatch(/failed \((?:[A-Z_]*CERT[A-Z_]*|UNABLE_TO_VERIFY_LEAF_SIGNATURE)\)/);
+    // A process-wide override must not turn verification off for this tool. It runs in a child
+    // process whose environment carries the override, so the test runner's own stays untouched.
+    const script = join(at, "override.ts");
+    writeFileSync(
+      script,
+      [
+        `import { main } from ${JSON.stringify(join(import.meta.dir, "wazuh.ts"))};`,
+        "const env = JSON.parse(process.argv[2]);",
+        "process.exitCode = await main([\"--stdout\"], { fetch: (u, i) => fetch(u, i as RequestInit), env, now: () => Date.now(), stdout: () => {}, stderr: (s) => void process.stderr.write(s) });",
+      ].join("\n"),
+    );
+    const child = Bun.spawn([process.execPath, script, JSON.stringify(env)], {
+      env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "", NODE_TLS_REJECT_UNAUTHORIZED: "0" },
+      stdout: "ignore",
+      stderr: "pipe",
+    });
+    const [childErr, childCode] = await Promise.all([new Response(child.stderr).text(), child.exited]);
+    expect(childCode).toBe(1);
+    expect(childErr).toMatch(/failed \((?:[A-Z_]*CERT[A-Z_]*|UNABLE_TO_VERIFY_LEAF_SIGNATURE)\)/);
     const trusted = await run(["--stdout", "--ca-file", join(at, "ca.pem")], { env, fetch: real, now: () => Date.now() });
     expect(trusted.err).toContain("0 detection(s)");
     expect(trusted.code).toBe(0);
