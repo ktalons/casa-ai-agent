@@ -86,16 +86,21 @@ function loadCorpus(): Corpus {
   return { names, shingles, tokens };
 }
 
+/** Escape every regex metacharacter, backslash included, so a fixture value matches literally. */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\-]/g, "\\$&");
+}
+
 /** Every way one prompt file leaks fixture material, as readable strings. */
 function leaks(text: string, corpus: Corpus): string[] {
   const found: string[] = [];
   const lower = text.toLowerCase();
   for (const name of corpus.names) {
-    if (new RegExp(`(^|[^a-z0-9-])${name.replace(/[-.]/g, "\\$&")}([^a-z0-9-]|$)`).test(lower)) found.push(`fixture name: ${name}`);
+    if (new RegExp(`(^|[^a-z0-9-])${escapeRegExp(name)}([^a-z0-9-]|$)`).test(lower)) found.push(`fixture name: ${name}`);
   }
   if (lower.includes("intake/fixtures")) found.push("fixture directory: intake/fixtures");
   for (const token of corpus.tokens) {
-    if (new RegExp(`(^|[^a-z0-9.])${token.replace(/[.]/g, "\\.")}([^a-z0-9]|$)`).test(lower)) found.push(`fixture value: ${token}`);
+    if (new RegExp(`(^|[^a-z0-9.])${escapeRegExp(token)}([^a-z0-9]|$)`).test(lower)) found.push(`fixture value: ${token}`);
   }
   const w = words(text);
   const seen = new Set<string>();

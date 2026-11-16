@@ -39,3 +39,4 @@ engagements/*
 *.log
 *.jsonl
 !intake/raw/*.jsonl
+!hooks/fixtures/*.jsonl
