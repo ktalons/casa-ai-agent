@@ -2,7 +2,7 @@
 
 Send this, filled in, as the prompt of each Agent call. Keep the JSON verbatim from the intake.
 
-```
+```text
 CASA INVESTIGATION TASK
 thread_id: <id>
 hypothesis: <one claim that can be supported or refuted>

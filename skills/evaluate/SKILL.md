@@ -24,7 +24,7 @@ advisory and comes from `casa:evaluator`. Nothing here edits a brief.
    so and stop.
 2. **Machine grade.** Run, as a single Bash command:
 
-   ```
+   ```bash
    bun ${CLAUDE_PLUGIN_ROOT}/evals/Grade.ts --brief <brief> --expected <expected> --intake <intake> --json
    ```
 
@@ -38,7 +38,7 @@ advisory and comes from `casa:evaluator`. Nothing here edits a brief.
    Both files now sit in one project `evals/results/<fixture>/` directory.
 4. **Merge.** Run:
 
-   ```
+   ```bash
    bun ${CLAUDE_PLUGIN_ROOT}/evals/Grade.ts --brief <brief> --expected <expected> --intake <intake> --rubric <rubric file>
    ```
 

@@ -31,7 +31,7 @@ Prerequisites: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and
 
 As a plugin, in any project:
 
-```
+```text
 /plugin marketplace add ktalons/casa-ai-agent
 /plugin install casa@casa
 ```
@@ -46,7 +46,7 @@ bun run dev          # claude --plugin-dir .
 
 Then:
 
-```
+```text
 /casa:investigate intake/fixtures/brute-force-dc-chain.intake.json
 ```
 

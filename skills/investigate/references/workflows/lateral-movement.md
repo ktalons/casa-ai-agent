@@ -50,7 +50,7 @@ A specialist never runs these: they are data requests, which the main thread run
 user's own permission settings when raw telemetry exists, handing the output to the
 specialists, or which go into `data_requests` as exact commands for the human analyst.
 
-```
+```bash
 # network and remote-interactive logons per source host and account
 jq -r 'select(.data.win.system.eventID=="4624") | select(.data.win.eventdata.LogonType=="3" or .data.win.eventdata.LogonType=="10") | [.timestamp, .agent.name, .data.win.eventdata.IpAddress, .data.win.eventdata.TargetUserName, .data.win.eventdata.LogonType] | @tsv' <alerts.jsonl>
 

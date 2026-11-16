@@ -40,7 +40,7 @@ lint, status, thread count, confidence level, citations and option kinds; do not
    shows the brief stayed within bounds, or `"no such statement"` if the brief violates it.
 4. Write the rubric file:
 
-```
+```json
 {
   "schema": "casa.rubric/v1",
   "fixture": "<fixture>",

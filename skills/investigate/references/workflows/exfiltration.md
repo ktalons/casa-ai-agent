@@ -49,7 +49,7 @@ A specialist never runs these: they are data requests, which the main thread run
 user's own permission settings when raw telemetry exists, handing the output to the
 specialists, or which go into `data_requests` as exact commands for the human analyst.
 
-```
+```bash
 # the host's ten largest outbound sessions (Zeek writes "-" for an unknown byte count)
 zeek-cut id.orig_h id.resp_h id.resp_p orig_bytes resp_bytes < conn.log | jq -R -s -r 'split("\n") | map(select(length>0) | split("\t") | select(.[0]=="<host ip>")) | sort_by(-(.[3]|tonumber? // 0)) | .[:10][] | @tsv'
 

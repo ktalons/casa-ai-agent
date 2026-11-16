@@ -54,7 +54,7 @@ A specialist never runs these: they are data requests, which the main thread run
 user's own permission settings when raw telemetry exists, handing the output to the
 specialists, or which go into `data_requests` as exact commands for the human analyst.
 
-```
+```bash
 # failures by source and account in the window
 jq -r 'select(.data.win.system.eventID=="4625") | [.timestamp, .data.win.eventdata.IpAddress, .data.win.eventdata.TargetUserName] | @tsv' <alerts.jsonl>
 

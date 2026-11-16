@@ -75,7 +75,7 @@ yet carry. An empty input yields liveness options only.
 
 Return exactly one fenced `json` block, then at most 20 lines of prose. Fields:
 
-```
+```text
 schema            "casa.finding/v1"
 agent             your agent name
 thread_id         echoed from the task

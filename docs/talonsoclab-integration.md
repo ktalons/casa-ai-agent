@@ -26,13 +26,13 @@ Check: `claude --version`, `bun --version`, `jq --version`, `python3 --version`.
 
 From the lab checkout root (`talonsoclab/`), on the machine where you also maintain CASA:
 
-```
+```bash
 bash /path/to/casa-ai-agent/scripts/install-into-project.sh --source /path/to/casa-ai-agent
 ```
 
 On any other machine, install from GitHub instead:
 
-```
+```bash
 curl -fsSL https://raw.githubusercontent.com/ktalons/casa-ai-agent/v5.0.1/scripts/install-into-project.sh | bash
 ```
 
@@ -82,7 +82,7 @@ The updated producer is in this repo as a drop-in file and as a patch against th
 former producer. The lab's history was rewritten on 2026-11-04, so commit IDs recorded
 before that date no longer resolve there.
 
-```
+```bash
 cd /path/to/talonsoclab
 git apply /path/to/casa-ai-agent/docs/talonsoclab/generate_digest-v2.patch
 # or: cp /path/to/casa-ai-agent/docs/talonsoclab/generate_digest.py deploy/soc-recon/digest/
@@ -111,7 +111,7 @@ What changed in `deploy/soc-recon/digest/generate_digest.py`:
 Dry run before touching cron, with a recorded alert file (two ship with CASA under
 `intake/raw/`):
 
-```
+```bash
 cd deploy/soc-recon
 python3 digest/generate_digest.py --alerts-file /path/to/casa-ai-agent/intake/raw/brute-force-dc-chain.v2.alerts.jsonl --out-dir /tmp/casa-dry
 bun /path/to/casa-ai-agent/intake/Validate.ts /tmp/casa-dry/*-intake.json
@@ -120,7 +120,7 @@ bun /path/to/casa-ai-agent/intake/Validate.ts /tmp/casa-dry/*-intake.json
 In replay mode the window is anchored to the recording, not to now, so old data validates.
 Then a live run with the lab up, and validate that too:
 
-```
+```bash
 set -a && . ./.env && set +a
 python3 digest/generate_digest.py
 bun /path/to/casa-ai-agent/intake/Validate.ts digest/$(date -u +%F)-intake.json
@@ -133,7 +133,7 @@ window whose span disagrees with `lookback_hours`) do not fail.
 
 From the lab checkout root, where the plugin is installed:
 
-```
+```bash
 claude -p "/casa:investigate deploy/soc-recon/digest/$(date -u +%F)-intake.json" --permission-mode acceptEdits
 bun /path/to/casa-ai-agent/evals/Lint.ts --brief briefs/$(date -u +%F).brief.md --intake deploy/soc-recon/digest/$(date -u +%F)-intake.json
 ```
@@ -159,7 +159,7 @@ What CASA writes, all under the lab checkout and all gitignored except the last:
 
 Add the digest to cron after the recon run, as `crontab.example` already plans:
 
-```
+```text
 0 7 * * *  cd /opt/soc-recon && set -a && . ./.env && set +a && python3 digest/generate_digest.py >> /var/log/soc-recon.log 2>&1
 ```
 

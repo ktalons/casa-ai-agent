@@ -108,7 +108,7 @@ Without raw files, or for a query you judged unnecessary, a specialist returns t
 
 For each finding, save its JSON block to the scratchpad and run
 
-```
+```bash
 bun ${CLAUDE_PLUGIN_ROOT}/evals/Lint.ts --finding <file> --intake <intake path>
 ```
 

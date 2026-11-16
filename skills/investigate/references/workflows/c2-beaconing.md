@@ -53,7 +53,7 @@ A specialist never runs these: they are data requests, which the main thread run
 user's own permission settings when raw telemetry exists, handing the output to the
 specialists, or which go into `data_requests` as exact commands for the human analyst.
 
-```
+```bash
 # connections from the host, in time order
 zeek-cut ts id.orig_h id.resp_h id.resp_p orig_bytes resp_bytes < conn.log | jq -R -s -r 'split("\n") | map(select(length>0) | split("\t") | select(.[1]=="<host ip>")) | sort_by(.[0]|tonumber) | .[] | @tsv'
 

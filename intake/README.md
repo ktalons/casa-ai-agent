@@ -72,7 +72,7 @@ rule with `manifest.json` naming the expected error; `Validate.test.ts` runs the
 
 ## Layout
 
-```
+```text
 intake/
 ├── schema/soc-intake.v1.schema.json   JSON Schema (draft-07) — the human/tooling contract
 ├── schema/soc-intake.v2.schema.json   v2: window, filter, pipeline, correlation fields, structured recon delta

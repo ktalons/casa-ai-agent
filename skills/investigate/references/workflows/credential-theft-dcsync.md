@@ -61,7 +61,7 @@ A specialist never runs these: they are data requests, which the main thread run
 user's own permission settings when raw telemetry exists, handing the output to the
 specialists, or which go into `data_requests` as exact commands for the human analyst.
 
-```
+```bash
 # 4662 events carrying a replication GUID, with the requesting account
 jq -c 'select(.data.win.system.eventID=="4662") | select(.data.win.eventdata.Properties|test("1131f6a[ad]|89e95b76")) | {t:.timestamp, who:.data.win.eventdata.SubjectUserName, host:.agent.name}' <alerts.jsonl>
 
@@ -90,7 +90,7 @@ account. CSF 2.0: DE.AE-02, DE.AE-03, DE.CM-09, RS.AN-03, RS.MI-01; hardening PR
 action, each named concretely:
 
 - `contain`: isolate the first host in the chain by its agent name, the one whose detection
-  opened the chain, not "the host behind <address>". Name the DC separately only if the
+  opened the chain, not "the host behind `<address>`". Name the DC separately only if the
   replication is confirmed from raw 4662.
 - `contain`: reset the account, but only once it is named. In v1 that is a `TargetUserName`
   data request on the success rules, listed first in `depends_on`; in v2 the `user` field names
