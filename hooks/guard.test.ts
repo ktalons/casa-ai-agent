@@ -24,16 +24,6 @@ mkdirSync(join(cwd, "agents"));
 writeFileSync(join(cwd, "agents", "x.md"), "x");
 symlinkSync(join(cwd, "agents"), join(cwd, "detections", "proposed", "link"));
 
-// Bash reads must name files that exist, so the analyst cases read from these.
-const PROJECT_FILES = [
-  "alerts.jsonl", "a", "a.json", "b.json", "a.txt", "f", "cap.pcap", "conn.log", "sysmon.log",
-  "auth.log", "x.log", "b.md", "i.json", "intake/fixtures/x.json", "logs/app.log",
-];
-for (const f of PROJECT_FILES) {
-  mkdirSync(dirname(join(cwd, f)), { recursive: true });
-  writeFileSync(join(cwd, f), "{}\n");
-}
-
 // A PATH with no bun on it, and one bun that always crashes.
 const NO_BUN_PATH = "/usr/bin:/bin";
 const crashDir = mkdtempSync(join(tmpdir(), "casa-guard-bin-"));
@@ -68,20 +58,22 @@ const call = (agent: Agent, tool_name: string, tool_input: Record<string, unknow
   tool_input,
 });
 const write = (agent: Agent, file_path: string) => call(agent, "Write", { file_path, content: "x\n" });
-const bash = (agent: Agent, command: string, at = cwd) => call(agent, "Bash", { command }, at);
+const bash = (agent: Agent, command: string) => call(agent, "Bash", { command });
 const input = (agent_type: string | undefined, file_path: string) => ({ agent_type, cwd, tool_name: "Write", tool_input: { file_path } });
 
 const denyReason = (output: string | undefined): string | null => {
-  if (typeof output !== "string") return null;
+  if (typeof output !== "string" || output === "") return null;
   const o = JSON.parse(output).hookSpecificOutput;
   return o?.permissionDecision === "deny" ? String(o.permissionDecisionReason) : null;
 };
 const isDeny = (d: ReturnType<typeof decide>) => d.exit === 0 && denyReason(d.output) !== null;
+const reasonOf = (d: ReturnType<typeof decide>) => (d.exit === 0 ? denyReason(d.output) : null);
 
-/** Run the hooks.json command exactly as Claude Code would, payload on stdin. */
-function runHook(payload: unknown, PATH: string) {
+/** Run the hooks.json command as Claude Code would: payload on stdin, `dir` as working directory. */
+function runHook(payload: unknown, PATH: string, dir: string = ROOT) {
   const body = typeof payload === "string" ? payload : JSON.stringify(payload);
   const r = Bun.spawnSync(["/bin/sh", "-c", hookCommand], {
+    cwd: dir,
     stdin: Buffer.from(body),
     env: { PATH, CLAUDE_PLUGIN_ROOT: ROOT, HOME: process.env.HOME ?? "/" },
     stdout: "pipe",
@@ -102,7 +94,15 @@ function agentFrontmatter(): { name: string; tools: string[] }[] {
     });
 }
 
-// *--- Existing Lane Tests ---*
+/** The recorded fixture payloads, in file order. */
+function recordedPayloads() {
+  const lines = readFileSync(join(import.meta.dir, "fixtures", "recorded-payloads.jsonl"), "utf8").trim().split("\n");
+  return lines.map((l) => JSON.parse(l));
+}
+
+const DATA_REQUESTS = "data_requests";
+
+// *--- Lane Tests ---*
 
 test("main thread (no agent_type) gets no decision", () => {
   expect(decide(input(undefined, "agents/x.md"))).toEqual({ exit: 0 });
@@ -137,8 +137,7 @@ test("escapes and symlinks fail closed", () => {
 // *--- ISC-12 Recorded Payload ---*
 
 test("recorded payload: real subagent calls carry casa:<name> and agent_id, and each gets the expected decision", () => {
-  const lines = readFileSync(join(import.meta.dir, "fixtures", "recorded-payloads.jsonl"), "utf8").trim().split("\n");
-  const payloads = lines.map((l) => JSON.parse(l));
+  const payloads = recordedPayloads();
   expect(payloads.length).toBe(3);
   const names = new Set(agentFrontmatter().map((a) => a.name));
   for (const p of payloads) {
@@ -148,20 +147,18 @@ test("recorded payload: real subagent calls carry casa:<name> and agent_id, and 
     expect(p.agent_type).toMatch(/^casa:[a-z-]+$/);
     expect(names.has(p.agent_type.slice("casa:".length))).toBe(true);
   }
-  const [bashRead, inLane, outside] = payloads;
-  expect(bashRead.tool_name).toBe("Bash");
+  const [bashCall, inLane, outside] = payloads;
+  expect(bashCall.tool_name).toBe("Bash");
+  expect(reasonOf(decide(bashCall))).toContain(DATA_REQUESTS);
   expect(inLane.tool_input.file_path.startsWith(`${inLane.cwd}/detections/proposed/`)).toBe(true);
-
-  // Bash reads must name files that exist, so the recorded project root moves to the temp project.
-  const relocate = (p: unknown) => JSON.parse(JSON.stringify(p).replaceAll(bashRead.cwd, cwd));
-  expect(decide(relocate(bashRead))).toEqual({ exit: 0 });
-  expect(decide(relocate(inLane))).toEqual({ exit: 0 });
-  expect(isDeny(decide(relocate(outside)))).toBe(true);
+  expect(decide(inLane)).toEqual({ exit: 0 });
   expect(isDeny(decide(outside))).toBe(true);
 
-  // Derived, not recorded: the same call with the subagent fields removed is the main thread.
-  const { agent_id: _id, agent_type: _type, ...mainThread } = outside;
-  expect(decide(mainThread)).toEqual({ exit: 0 });
+  // Derived, not recorded: the same calls with the subagent fields removed are the main thread.
+  for (const p of [bashCall, outside]) {
+    const { agent_id: _id, agent_type: _type, ...mainThread } = p;
+    expect(decide(mainThread)).toEqual({ exit: 0 });
+  }
 });
 
 // *--- ISC-13 Bare Names ---*
@@ -229,294 +226,75 @@ test("bun missing or crashing: a guard that exits outside 0 and 2 still blocks C
   expect(runHook(write(MAIN, "agents/x.md"), CRASH_PATH).exit).toBe(0);
 });
 
+// *--- Guard Working Directory ---*
+
+test("bunfig: a hostile bunfig.toml in the project cannot turn a CASA out-of-lane write into an allow", () => {
+  const project = mkdtempSync(join(tmpdir(), "casa-guard-bunfig-"));
+  try {
+    mkdirSync(join(project, "detections", "proposed"), { recursive: true });
+    writeFileSync(join(project, "preload.ts"), "process.exit(0);\n");
+    writeFileSync(join(project, "bunfig.toml"), 'preload = ["./preload.ts"]\n');
+    writeFileSync(join(project, ".env"), "CASA_HOSTILE=1\n");
+    const r = runHook(call(sub("casa:detection-engineer"), "Write", { file_path: "agents/x.md", content: "x\n" }, project), BUN_PATH, project);
+    expect(r.exit).toBe(0);
+    expect(denyReason(r.stdout)).toContain("may write only under detections/proposed");
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
 // *--- ISC-16 Bash Writes ---*
 
-test("bash write: writing or unmodellable Bash from a CASA agent is denied", () => {
-  const la = sub("casa:log-analyst");
-  // The policy ships in the plugin: the hook itself must see Bash and refuse the write.
+test("bash write: a writing Bash call from a CASA agent is denied", () => {
   expect(matcher.test("Bash")).toBe(true);
-  expect(denyReason(runHook(bash(la, "tshark -r cap.pcap -w out.pcap"), BUN_PATH).stdout)).toContain("read-only");
   const writes = [
     "jq . alerts.jsonl > out.json",
-    "jq . alerts.jsonl >> out.json",
-    "jq . alerts.jsonl >out.json",
-    "jq . alerts.jsonl 1>out.json",
-    "jq . alerts.jsonl 2>err.log",
-    "jq . alerts.jsonl &> out.json",
-    "jq . alerts.jsonl >& out.json",
-    "jq . alerts.jsonl >| out.json",
-    "jq . alerts.jsonl | tee out.json",
+    "tee out.json < alerts.jsonl",
     "tshark -r cap.pcap -w out.pcap",
-    "tshark -r cap.pcap -nw out.pcap",
-    "tshark -i en0",
-    "tshark -r cap.pcap --export-objects http,exported",
-    "tshark -r cap.pcap -X lua_script:x.lua",
-    "tshark -r cap.pcap -o tls.debug_file:x.log",
-    "tshark -r *.pcap",
-    "tshark -r {a,b}.pcap",
-    "tshark -r ^a.pcap",
-    "tshark -r a.pcap ${X:=-wout.pcap}",
-    "jq . a.json <->>/dev/null",
-    "jq . a >! out.json",
-    "jq . a >/dev/null >out.json",
-    "jq . a \\\n > out.json",
-    "ls #'\nrm b\n#'",
-    "jq . f #x",
-    "jq . f;#x",
-    "jq '.a |\n.b' f",
-    'jq ".a |\n.b" f',
-    "jq '.a |\r.b' f",
-    "jq .[] f",
-    "ls a]b",
-    "ls a}b",
     "cp a b",
-    "mv a b",
-    "rm a",
-    "touch a",
-    "sed -i s/a/b/ a.txt",
-    "awk '{print > \"x\"}' a.txt",
-    "find . -delete",
-    "/bin/rm a",
-    "echo $(rm a)",
-    "jq . `ls`",
-    "jq . <(jq . a)",
-    "jq . <<EOF\nx\nEOF",
-    "jq . a <> b",
-    "FOO=1 jq . a",
-    "jq . a & rm b",
-    "(jq . a)",
-    "jq . a | xargs rm",
-    "jq . a; rm b",
-    "jq . a && rm b",
-    "jq . a || rm b",
-    "jq . a\nrm b",
-    "bun evals/Grade.ts --out somewhere",
-    "bun /tmp/evil.ts",
-    "bun ${CLAUDE_PLUGIN_ROOT}/evals/Grade.ts --out somewhere",
-    "bun --preload ./x.ts intake/Validate.ts a.json",
+    "rm -rf detections",
+    "sort -o out.txt a.txt",
   ];
-  for (const cmd of writes) {
-    const d = decide(bash(la, cmd), ROOT);
-    if (!isDeny(d)) throw new Error(`expected deny for: ${cmd}`);
-  }
-  // Readers the Grep and Read tools replace are off the list, even in a harmless shape.
-  for (const cmd of ["cat a.log", "grep x a.log", "cut -f1 a.tsv", "sort a.txt", "uniq -c a.txt", "jq . a | sort"]) {
-    const d = decide(bash(la, cmd), ROOT);
-    expect(d.exit === 0 ? denyReason(d.output) : null).toContain("is not on the read-only allowlist");
-  }
-  // Agents without a Bash lane are refused any Bash at all.
-  expect(isDeny(decide(bash(sub("casa:detection-engineer"), "ls"), ROOT))).toBe(true);
-  expect(isDeny(decide(bash(sub("evaluator"), "ls"), ROOT))).toBe(true);
+  for (const cmd of writes) expect(reasonOf(decide(bash(sub("casa:log-analyst"), cmd)))).toContain(DATA_REQUESTS);
+  // The hook itself must see Bash and refuse it.
+  expect(denyReason(runHook(bash(sub("casa:network-analyst"), "tshark -r cap.pcap -w out.pcap"), BUN_PATH).stdout)).toContain(DATA_REQUESTS);
 });
 
-// *--- ISC-54 Bash Reads ---*
+// *--- Bash Denied ---*
 
-test("bash read: allowlisted read-only Bash from a CASA analyst gets no decision", () => {
-  const reads = [
-    "ls intake",
-    "jq -c 'select(.rule.level > 10) | .agent.name' alerts.jsonl | head -n 20",
-    "jq -s 'group_by(.agent.name) | map({k: .[0].agent.name, n: length})' alerts.jsonl",
-    "jq --arg h x '.[] | select(.host == $h)' alerts.jsonl",
-    "jq . alerts.jsonl 2>&1 | head",
-    "tshark -r cap.pcap -T fields -e frame.time_epoch -e ip.dst -Y 'dns' 2>/dev/null",
-    "tshark -nr cap.pcap -q -z conv,tcp",
-    "zeek-cut ts id.orig_h id.resp_h < conn.log",
-    "zeek-cut -d ts uid < conn.log | head",
-    "zeek-cut ts id.orig_h < conn.log | jq -R 'split(\"\\t\")'",
-    "jq -R 'select(test(\"Failed password\"))' auth.log | wc -l",
-    "tail -n 50 sysmon.log",
-    "wc -l sysmon.log auth.log",
-    `bun ${ROOT}/intake/Validate.ts intake/fixtures/x.json`,
-    `bun "${ROOT}/evals/Lint.ts" --brief b.md --intake i.json`,
-    "jq . a.json; jq . b.json\n",
-    "jq '.env' alerts.jsonl",
+test("bash denied: CASA subagents get no shell at all, read-only commands included", () => {
+  const callers = [
+    sub("casa:log-analyst"),
+    sub("casa:network-analyst"),
+    sub("casa:endpoint-analyst"),
+    sub("log-analyst"),
+    sub("network-analyst"),
+    sub("casa:detection-engineer"),
+    sub("evaluator"),
+    { agent_id: "agent-test" },
   ];
-  for (const a of ["casa:log-analyst", "network-analyst", "casa:endpoint-analyst"]) {
-    for (const cmd of reads) {
-      const d = decide(bash(sub(a), cmd), ROOT);
-      if (d.exit !== 0 || d.output !== undefined) throw new Error(`expected no decision for ${a}: ${cmd} -> ${JSON.stringify(d)}`);
+  const commands = [
+    "ls intake",
+    "jq . x.json",
+    "head -n 1 README.md",
+    "jq -c 'select(.rule.level > 10)' alerts.jsonl | head -n 20",
+    "zeek-cut ts id.orig_h < conn.log",
+    "tshark -r cap.pcap -T fields -e ip.dst",
+    `bun ${ROOT}/intake/Validate.ts a.json`,
+    "",
+  ];
+  for (const who of callers) {
+    for (const cmd of commands) {
+      const reason = reasonOf(decide(bash(who, cmd)));
+      if (reason === null || !reason.includes(DATA_REQUESTS)) throw new Error(`expected data_requests deny for ${JSON.stringify(who)}: ${cmd}`);
     }
   }
-});
+  // The recorded log-analyst Bash call, as captured.
+  expect(reasonOf(decide(recordedPayloads()[0]))).toContain(DATA_REQUESTS);
 
-// *--- Bash File Operands ---*
-
-test("bash path: files a CASA analyst reads stay inside the project or the plugin and off secrets", () => {
-  writeFileSync(join(cwd, ".env"), "SECRET=x\n");
-  symlinkSync(crashDir, join(cwd, "logs", "out"));
-  const la = sub("casa:log-analyst");
-  const refused = [
-    "jq -R . ~/.aws/credentials",
-    "head /home/analyst/.aws/credentials",
-    "head /etc/passwd",
-    "head '/etc/passwd'",
-    "head /*/passwd",
-    "tail ../other-repo/.env",
-    "tail logs/../../other-repo/x.log",
-    "head logs/out/bun",
-    "head detections/proposed/link/x.md",
-    "head .env",
-    "jq -R . config/.env.local",
-    "jq -R . .ENV",
-    "head certs/server.pem",
-    "head tls/server.key",
-    "head keys/id_ed25519",
-    "ls .ssh",
-    "ls /",
-    "zeek-cut ts < /etc/passwd",
-    "zeek-cut ts < .env",
-    "tshark -r /tmp/cap.pcap",
-    "tshark -r ../cap.pcap",
-    "tshark -r logs/app.log -H /etc/hosts",
-    "jq -n --rawfile k /etc/passwd '$k'",
-    "jq -L /etc '.' logs/app.log",
-    "jq -f /etc/x.jq logs/app.log",
-    "jq -n env",
-    "jq -n '$ENV'",
-    "jq -n 'import \"x\" as $x; $x'",
-    "wc -l *.log",
-    "jq . < *.json",
-    `bun ${ROOT}/intake/Validate.ts /etc/passwd`,
-  ];
-  for (const cmd of refused) {
-    const d = decide(bash(la, cmd), ROOT);
-    if (!isDeny(d)) throw new Error(`expected deny for: ${cmd}`);
-  }
-  // A part of the path that is not there cannot be checked for a symlink, so it is refused.
-  for (const cmd of ["head logs/missing/app.log", "head logs/nope.log", "zeek-cut ts < missing/conn.log"]) {
-    const d = decide(bash(la, cmd), ROOT);
-    expect(d.exit === 0 ? denyReason(d.output) : null).toContain("does not exist");
-  }
-  const allowed = [
-    "head -n 5 logs/app.log",
-    "jq -R . logs/app.log",
-    `tail -n 3 ${join(cwd, "logs", "app.log")}`,
-    "zeek-cut ts < logs/app.log",
-    "tshark -r logs/app.log -T fields -e frame.number",
-    "jq -n --arg x y '$x'",
-    `jq . "${ROOT}/skills/standards/references/attack-techniques.json"`,
-    `jq . ${ROOT}/skills/standards/references/csf-2.0.json`,
-    "jq -c . - < logs/app.log",
-  ];
-  for (const cmd of allowed) {
-    const d = decide(bash(la, cmd), ROOT);
-    if (d.exit !== 0 || d.output !== undefined) throw new Error(`expected no decision for: ${cmd} -> ${JSON.stringify(d)}`);
-  }
-});
-
-// *--- Parser And Option Edges ---*
-
-/** The deny reason the guard gives a log-analyst Bash call, or null when it is not denied. */
-function bashReason(command: string): string | null {
-  const d = decide(bash(sub("casa:log-analyst"), command), ROOT);
-  return d.exit === 0 ? denyReason(d.output) : null;
-}
-
-test("shell comment: an unquoted word-initial # is refused, not read through", () => {
-  // The shell skips from # to end of line, so `rm b` would run as its own command.
-  for (const cmd of ["ls #'\nrm b\n#'", "jq . f #x", "jq . f;#x", "ls >#x"]) {
-    expect(bashReason(cmd)).toContain("shell comment");
-  }
-});
-
-test("variable expansion: every $ outside single quotes is refused, the plugin root included", () => {
-  // The agent's shell may not hold CLAUDE_PLUGIN_ROOT; unset, $CLAUDE_PLUGIN_ROOT/etc/passwd is /etc/passwd.
-  const refused = [
-    "head $CLAUDE_PLUGIN_ROOT/etc/passwd",
-    'head "${CLAUDE_PLUGIN_ROOT}/x"',
-    "head ${CLAUDE_PLUGIN_ROOT}/x",
-    'jq . "$HOME/x"',
-    "jq . $HOME/x",
-  ];
-  for (const cmd of refused) expect(bashReason(cmd)).toContain("variable expansion");
-  // The two plugin scripts stay runnable by absolute path, which skill bodies already carry.
-  for (const cmd of [`bun ${ROOT}/intake/Validate.ts a.json`, `bun "${ROOT}/evals/Lint.ts" --brief b.md --intake i.json`]) {
-    expect(bashReason(cmd)).toBeNull();
-  }
-  // A $ inside single quotes is literal text, as in a jq variable.
-  expect(bashReason("jq --arg h x '.[] | select(.host == $h)' alerts.jsonl")).toBeNull();
-});
-
-test("bun script argv: Lint.ts and Validate.ts flags are modelled and every file value is path-checked", () => {
-  const lint = `bun ${ROOT}/evals/Lint.ts`;
-  const validate = `bun ${ROOT}/intake/Validate.ts`;
-  const refused = [
-    `${lint} --brief=/etc/passwd --intake i.json`,
-    `${lint} --brief b.md --intake /etc/passwd`,
-    `${lint} --finding=../x.json --intake i.json`,
-    `${lint} --brief b.md --intake i.json --unknown`,
-    `${lint} --brief b.md --intake i.json --host-prefix ../x`,
-    `${lint} --brief b.md --intake i.json --host-prefix=Bad.Prefix`,
-    `${lint} --brief b.md --intake i.json --json=1`,
-    `${lint} --brief --intake /etc/passwd`,
-    `${lint} --brief b.md --intake`,
-    `${lint} --brief b.md --intake i.json -- /etc/passwd`,
-    `${lint} --brief b.md --intake i.json /etc/passwd`,
-    `${validate} --json a.json`,
-    `${validate} - a.json`,
-    `${validate} /etc/passwd`,
-  ];
-  for (const cmd of refused) {
-    if (bashReason(cmd) === null) throw new Error(`expected deny for: ${cmd}`);
-  }
-  const allowed = [
-    `${lint} --brief b.md --intake i.json`,
-    `${lint} --brief=b.md --intake=i.json --json`,
-    `${lint} --finding a.json --intake i.json --host-prefix talon-lab --json`,
-    `${lint} --finding a.json --intake i.json --host-prefix=web`,
-    `${validate} a.json intake/fixtures/x.json`,
-    validate,
-  ];
-  for (const cmd of allowed) {
-    const reason = bashReason(cmd);
-    if (reason !== null) throw new Error(`expected no decision for: ${cmd} -> ${reason}`);
-  }
-});
-
-test("quoted newline: a quoted word holding a newline or carriage return is refused", () => {
-  for (const cmd of ["jq '.a |\n.b' f", 'jq ".a |\n.b" f', "jq '.a |\r.b' f", 'jq ".a |\r.b" f']) {
-    expect(bashReason(cmd)).toContain("newline inside quotes");
-  }
-});
-
-test("bash options: readers take only their listed options, in either long form", () => {
-  const refused = [
-    "wc --files0-from=/etc/passwd",
-    "wc --files0-from /etc/passwd",
-    "wc --lines=5 logs/app.log",
-    "tail -f x.log",
-    "tail -F x.log",
-    "tail --follow=name x.log",
-    "tail --follow x.log",
-    "tail -r x.log",
-    "head --unknown=1 x.log",
-    "head -20 x.log",
-    "head --lines",
-    "ls --color=always",
-    "ls -d x",
-    "zeek-cut -x ts < conn.log",
-    "jq --args . a b",
-  ];
-  for (const cmd of refused) {
-    if (bashReason(cmd) === null) throw new Error(`expected deny for: ${cmd}`);
-  }
-  expect(bashReason("wc --files0-from=/etc/passwd")).toContain("--files0-from is not allowed");
-  const allowed = [
-    "head -n 5 x.log",
-    "head --lines=5 x.log",
-    "head --lines 5 -q x.log",
-    "tail -c 10 -v x.log",
-    "tail --bytes=10 x.log",
-    "wc -lw x.log",
-    "wc --max-line-length x.log",
-    "ls -laR logs",
-    "ls -1Sht",
-    "zeek-cut -d -F , ts uid < conn.log",
-    "zeek-cut -U %s -n ts < conn.log",
-  ];
-  for (const cmd of allowed) {
-    const reason = bashReason(cmd);
-    if (reason !== null) throw new Error(`expected no decision for: ${cmd} -> ${reason}`);
+  // Main thread and other plugins' agents keep their shell; the guard does not decide.
+  for (const who of [MAIN, sub("other:foo"), sub("general-purpose"), { agent_type: "log-analyst" }]) {
+    expect(decide(bash(who, "rm -rf build"))).toEqual({ exit: 0 });
   }
 });
 
@@ -535,7 +313,7 @@ test("stdin: the hooks.json command decides every matched tool end to end", () =
     { name: "NotebookEdit out of lane", payload: call(de, "NotebookEdit", { notebook_path: "agents/x.ipynb", new_source: "" }), exit: 0, deny: true },
     { name: "NotebookEdit in lane", payload: call(sub("evaluator"), "NotebookEdit", { notebook_path: "evals/results/x.ipynb", new_source: "" }), exit: 0, deny: false },
     { name: "Bash write", payload: bash(sub("casa:log-analyst"), "jq . a.json > b.json"), exit: 0, deny: true },
-    { name: "Bash read", payload: bash(sub("casa:log-analyst"), "jq -c . a.json | head"), exit: 0, deny: false },
+    { name: "Bash read", payload: bash(sub("casa:log-analyst"), "jq -c . a.json | head"), exit: 0, deny: true },
     { name: "main-thread Write", payload: write(MAIN, "agents/x.md"), exit: 0, deny: false },
     { name: "main-thread Bash", payload: bash(MAIN, "rm -rf build"), exit: 0, deny: false },
     { name: "symlink on path", payload: write(de, "detections/proposed/link/x.md"), exit: 2, deny: false },
@@ -556,7 +334,6 @@ test("agent registry matches agents/ frontmatter and guard.sh", () => {
   const names = agents.map((a) => a.name).sort();
   expect([...guard.CASA_AGENTS].sort()).toEqual(names);
   expect(Object.keys(guard.LANES).sort()).toEqual(agents.filter((a) => a.tools.includes("Write")).map((a) => a.name).sort());
-  expect([...guard.BASH_AGENTS].sort()).toEqual(agents.filter((a) => a.tools.includes("Bash")).map((a) => a.name).sort());
   const sh = readFileSync(join(import.meta.dir, "guard.sh"), "utf8");
   const bare = /bare='\(([^)]+)\)'/.exec(sh)?.[1]?.split("|").sort();
   expect(bare).toEqual(names);

@@ -44,7 +44,11 @@
 | Kerberos anomalies | 4768, 4769, 4771 | `TicketEncryptionType`, `ServiceName`, failure codes |
 | East-west flows | Zeek `conn.log` | `id.orig_h`, `id.resp_h`, `id.resp_p`, `duration`, `orig_bytes` |
 
-## 5. Raw-telemetry mode
+## 5. Raw-data requests
+
+A specialist never runs these: they are data requests, which the main thread runs under the
+user's own permission settings when raw telemetry exists, handing the output to the
+specialists, or which go into `data_requests` as exact commands for the human analyst.
 
 ```
 # network and remote-interactive logons per source host and account

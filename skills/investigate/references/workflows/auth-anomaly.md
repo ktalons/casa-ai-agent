@@ -48,7 +48,11 @@
 | What the account did next | 4672 (special privileges), 4648 (explicit credentials), 4698, 7045 | `TargetUserName`, `ProcessName`, `TaskName`, `ServiceName` |
 | Is the source a scanner or a known admin host | asset inventory, recon delta | host role, exposure changes |
 
-## 5. Raw-telemetry mode
+## 5. Raw-data requests
+
+A specialist never runs these: they are data requests, which the main thread runs under the
+user's own permission settings when raw telemetry exists, handing the output to the
+specialists, or which go into `data_requests` as exact commands for the human analyst.
 
 ```
 # failures by source and account in the window

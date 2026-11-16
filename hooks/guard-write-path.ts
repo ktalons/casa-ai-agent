@@ -15,19 +15,19 @@
  *     detection-engineer           files only under detections/proposed/
  *     evaluator                    files only under evals/results/
  *     any other CASA agent         no file writes
- *     Bash                         read-only allowlist in bash-policy.ts, analysts only
+ *     Bash, from any of the above  denied: commands go in data_requests for the main thread
  *   any other subagent             no decision
  *
  * Deny is a JSON permissionDecision with a reason and exit 0. Unreadable input, a missing
  * path or a symlink on the way exits 2, which blocks the call: fail closed. guard.sh wraps
- * this script so a missing or crashing bun still blocks CASA agents.
+ * this script so a missing or crashing bun still blocks CASA agents, and runs bun from the
+ * hook directory so the project's bunfig.toml and .env cannot load.
  */
 
 // *--- Imports ---*
 
 import { lstatSync } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
-import { checkBash } from "./bash-policy.ts";
 
 // *--- Configuration ---*
 
@@ -48,10 +48,6 @@ export const LANES: Record<string, string[]> = {
   evaluator: ["evals/results"],
 };
 
-export const BASH_AGENTS = new Set(["endpoint-analyst", "log-analyst", "network-analyst"]);
-
-const PLUGIN_ROOT = resolve(import.meta.dir, "..");
-
 const PREFIX = "casa:";
 
 // *--- Types ---*
@@ -65,7 +61,7 @@ type HookInput = {
   agent_type?: unknown;
   cwd?: unknown;
   tool_name?: unknown;
-  tool_input?: { file_path?: unknown; notebook_path?: unknown; command?: unknown };
+  tool_input?: { file_path?: unknown; notebook_path?: unknown };
 };
 
 // *--- Helper Functions ---*
@@ -126,26 +122,20 @@ function decideWrite(agent: string, i: HookInput): Decision {
   return allowed ? { exit: 0 } : deny(`guard: casa:${agent} may write only under ${lanes.join(", ")} (asked for ${rel})`);
 }
 
-/** Judge a Bash call by a CASA agent against the read-only policy. */
-function decideBash(agent: string, i: HookInput, pluginRoot: string): Decision {
-  if (!BASH_AGENTS.has(agent)) return deny(`guard: casa:${agent} has no Bash lane`);
-  const command = i.tool_input?.command;
-  const cwd = typeof i.cwd === "string" ? i.cwd : "";
-  if (typeof command !== "string" || !cwd) return { exit: 2, reason: "guard: missing cwd or command in hook input" };
-  const verdict = checkBash(command, cwd, pluginRoot);
-  return verdict.ok ? { exit: 0 } : deny(`guard: casa:${agent} may run only read-only commands (${verdict.reason})`);
-}
-
 // *--- Public Interface ---*
 
-/** Decide one PreToolUse call; `pluginRoot` locates the scripts Bash may run. */
-export function decide(input: unknown, pluginRoot: string = PLUGIN_ROOT): Decision {
+/** Decide one PreToolUse call. */
+export function decide(input: unknown): Decision {
   if (typeof input !== "object" || input === null) return { exit: 2, reason: "guard: hook input is not an object" };
   const i = input as HookInput;
   const caller = identify(i);
   if (caller.kind === "foreign") return { exit: 0 };
+  // SECURITY: no command allowlist survives the shell's parser, so CASA subagents get no shell.
+  if (i.tool_name === "Bash") {
+    const who = caller.kind === "casa" ? `casa:${caller.name}` : "a subagent without agent_type";
+    return deny(`guard: ${who} has no shell; put the command in your finding's data_requests for the main thread to run`);
+  }
   if (caller.kind === "unknown") return deny("guard: a subagent call arrived without agent_type; refusing because the caller cannot be identified");
-  if (i.tool_name === "Bash") return decideBash(caller.name, i, pluginRoot);
   return decideWrite(caller.name, i);
 }
 

@@ -22,9 +22,9 @@ const COLORS = new Set(["red", "blue", "green", "yellow", "purple", "orange", "p
 
 // Tool lanes. An agent may list only the tools in its lane.
 const LANES: Record<string, string[]> = {
-  "log-analyst": ["Read", "Grep", "Glob", "Bash"],
-  "network-analyst": ["Read", "Grep", "Glob", "Bash"],
-  "endpoint-analyst": ["Read", "Grep", "Glob", "Bash"],
+  "log-analyst": ["Read", "Grep", "Glob"],
+  "network-analyst": ["Read", "Grep", "Glob"],
+  "endpoint-analyst": ["Read", "Grep", "Glob"],
   "purple-team-mapper": ["Read", "Grep", "Glob"],
   "detection-engineer": ["Read", "Grep", "Glob", "Write"],
   "threat-intel": ["Read", "Grep", "Glob", "WebFetch"],
@@ -97,6 +97,14 @@ for (const file of files) {
     expect(Number(fm.maxTurns)).toBeLessThanOrEqual(30);
   });
 }
+
+test("no CASA agent lists Bash in tools: specialists have no shell", () => {
+  const withShell = files.filter((file) => {
+    const tools = parseFrontmatter(readFileSync(join(AGENTS_DIR, file), "utf8")).tools;
+    return typeof tools === "string" && tools.split(",").some((t) => /^Bash(\(.*\))?$/.test(t.trim()));
+  });
+  expect(withShell).toEqual([]);
+});
 
 test("standards skill stays small enough to preload into every agent", () => {
   const lines = readFileSync(join(AGENTS_DIR, "..", "skills", "standards", "SKILL.md"), "utf8").split("\n").length;

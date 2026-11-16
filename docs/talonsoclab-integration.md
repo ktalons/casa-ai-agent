@@ -42,11 +42,13 @@ The script is idempotent. It:
    the lab's `.claude/settings.json` so every clone of the lab gets the same plugin (pass
    `--scope local` to keep it in the gitignored `settings.local.json` instead);
 2. merges CASA's recommended permission block into `.claude/settings.json` (array union, the
-   previous file kept as `settings.json.bak`): the read-only analysis commands the specialists
-   use are allowed, destructive and network commands are denied, secrets stay unreadable,
+   previous file kept as `settings.json.bak`): the read-only analysis commands are allowed,
+   destructive and network commands are denied, secrets stay unreadable,
    and reads under the plugin root are allowed (the skills' templates and reference tables
    live there, outside the project, so without that rule a headless run stops at the first
-   template read);
+   template read). The specialists have no shell, so these Bash rules are for the main
+   thread: the validator, the lint, the grader, and any raw-data queries (`jq`, `tshark -r`,
+   `zeek-cut`) you approve when you hand CASA raw telemetry;
 3. creates `briefs/`, `detections/proposed/`, `detections/accepted/`, `learn/pending/`,
    `learn/archive/`, `evals/results/`, `engagements/`;
 4. appends a marked block to `.gitignore` so run output is never committed (only
@@ -181,9 +183,9 @@ showed, and recommends a liveness check only when the collector or agent counts 
 - **A `bun ...` command was refused.** The command must match an allow rule exactly, on its
   own, with nothing chained. The recommended block allows `bun */intake/Validate.ts *`,
   `bun */evals/Lint.ts *` and `bun */evals/Grade.ts *`, which match the plugin-root forms the
-  skills use. Re-run the install script if the block is missing. The Grade.ts rule serves the
-  main thread only (`/casa:evaluate`): the plugin's guard refuses it to every subagent,
-  because grading writes a file.
+  skills use. Re-run the install script if the block is missing. Every one of these rules serves
+  the main thread; the plugin's guard refuses all shell commands to subagents, so the Grade.ts
+  rule in particular is for the main thread only (`/casa:evaluate`).
 - **The validator rejects the intake.** It prints the field and the rule. The common ones:
   a timestamp outside the window (producer and indexer clocks disagree), `truncated: true`
   with fewer than `cap` entries, a duplicate `alert_id`.

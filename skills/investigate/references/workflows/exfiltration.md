@@ -43,7 +43,11 @@
 | Who and when | 4624 session for the host, file-server audit | `TargetUserName`, logon time against business hours |
 | Policy context | DLP alerts, approved-service list | policy name, action taken |
 
-## 5. Raw-telemetry mode
+## 5. Raw-data requests
+
+A specialist never runs these: they are data requests, which the main thread runs under the
+user's own permission settings when raw telemetry exists, handing the output to the
+specialists, or which go into `data_requests` as exact commands for the human analyst.
 
 ```
 # the host's ten largest outbound sessions (Zeek writes "-" for an unknown byte count)

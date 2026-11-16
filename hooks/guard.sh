@@ -30,15 +30,19 @@ is_casa_caller() {
 
 payload=$(cat) || { echo "casa guard: cannot read hook input" >&2; exit 2; }
 
-if command -v bun >/dev/null 2>&1; then
-  printf '%s' "$payload" | bun "${0%/*}/guard-write-path.ts"
+# SECURITY: bun reads bunfig.toml (preload) and .env from its working directory, which is
+# the project under review. Run it from this hook's own directory instead.
+if ! command -v bun >/dev/null 2>&1; then
+  reason="bun is not on PATH"
+elif ! cd "${0%/*}"; then
+  reason="cannot enter the hook directory"
+else
+  printf '%s' "$payload" | bun ./guard-write-path.ts
   rc=$?
   if [ "$rc" -eq 0 ] || [ "$rc" -eq 2 ]; then
     exit "$rc"
   fi
   reason="the guard exited $rc"
-else
-  reason="bun is not on PATH"
 fi
 
 if is_casa_caller; then

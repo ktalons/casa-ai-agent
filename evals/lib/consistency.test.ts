@@ -6,11 +6,9 @@
 
 // *--- Imports ---*
 
-import { test, expect, afterAll } from "bun:test";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { test, expect } from "bun:test";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { checkBash, type BashVerdict } from "../../hooks/bash-policy.ts";
 
 // *--- Configuration ---*
 
@@ -25,8 +23,11 @@ const LEARN = join("skills", "learn", "SKILL.md");
 const DETECTION_ENGINEER = join("agents", "detection-engineer.md");
 const WORKFLOWS = join("skills", "investigate", "references", "workflows");
 
-// Commands prose must never tell a subagent to run; the guard refuses every one of them.
+// Commands no prompt names in backticks: the recommended settings do not allow them, and jq
+// does their filtering and counting in every recipe.
 const SHELL_WORDS = ["grep", "egrep", "rg", "sort", "uniq", "awk", "sed", "cut", "xargs", "find", "python", "python3", "perl", "lsof", "rm", "curl", "wget"];
+// Commands a data request may carry for the main thread or the human analyst to run.
+const QUERY_WORDS = ["jq", "tshark", "zeek-cut", "head", "tail", "wc", "ls", "cat", "bun"];
 
 // *--- Helper Functions ---*
 
@@ -57,7 +58,12 @@ function section(text: string, heading: string): string {
   const start = lines.findIndex((l) => l.trim() === heading);
   if (start === -1) return "";
   const depth = heading.match(/^#+/)![0].length;
-  const end = lines.findIndex((l, i) => i > start && /^#+ /.test(l) && l.match(/^#+/)![0].length <= depth);
+  // A `# comment` inside a fenced command block is not a heading.
+  let fenced = false;
+  const end = lines.findIndex((l, i) => {
+    if (i > start && /^```/.test(l)) fenced = !fenced;
+    return i > start && !fenced && /^#+ /.test(l) && l.match(/^#+/)![0].length <= depth;
+  });
   return lines.slice(start + 1, end === -1 ? undefined : end).join("\n");
 }
 
@@ -91,17 +97,41 @@ function recipeLines(text: string): string[] {
   return out;
 }
 
-/** Fill a recipe's placeholders the way an analyst would and create the files it reads. */
-function materialize(recipe: string, project: string): string {
-  // A placeholder with an extension names a file (<alerts.jsonl>); any other is a value (<host ip>).
-  const cmd = recipe.replace(/<([A-Za-z0-9_-]+\.[A-Za-z0-9]+)>/g, "$1").replace(/<[a-z][a-z ]*>/g, "192.0.2.5");
-  for (const m of cmd.matchAll(/(?<=^|\s)([A-Za-z0-9_-]+\.(?:jsonl|json|log|pcap|md))(?=\s|$)/g)) writeFileSync(join(project, m[1]), "");
-  return cmd;
+/** Split a command line on pipes that sit outside single or double quotes. */
+function pipeSegments(line: string): string[] {
+  const segs: string[] = [];
+  let quote = "";
+  let cur = "";
+  for (const ch of line) {
+    if (quote) {
+      if (ch === quote) quote = "";
+    } else if (ch === "'" || ch === '"') {
+      quote = ch;
+    } else if (ch === "|") {
+      segs.push(cur.trim());
+      cur = "";
+      continue;
+    }
+    cur += ch;
+  }
+  segs.push(cur.trim());
+  return segs;
 }
 
-/** The guard's verdict on one recipe line, run in a scratch project with the plugin at ROOT. */
-function guardVerdict(recipe: string, project: string): BashVerdict {
-  return checkBash(materialize(recipe, project), project, ROOT);
+/** Each `## ` section of a Markdown file that holds a fenced command, keyed by its heading. */
+function recipeSections(text: string): Array<{ heading: string; body: string }> {
+  const out: Array<{ heading: string; body: string }> = [];
+  for (const heading of text.split("\n").filter((l) => /^## /.test(l))) {
+    const body = section(text, heading.trim());
+    if (recipeLines(body).length > 0) out.push({ heading: heading.trim(), body });
+  }
+  return out;
+}
+
+/** Commands the recommended settings let the main thread run without a prompt. */
+function mainThreadCommands(): Set<string> {
+  const allow: string[] = JSON.parse(read(join("docs", "settings.recommended.json"))).permissions.allow;
+  return new Set(allow.map((r) => r.match(/^Bash\(([a-z-]+) \*\)$/)?.[1]).filter((c): c is string => c !== undefined));
 }
 
 // *--- ISC-28: approved lessons reach every run ---*
@@ -165,34 +195,51 @@ test("draft names: the investigate skill defines a run-unique run_id and hands i
   expect(sentences(section(inv, "### 5. MAP")).some((s) => s.includes("run_id") && s.includes("casa:detection-engineer"))).toBe(true);
 });
 
-// *--- ISC-59: raw-mode recipes stay inside the allowlist ---*
+// *--- ISC-59: raw-data queries are data requests, never a specialist's shell ---*
 
-// Every test in this file shares one scratch project; it is removed when the file finishes.
-const scratch = mkdtempSync(join(tmpdir(), "casa-recipes-"));
-afterAll(() => rmSync(scratch, { recursive: true, force: true }));
-
-test("recipes: every fenced command in the workflow cards and agents passes the shipped guard", () => {
-  const files = [
-    ...readdirSync(join(ROOT, WORKFLOWS)).map((f) => join(WORKFLOWS, f)),
-    ...promptFiles().filter((f) => f.startsWith("agents")),
-  ];
-  const refused: string[] = [];
-  let checked = 0;
-  for (const f of files) {
-    for (const recipe of recipeLines(read(f))) {
-      // A line naming the plugin root documents a command the Overseer runs on the main thread
-      // under the settings allowlist (Grade.ts is one); the subagent guard never sees it.
-      if (recipe.includes(ROOT_VAR)) continue;
-      checked++;
-      const verdict = guardVerdict(recipe, scratch);
-      if (!verdict.ok) refused.push(`${f}: ${recipe} -> ${verdict.reason}`);
+test("recipes: every card recipe sits in a data-request section the main thread runs", () => {
+  const wrong: string[] = [];
+  let sections = 0;
+  for (const card of readdirSync(join(ROOT, WORKFLOWS)).map((f) => join(WORKFLOWS, f))) {
+    for (const { heading, body } of recipeSections(read(card))) {
+      sections++;
+      if (!/data request/i.test(heading)) wrong.push(`${card}: recipe under "${heading}"`);
+      const framed = sentences(body).some((s) => /main thread/.test(s) && /specialist/.test(s) && /\bnever\b/.test(s));
+      if (!framed) wrong.push(`${card}: "${heading}" does not say the main thread runs these and a specialist never does`);
     }
   }
-  expect(checked).toBeGreaterThan(0);
-  expect(refused).toEqual([]);
+  expect(sections).toBeGreaterThan(0);
+  expect(wrong).toEqual([]);
 });
 
-test("recipes: no prompt prose tells an agent to run a command outside the allowlist", () => {
+test("recipes: every card recipe uses only commands the recommended settings allow", () => {
+  const allowed = mainThreadCommands();
+  const outside: string[] = [];
+  for (const card of readdirSync(join(ROOT, WORKFLOWS)).map((f) => join(WORKFLOWS, f))) {
+    for (const line of recipeLines(read(card))) {
+      for (const seg of pipeSegments(line)) {
+        const cmd = seg.split(/\s+/)[0] ?? "";
+        if (!allowed.has(cmd)) outside.push(`${card}: ${seg}`);
+      }
+    }
+  }
+  expect(allowed.size).toBeGreaterThan(0);
+  expect(outside).toEqual([]);
+});
+
+test("recipes: no agent tells a specialist to run a shell command", () => {
+  const query = new RegExp("`(" + [...QUERY_WORDS, ...SHELL_WORDS].join("|") + ")\\b[^`]*`");
+  const told: string[] = [];
+  for (const f of promptFiles().filter((p) => p.startsWith("agents"))) {
+    const text = read(f);
+    if (recipeLines(text).length > 0) told.push(`${f}: fenced command block`);
+    for (const s of sentences(text)) if (query.test(s) && !/data_requests|data request/.test(s)) told.push(`${f}: ${s}`);
+    if (/\bBash\b/.test(text.replace(/^---\n[\s\S]*?\n---\n/, ""))) told.push(`${f}: body mentions Bash`);
+  }
+  expect(told).toEqual([]);
+});
+
+test("recipes: no prompt prose names a command outside the allowlist", () => {
   const word = new RegExp("`(" + SHELL_WORDS.join("|") + ")\\b[^`]*`");
   const named: string[] = [];
   for (const f of promptFiles()) {
@@ -201,45 +248,16 @@ test("recipes: no prompt prose tells an agent to run a command outside the allow
   expect(named).toEqual([]);
 });
 
-test("recipes: the checker agrees with the guard on cat and bun Grade.ts", () => {
-  expect(guardVerdict("cat <alerts.jsonl>", scratch).ok).toBe(false);
-  const grade = guardVerdict(`bun ${join(ROOT, "evals", "Grade.ts")} --fixture <name>`, scratch);
-  expect(grade.ok).toBe(false);
-  expect(grade.ok ? "" : grade.reason).toMatch(/bun may run only/);
-});
-
-test("recipes: the checker refuses a grep or sort pipe and passes jq, zeek-cut and Lint.ts", () => {
-  expect(guardVerdict("zeek-cut ts < <conn.log> | grep '<host ip>'", scratch).ok).toBe(false);
-  expect(guardVerdict("zeek-cut ts < <conn.log> | sort -n", scratch).ok).toBe(false);
-  expect(guardVerdict("jq -r '.a' <alerts.jsonl>", scratch).ok).toBe(true);
-  expect(guardVerdict("zeek-cut ts < <conn.log> | jq -R -r 'split(\"\\t\") | @tsv'", scratch).ok).toBe(true);
-  // Subagents reach plugin scripts by absolute path; the guard expands no variable.
-  expect(guardVerdict(`bun ${join(ROOT, "evals", "Lint.ts")} --brief <brief.md> --intake <intake.json>`, scratch).ok).toBe(true);
-  expect(guardVerdict("bun x.ts", scratch).ok).toBe(false);
-});
-
-test("recipes: every Bash-carrying analyst names what the guard lets it run", () => {
-  const missing: string[] = [];
-  for (const f of promptFiles().filter((p) => p.startsWith("agents"))) {
-    const text = read(f);
-    if (!/^tools:.*\bBash\b/m.test(text)) continue;
-    const rule = sentences(text).find((s) => s.includes("Validate.ts") && s.includes("Lint.ts"));
-    if (!rule) {
-      missing.push(`${f}: no allowlist sentence`);
-      continue;
-    }
-    for (const term of ["`jq`", "`tshark -r`", "`zeek-cut`", "`head`", "`tail`", "`wc`", "`ls`", "absolute path", "Read and Grep tools"]) {
-      if (!rule.includes(term)) missing.push(`${f}: allowlist sentence lacks ${term}`);
-    }
+test("recipes: the runbook and README say specialists have no shell", () => {
+  for (const f of [join("docs", "talonsoclab-integration.md"), "README.md"]) {
+    expect(sentences(read(f)).some((s) => /specialists/i.test(s) && /no shell/i.test(s))).toBe(true);
   }
-  expect(missing).toEqual([]);
 });
 
 test("recipes: the runbook says the Grade.ts allow rule is for the main thread", () => {
   const doc = read(join("docs", "talonsoclab-integration.md"));
   expect(sentences(doc).some((s) => s.includes("Grade.ts") && /main thread/.test(s) && /subagent/.test(s))).toBe(true);
 });
-
 test("threading: a chain that returns to an earlier tactic on another host stays one chain", () => {
   const hyp = section(read(INVESTIGATE), "### 2. HYPOTHESIZE");
   expect(sentences(hyp).some((s) => /return/i.test(s) && /earlier tactic/i.test(s) && /(another|second) host/i.test(s) && /one chain/i.test(s))).toBe(true);

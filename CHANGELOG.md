@@ -9,12 +9,13 @@ Tags on GitHub: `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
 
 - The write guard recognises CASA subagents by their `agent_id` as well as their name, so a
   bare or changed name can no longer slip past it; any `..` in a write path is refused.
-- The guard now covers Bash. CASA analysts may run only a read-only allowlist (`jq`,
-  `tshark -r`, `zeek-cut`, `head`, `tail`, `wc`, `ls` and the plugin's own validator and lint),
-  each with an explicit option list. Every file they read must resolve inside the project or
-  the plugin and must not look like a secret. Redirects, substitutions, globs, comments and
-  quoted newlines are refused.
-- If `bun` is missing, the guard blocks CASA subagents instead of failing open.
+- CASA specialists have no shell. Bash is gone from every agent's tools and the guard denies
+  any Bash call from a CASA subagent. Raw-data queries (tshark, zeek-cut, jq over raw alerts)
+  become data requests that the main thread runs under the user's own permission settings.
+  A read-only command allowlist was tried first and dropped after review found six ways to
+  get past its parser.
+- If `bun` is missing, the guard blocks CASA subagents instead of failing open, and it runs
+  from the plugin's own directory so a project `bunfig.toml` or `.env` cannot change it.
 
 ### Changed
 

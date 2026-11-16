@@ -47,7 +47,11 @@
 | What owns the new listener | Sysmon event 3 inbound, or a socket listing from the host supplied by the analyst | `Image`, `User`, listening socket |
 | Destination reputation | threat-intel agent, offline tables first | ASN, registration age, known-C2 lists, with the source cited |
 
-## 5. Raw-telemetry mode
+## 5. Raw-data requests
+
+A specialist never runs these: they are data requests, which the main thread runs under the
+user's own permission settings when raw telemetry exists, handing the output to the
+specialists, or which go into `data_requests` as exact commands for the human analyst.
 
 ```
 # connections from the host, in time order
