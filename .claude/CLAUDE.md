@@ -27,7 +27,9 @@ is loaded; they are not project-scope components. The SOC non-negotiables live i
 - Each investigate step of an eval runs in its own new project under `~/.cache/casa-evals/`, with
   the plugin loaded by path and nothing of this repo readable but `skills/`; only its brief is
   copied back to `briefs/`. Do not edit `skills/`, `agents/`, `hooks/`, `intake/` or `evals/lib/`
-  while a run is live: the children read them from this checkout.
+  while a run is live: the children read them from this checkout. After a run,
+  `bun run eval:scan` reads the children's transcripts and fails if a tool call outside a
+  run's lane was not refused.
 - Fixture sets live in `evals/fixture-sets.json`. Never change prompt text because of a held-out
   result; if a held-out fixture shaped a change, move it to authoring and write a new one.
   `bun evals/RunFull.ts --set held-out` runs that set; `bun evals/Grade.ts --summary` reports it.
