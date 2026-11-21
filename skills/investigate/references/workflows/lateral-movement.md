@@ -56,10 +56,10 @@ specialists, or which go into `data_requests` as exact commands for the human an
 
 ```bash
 # network and remote-interactive logons per source host and account
-jq -r 'select(.data.win.system.eventID=="4624") | select(.data.win.eventdata.LogonType=="3" or .data.win.eventdata.LogonType=="10") | [.timestamp, .agent.name, .data.win.eventdata.IpAddress, .data.win.eventdata.TargetUserName, .data.win.eventdata.LogonType] | @tsv' <alerts.jsonl>
+jq -r 'select(.data.win.system.eventID=="4624") | select(.data.win.eventdata.logonType=="3" or .data.win.eventdata.logonType=="10") | [.timestamp, .agent.name, .data.win.eventdata.ipAddress, .data.win.eventdata.targetUserName, .data.win.eventdata.logonType] | @tsv' <alerts.jsonl>
 
 # service installs and WMI-spawned processes on the target
-jq -r 'select(.data.win.system.eventID=="7045" or (.data.win.system.eventID=="4688" and (.data.win.eventdata.ParentProcessName|test("WmiPrvSE")))) | [.timestamp, .agent.name, .data.win.system.eventID, (.data.win.eventdata.ServiceName // .data.win.eventdata.NewProcessName)] | @tsv' <alerts.jsonl>
+jq -r 'select(.data.win.system.eventID=="7045" or (.data.win.system.eventID=="4688" and (.data.win.eventdata.parentProcessName|test("WmiPrvSE")))) | [.timestamp, .agent.name, .data.win.system.eventID, (.data.win.eventdata.serviceName // .data.win.eventdata.newProcessName)] | @tsv' <alerts.jsonl>
 
 # east-west connections to admin ports
 zeek-cut ts id.orig_h id.resp_h id.resp_p duration orig_bytes < conn.log | jq -R -r 'split("\t") | select(.[3] | IN("445","3389","22","5985","5986","135")) | @tsv'

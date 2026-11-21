@@ -355,3 +355,136 @@ test("mapping: a brief that offers containment cites the Respond subcategory it 
   const brief = section(read(INVESTIGATE), "### 6. BRIEF").replace(/\s+/g, " ");
   expect(brief).toMatch(/`contain` option[^.]*cites the Respond \(RS\) subcategory/);
 });
+
+// *--- Workflow cards for the S2 technique families ---*
+
+const CARD_HEADINGS = ["## 1. Applies when", "## 2. Hypotheses", "## 3. Intake-only decision rules", "## 4. Data requests", "## 5. Raw-data requests", "## 6. Confidence ladder"];
+
+// Each family is named by the technique roots its card's "applies when" section must name.
+const CARD_FAMILIES: Record<string, string[]> = {
+  "script and signed-binary proxy execution": ["T1059", "T1218"],
+  "service and autostart persistence": ["T1543", "T1547"],
+  "log and defense tampering": ["T1685", "T1070"],
+  "internal discovery and scanning": ["T1046"],
+};
+
+const TECHNIQUE_ID = /\bT\d{4}(?:\.\d{3})?\b/g;
+const RECON = /recon[-_ ]delta|recon_delta/i;
+
+/** Every workflow card, as a repo-relative path. */
+function cardPaths(): string[] {
+  return readdirSync(join(ROOT, WORKFLOWS)).filter((f) => f.endsWith(".md")).sort().map((f) => join(WORKFLOWS, f));
+}
+
+/** The full heading line that starts with a numbered prefix, such as "## 4. Data requests (what settles H1)". */
+function headingLine(text: string, prefix: string): string {
+  return text.split("\n").find((l) => l === prefix || l.startsWith(`${prefix} `)) ?? "";
+}
+
+/** One card section by its numbered prefix, or "" when the card lacks it. */
+function cardSection(text: string, prefix: string): string {
+  const line = headingLine(text, prefix);
+  return line ? section(text, line) : "";
+}
+
+/** True when the text names the technique root itself or one of its sub-techniques. */
+function namesRoot(text: string, root: string): boolean {
+  return new RegExp(`\\b${root}(?:\\.\\d{3})?\\b`).test(text);
+}
+
+/** The one card whose "applies when" names every root of a family; [] or several when that fails. */
+function familyCards(roots: string[]): string[] {
+  return cardPaths().filter((p) => {
+    const applies = cardSection(read(p), "## 1. Applies when");
+    return roots.every((r) => namesRoot(applies, r));
+  });
+}
+
+/** Top-level list items of a Markdown section, each joined onto one line. */
+function listItems(text: string): string[] {
+  return text
+    .split(/\n(?=- )/)
+    .filter((s) => s.startsWith("- "))
+    .map((s) => s.replace(/\s+/g, " ").trim());
+}
+
+/** Rows of the technique-to-specialist table under HYPOTHESIZE, as [family cell, specialists cell]. */
+function techniqueTable(): Array<[string, string]> {
+  const rows = section(read(INVESTIGATE), "### 2. HYPOTHESIZE").split("\n").filter((l) => /^\|/.test(l));
+  return rows
+    .slice(2)
+    .map((l) => l.split("|").slice(1, -1).map((c) => c.trim()))
+    .filter((cells) => cells.length === 2)
+    .map(([family, specialists]) => [family, specialists]);
+}
+
+test("cards: each new technique family has exactly one card with all six numbered sections and a CSF line", () => {
+  for (const [family, roots] of Object.entries(CARD_FAMILIES)) {
+    const cards = familyCards(roots);
+    expect([family, cards.length]).toEqual([family, 1]);
+    const text = read(cards[0]);
+    const lines = CARD_HEADINGS.map((h) => text.split("\n").indexOf(headingLine(text, h)));
+    expect([family, lines.every((i) => i >= 0)]).toEqual([family, true]);
+    // In order, so a card cannot satisfy the shape with its sections shuffled.
+    expect([family, lines.every((i, k) => k === 0 || i > lines[k - 1])]).toEqual([family, true]);
+    expect([family, /^CSF 2\.0: /m.test(cardSection(text, "## 6. Confidence ladder"))]).toEqual([family, true]);
+  }
+});
+
+test("cards: the investigate skill's technique table has one row per new family, naming existing specialists only", () => {
+  const specialists = new Set(
+    [...section(read(INVESTIGATE), "# /casa:investigate").matchAll(/^\| `casa:([a-z-]+)` \|/gm)].map((m) => m[1]),
+  );
+  expect(specialists.size).toBeGreaterThan(0);
+  const table = techniqueTable();
+  for (const [family, roots] of Object.entries(CARD_FAMILIES)) {
+    const rows = table.filter(([cell]) => roots.every((r) => namesRoot(cell, r)));
+    expect([family, rows.length]).toEqual([family, 1]);
+    const named = rows[0][1].split(",").map((s) => s.trim());
+    expect([family, named.length > 0 && named.every((s) => specialists.has(s))]).toEqual([family, true]);
+  }
+});
+
+test("cards: every technique ID a card or the skill table names is in the ATT&CK reference table", () => {
+  const known = new Set(
+    (JSON.parse(read(join("skills", "standards", "references", "attack-techniques.json"))) as { techniques: Array<{ id: string }> }).techniques.map((t) => t.id),
+  );
+  const sources: Array<[string, string]> = cardPaths().map((p) => [p, read(p)]);
+  sources.push([`${INVESTIGATE} (HYPOTHESIZE)`, section(read(INVESTIGATE), "### 2. HYPOTHESIZE")]);
+  const unknown: string[] = [];
+  let seen = 0;
+  for (const [where, text] of sources) {
+    for (const [id] of text.matchAll(TECHNIQUE_ID)) {
+      seen++;
+      if (!known.has(id)) unknown.push(`${where}: ${id}`);
+    }
+  }
+  expect(seen).toBeGreaterThan(0);
+  expect(unknown).toEqual([]);
+});
+
+test("cards: each new card's decision rules say when a recon-delta change counts once toward High", () => {
+  for (const [family, roots] of Object.entries(CARD_FAMILIES)) {
+    const [card] = familyCards(roots);
+    const rules = listItems(cardSection(card ? read(card) : "", "## 3. Intake-only decision rules")).filter((s) => RECON.test(s));
+    // Agrees with standards §5 (detections plus a recon change) and VERIFY (counts once), in one
+    // sentence, so a "once" elsewhere in the bullet cannot stand in for the rule itself.
+    const counted = rules.some((r) => sentences(r).some((s) => /\bindependent\b/i.test(s) && /\bHigh\b/.test(s) && /\bonce\b/.test(s)));
+    expect([family, counted]).toEqual([family, true]);
+    // The borrowed beaconing wording that started this slice.
+    const demoted = rules.filter((s) => /context only|not proof|does not raise/i.test(s));
+    expect([family, demoted]).toEqual([family, []]);
+  }
+});
+
+test("cards: recipes name Windows event fields the way Wazuh writes them", () => {
+  // Wazuh's event channel decoder lowers the first letter of every eventdata field, as the
+  // recordings under intake/raw show; a recipe that keeps Windows' own casing selects nothing.
+  for (const name of readdirSync(join(ROOT, WORKFLOWS)).filter((f) => f.endsWith(".md"))) {
+    const wrong = [...read(join(WORKFLOWS, name)).matchAll(/\.eventdata\.([A-Z][A-Za-z]*)/g)].map((m) => m[1]);
+    expect([name, wrong]).toEqual([name, []]);
+  }
+  const recorded = readFileSync(join(ROOT, "intake", "raw", "brute-force-dc-chain.v2.alerts.jsonl"), "utf8");
+  expect(recorded).toContain('"targetUserName"');
+  expect(recorded).not.toContain('"TargetUserName"');
+});
