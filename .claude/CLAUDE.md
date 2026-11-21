@@ -24,6 +24,10 @@ is loaded; they are not project-scope components. The SOC non-negotiables live i
 - Eval loop: `bun run eval:full` (investigate then evaluate on every fixture, headless, needs
   the plugin linked and the workspace trusted); `bun evals/Grade.ts` alone for the deterministic
   half; real briefs worth keeping go to `evals/samples/<fixture>.runN.brief.md`.
+- Each investigate step of an eval runs in its own new project under `~/.cache/casa-evals/`, with
+  the plugin loaded by path and nothing of this repo readable but `skills/`; only its brief is
+  copied back to `briefs/`. Do not edit `skills/`, `agents/`, `hooks/`, `intake/` or `evals/lib/`
+  while a run is live: the children read them from this checkout.
 - Fixture sets live in `evals/fixture-sets.json`. Never change prompt text because of a held-out
   result; if a held-out fixture shaped a change, move it to authoring and write a new one.
   `bun evals/RunFull.ts --set held-out` runs that set; `bun evals/Grade.ts --summary` reports it.

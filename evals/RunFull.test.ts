@@ -7,10 +7,10 @@
 // *--- Imports ---*
 
 import { test, expect } from "bun:test";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { STRIPPED_ENV, briefForRun, buildInvocation, childEnv, listFixtures, quarantineNotes, selectFixtures } from "./RunFull.ts";
+import { EVAL_MODEL, ISOLATION_ENV, STRIPPED_ENV, briefForRun, buildInvocation, childEnv, listFixtures, investigateSettings, keepBrief, modelsUsed, prepareRunDir, selectFixtures } from "./RunFull.ts";
 import { baseName, loadSets } from "./lib/sets.ts";
 
 // *--- Configuration ---*
@@ -63,6 +63,32 @@ test("env: RunFull spawns claude only through buildInvocation", () => {
   expect(src).toMatch(/Bun\.spawn\(inv\.cmd, \{[^}]*env: inv\.env/);
 });
 
+// *--- Child isolation (ISC-89, ISC-90) ---*
+
+/** The value that follows `flag` on the child command line. */
+function flagValue(cmd: string[], flag: string): string | undefined {
+  const at = cmd.indexOf(flag);
+  return at === -1 ? undefined : cmd[at + 1];
+}
+
+test("isolation: the child loads project and local settings only, no instruction files and no auto memory", () => {
+  // A parent that tries to switch the instruction files back on must not win.
+  const inv = buildInvocation("/casa:investigate x", 5, { PATH: "/usr/bin", CLAUDE_CODE_DISABLE_CLAUDE_MDS: "0" });
+  expect(flagValue(inv.cmd, "--setting-sources")).toBe("project,local");
+  for (const key of ISOLATION_ENV) expect(inv.env[key]).toBe("1");
+  expect([...ISOLATION_ENV] as string[]).toContain("CLAUDE_CODE_DISABLE_CLAUDE_MDS");
+  expect([...ISOLATION_ENV] as string[]).toContain("CLAUDE_CODE_DISABLE_AUTO_MEMORY");
+  expect(inv.env.PATH).toBe("/usr/bin");
+});
+
+test("model: the child runs on the model the runner names, and the step log names the models that answered", () => {
+  const inv = buildInvocation("/casa:evaluate x", 5, { PATH: "/usr/bin" });
+  expect(EVAL_MODEL.length).toBeGreaterThan(0);
+  expect(flagValue(inv.cmd, "--model")).toBe(EVAL_MODEL);
+  expect(modelsUsed({ modelUsage: { "model-b": {}, "model-a": {} } })).toBe("model-a, model-b");
+  expect(modelsUsed({})).toBe("unknown");
+});
+
 // *--- Fixture coverage (ISC-55) ---*
 
 test("fixtures: the default list covers every intake fixture of every version", () => {
@@ -105,6 +131,77 @@ test("brief: evaluate gets the brief this run's investigate step wrote", () => {
   }
 });
 
+// *--- A new project per investigate run (ISC-92) ---*
+
+test("run dir: an investigate run gets a new project that holds only its intake", () => {
+  const root = mkdtempSync(join(tmpdir(), "casa-runs-"));
+  try {
+    const intake = join(FIXTURES_DIR, "quiet-day.v3.intake.json");
+    const dir = prepareRunDir(root, "stamp", "quiet-day.v3", intake);
+    expect(dir).toBe(join(root, "stamp-quiet-day.v3"));
+    const files: string[] = [];
+    const walk = (d: string): void => {
+      for (const e of readdirSync(d, { withFileTypes: true })) e.isDirectory() ? walk(join(d, e.name)) : files.push(join(d, e.name).slice(dir.length + 1));
+    };
+    walk(dir);
+    // No expected.json, no earlier brief, no settings file: the intake and nothing else.
+    expect(files).toEqual([join("intake", "quiet-day.v3.intake.json")]);
+    expect(readFileSync(join(dir, files[0]!), "utf8")).toBe(readFileSync(intake, "utf8"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("run dir: the child may read the plugin's skills and nothing else outside its project", () => {
+  const project = { permissions: { allow: ["Bash(jq *)"], deny: ["Bash(curl *)"] } };
+  const settings = investigateSettings("/opt/casa", project);
+  expect(settings.permissions?.allow).toEqual(["Bash(jq *)", "Read(//opt/casa/skills/**)"]);
+  expect(settings.permissions?.deny).toEqual(["Bash(curl *)"]);
+  // The fixtures, the grader and earlier results sit beside the skills and get no rule.
+  expect((settings.permissions?.allow ?? []).filter((rule) => rule.startsWith("Read("))).toEqual(["Read(//opt/casa/skills/**)"]);
+  expect(project.permissions.allow).toEqual(["Bash(jq *)"]);
+  expect(investigateSettings("/opt/casa", {}).permissions?.allow).toEqual(["Read(//opt/casa/skills/**)"]);
+});
+
+test("run dir: the plugin and the permissions reach the child on its command line", () => {
+  const settings = investigateSettings("/opt/casa", {});
+  const inv = buildInvocation("/casa:investigate intake/x.intake.json", 5, { PATH: "/usr/bin" }, { pluginDir: "/opt/casa", settings });
+  expect(flagValue(inv.cmd, "--plugin-dir")).toBe("/opt/casa");
+  expect(JSON.parse(flagValue(inv.cmd, "--settings") ?? "null")).toEqual(settings);
+  expect(flagValue(inv.cmd, "--setting-sources")).toBe("project,local");
+  // The evaluate step runs in the repo with the linked plugin and takes neither flag.
+  const plain = buildInvocation("/casa:evaluate x", 5, { PATH: "/usr/bin" });
+  expect(plain.cmd).not.toContain("--plugin-dir");
+  expect(plain.cmd).not.toContain("--settings");
+});
+
+test("run dir: RunFull investigates in the new project and never in the repo", () => {
+  const src = readFileSync(join(import.meta.dir, "RunFull.ts"), "utf8");
+  const main = src.slice(src.indexOf("if (import.meta.main)"));
+  expect(main).toMatch(/const runDir = prepareRunDir\(RUNS_ROOT, stamp, f, /);
+  expect(main).toMatch(/runStep\("investigate", f, `\/casa:investigate intake\/\$\{f\}\.intake\.json`, INVESTIGATE_TURNS, runDir, \{ pluginDir: ROOT, settings \}\)/);
+  expect(main).toMatch(/briefForRun\(join\(runDir, "briefs"\), f, started\)/);
+  // The runs root is outside the checkout, so nothing in the repo is a sibling of a run.
+  expect(src).toMatch(/const RUNS_ROOT = join\(homedir\(\), /);
+});
+
+test("run dir: the run's brief is copied to where evaluate looks, and the original stays", () => {
+  const root = mkdtempSync(join(tmpdir(), "casa-keep-"));
+  try {
+    mkdirSync(join(root, "run", "briefs"), { recursive: true });
+    const written = join(root, "run", "briefs", "2026-07-23-quiet-day.v3.brief.md");
+    writeFileSync(written, "new brief");
+    mkdirSync(join(root, "repo-briefs"));
+    writeFileSync(join(root, "repo-briefs", "2026-07-23-quiet-day.v3.brief.md"), "old brief");
+    const kept = keepBrief(written, join(root, "repo-briefs"));
+    expect(kept).toBe(join(root, "repo-briefs", "2026-07-23-quiet-day.v3.brief.md"));
+    expect(readFileSync(kept, "utf8")).toBe("new brief");
+    expect(existsSync(written)).toBe(true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 // *--- Fixture sets (ISC-85) ---*
 
 test("set: --set runs exactly one set's variants, and every fixture family is in exactly one set", () => {
@@ -124,29 +221,12 @@ test("set: --set runs exactly one set's variants, and every fixture family is in
   expect(selectFixtures(FIXTURES_DIR, ["quiet-day"], sets)).toEqual(["quiet-day"]);
 });
 
-test("set: a held-out run's LEARN notes leave the approval queue, and nothing else moves", () => {
-  const root = mkdtempSync(join(tmpdir(), "casa-quarantine-"));
-  try {
-    const pending = join(root, "pending");
-    const dest = join(root, "held-out-learn");
-    const { mkdirSync } = require("node:fs") as typeof import("node:fs");
-    mkdirSync(pending, { recursive: true });
-    const write = (name: string, ageMs: number) => {
-      writeFileSync(join(pending, name), "note");
-      const t = (Date.now() - ageMs) / 1000;
-      utimesSync(join(pending, name), t, t);
-    };
-    write("2026-08-05-powershell-cradle-alert.v3-r1.md", 0); // this run's note: moves
-    write("2026-08-04-powershell-cradle-alert.v3-r0.md", 3_600_000); // written before the run: stays
-    write("2026-07-20-brute-force-dc-chain.v3-r1.md", 0); // another fixture: stays
-    const since = Date.now() - 60_000;
-    expect(quarantineNotes(pending, "powershell-cradle-alert.v3", since, dest)).toEqual(["2026-08-05-powershell-cradle-alert.v3-r1.md"]);
-    expect(readdirSync(dest)).toEqual(["2026-08-05-powershell-cradle-alert.v3-r1.md"]);
-    expect(readdirSync(pending).sort()).toEqual(["2026-07-20-brute-force-dc-chain.v3-r1.md", "2026-08-04-powershell-cradle-alert.v3-r0.md"]);
-    // The main loop calls it for held-out variants only.
-    const src = readFileSync(join(ROOT, "evals", "RunFull.ts"), "utf8");
-    expect(src).toMatch(/if \(setOf\(sets, f\) === "held-out"\) \{\s*const moved = quarantineNotes\(PENDING_DIR, f, started, HELD_OUT_LEARN\)/);
-  } finally {
-    rmSync(root, { recursive: true, force: true });
-  }
+test("LEARN notes: no eval run writes into the queue /casa:learn promotes from", () => {
+  // ISC-87. Investigate runs in its own project, so its LEARN note lands there. The runner
+  // copies back the brief and nothing else, whatever set the fixture is in.
+  const src = readFileSync(join(ROOT, "evals", "RunFull.ts"), "utf8");
+  expect(src).not.toMatch(/learn["/, ]+"?pending/);
+  const main = src.slice(src.indexOf("if (import.meta.main)"));
+  expect(main.match(/runStep\("investigate"[^\n]*/)?.[0]).toContain("runDir");
+  expect(main.match(/copyFileSync|keepBrief\(/g)).toEqual(["keepBrief("]);
 });
