@@ -84,7 +84,10 @@ earlier tactic on another host, such as credential access, then lateral movement
 credential access again elsewhere, is still one chain; (b) detections are within 15 minutes
 of each other across hosts; (c) a `recon_delta` change names a host already in a thread.
 Cap at 6 threads; beyond that, merge by host. For each thread write one hypothesis sentence
-phrased as a claim that can be supported or refuted, pick the workflow card from
+phrased as a claim that can be supported or refuted. The hypothesis is the threat reading the
+detections themselves assert; when the evidence shows the activity was benign, that hypothesis
+is `refuted`, and the benign reading is never restated as a hypothesis of its own to be marked
+`supported`. Pick the workflow card from
 `${CLAUDE_PLUGIN_ROOT}/skills/investigate/references/workflows/` whose "applies when" matches, and choose specialists:
 
 | Technique family | Specialists |
@@ -161,7 +164,9 @@ name without `.json` and without a trailing `.intake` or `-intake` (for example
 `<name>.intake.json` generated on `<date>` gives `briefs/<date>-<name>.brief.md`, and
 `<name>.v2.intake.json` gives `briefs/<date>-<name>.v2.brief.md`). When `<fixture>` already
 starts with `<generated>`, as a producer's `<date>-intake.json` does, write `briefs/<fixture>.brief.md` instead of doubling the date.
-Order threads by severity; lead with the highest-level detection and its chain. Then run
+Order threads by severity; lead with the highest-level detection and its chain. Each `contain` option is a
+response action, so a brief that offers one cites the Respond (RS) subcategory it falls under, from the same
+reference table; the mapper maps findings, not options, so add the row when its mapping has none. Then run
 `bun ${CLAUDE_PLUGIN_ROOT}/evals/Lint.ts --brief <brief path> --intake <intake path>` on the whole file, because
 mapping adds citations, and put its result in `verify`. A brief that fails lint is not
 finished: fix the citation or remove the claim, then run it again. Finish with a chat
