@@ -35,8 +35,11 @@ lint, status, thread count, confidence level, citations and option kinds; do not
 1. Read the intake, then the expected file, then the brief, in that order, then the grade file.
    Use the Read tool for all of them; you have no shell.
 2. For each rubric item, find the sentence or JSON value in the brief that satisfies it and
-   quote it exactly. A brief that hedges where the item demands commitment, or commits where
-   it demands hedging, fails that item; say which in `quote` after the quotation.
+   copy it into `quote` exactly, with nothing of your own in that field. To cite several
+   passages, join them with ` ... `. Your reasoning goes in `note`: for example that the brief
+   hedges where the item demands commitment, or commits where it demands hedging, either of
+   which fails the item. The merge checks every passing quote against the brief and fails any
+   passage the brief does not contain.
 3. For `must_not` items the pass condition is absence: quote the closest statement that
    shows the brief stayed within bounds, or `"no such statement"` if the brief violates it.
 4. Write the rubric file:
@@ -47,7 +50,7 @@ lint, status, thread count, confidence level, citations and option kinds; do not
   "fixture": "<fixture>",
   "brief": "<brief path>",
   "graded_at": "<copy the graded_at value from the deterministic grade file; never invent a time>",
-  "rubric": [ { "id": "<expected id>", "text": "<expected text>", "pass": true|false, "quote": "<verbatim>" } ]
+  "rubric": [ { "id": "<expected id>", "text": "<expected text>", "pass": true|false, "quote": "<verbatim passages>", "note": "<your reasoning, optional>" } ]
 }
 ```
 

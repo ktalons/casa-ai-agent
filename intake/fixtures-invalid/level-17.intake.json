@@ -8,7 +8,7 @@
       "level": 17,
       "description": "Directory replication (DRSUAPI GetNCChanges) requested from a host that is not a domain controller",
       "rule_id": "100220",
-      "agent": "talondc01",
+      "agent": "corpdc01",
       "mitre": [
         "T1003.006"
       ],
@@ -18,7 +18,7 @@
       "level": 13,
       "description": "Successful network logon to domain controller from a source with a preceding failed-auth burst",
       "rule_id": "100215",
-      "agent": "talondc01",
+      "agent": "corpdc01",
       "mitre": [
         "T1021.002",
         "T1078"
@@ -29,7 +29,7 @@
       "level": 12,
       "description": "Multiple authentication failures followed by a success from the same source",
       "rule_id": "100210",
-      "agent": "talondellbox",
+      "agent": "corpws07",
       "mitre": [
         "T1110.001"
       ],
@@ -39,13 +39,13 @@
       "level": 12,
       "description": "Multiple authentication failures from a single source (>= 20 in 60s)",
       "rule_id": "100200",
-      "agent": "talondellbox",
+      "agent": "corpws07",
       "mitre": [
         "T1110"
       ],
       "timestamp": "2026-07-20T02:14:31.671Z"
     }
   ],
-  "recon_delta": "## Recon delta — 2026-07-20\n\n- **NEW** `talondellbox:3389/tcp` (RDP) reachable from the workstation VLAN — was filtered in the 2026-07-13 baseline.\n- Unchanged: `talondc01:445/tcp`, `talondc01:389/tcp`.\n",
+  "recon_delta": "## Recon delta — 2026-07-20\n\n- **NEW** `corpws07:3389/tcp` (RDP) reachable from the workstation VLAN — was filtered in the 2026-07-13 baseline.\n- Unchanged: `corpdc01:445/tcp`, `corpdc01:389/tcp`.\n",
   "note": "Deterministic intake. Reasoning happens in CASA, not here."
 }

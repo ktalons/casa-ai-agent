@@ -37,7 +37,7 @@
       "level": 15,
       "description": "Directory replication (DRSUAPI GetNCChanges) requested from a host that is not a domain controller",
       "rule_id": "100220",
-      "agent": "talondc01",
+      "agent": "corpdc01",
       "mitre": [
         "T1003.006"
       ],
@@ -56,7 +56,7 @@
         "rule_id": "100220",
         "rev": null
       },
-      "src_ip": "10.10.30.14",
+      "src_ip": "198.51.100.14",
       "src_port": null,
       "dst_ip": null,
       "dst_port": null,
@@ -72,7 +72,7 @@
       "level": 13,
       "description": "Successful network logon to domain controller from a source with a preceding failed-auth burst",
       "rule_id": "100215",
-      "agent": "talondc01",
+      "agent": "corpdc01",
       "mitre": [
         "T1021.002",
         "T1078"
@@ -93,7 +93,7 @@
         "rule_id": "100215",
         "rev": null
       },
-      "src_ip": "10.10.30.14",
+      "src_ip": "198.51.100.14",
       "src_port": null,
       "dst_ip": null,
       "dst_port": null,
@@ -124,7 +124,7 @@
       "level": 12,
       "description": "Multiple authentication failures followed by a success from the same source",
       "rule_id": "100210",
-      "agent": "talondellbox",
+      "agent": "corpws07",
       "mitre": [
         "T1110.001"
       ],
@@ -143,7 +143,7 @@
         "rule_id": "100210",
         "rev": null
       },
-      "src_ip": "10.10.20.77",
+      "src_ip": "192.0.2.77",
       "src_port": null,
       "dst_ip": null,
       "dst_port": null,
@@ -159,7 +159,7 @@
       "level": 12,
       "description": "Multiple authentication failures from a single source (>= 20 in 60s)",
       "rule_id": "100200",
-      "agent": "talondellbox",
+      "agent": "corpws07",
       "mitre": [
         "T1110"
       ],
@@ -178,7 +178,7 @@
         "rule_id": "100200",
         "rev": null
       },
-      "src_ip": "10.10.20.77",
+      "src_ip": "192.0.2.77",
       "src_port": null,
       "dst_ip": null,
       "dst_port": null,
@@ -192,23 +192,23 @@
     }
   ],
   "recon_delta": {
-    "markdown": "## Recon delta — 2026-07-20\n\n- **NEW** `talondellbox:3389/tcp` (RDP) reachable from the workstation VLAN — was filtered in the 2026-07-13 baseline.\n- Unchanged: `talondc01:445/tcp`, `talondc01:389/tcp`.\n",
+    "markdown": "## Recon delta — 2026-07-20\n\n- **NEW** `corpws07:3389/tcp` (RDP) reachable from the workstation VLAN — was filtered in the 2026-07-13 baseline.\n- Unchanged: `corpdc01:445/tcp`, `corpdc01:389/tcp`.\n",
     "baseline": "2026-07-13",
     "changes": [
       {
-        "host": "talondellbox",
+        "host": "corpws07",
         "port": 3389,
         "proto": "tcp",
         "status": "new"
       },
       {
-        "host": "talondc01",
+        "host": "corpdc01",
         "port": 445,
         "proto": "tcp",
         "status": "unchanged"
       },
       {
-        "host": "talondc01",
+        "host": "corpdc01",
         "port": 389,
         "proto": "tcp",
         "status": "unchanged"

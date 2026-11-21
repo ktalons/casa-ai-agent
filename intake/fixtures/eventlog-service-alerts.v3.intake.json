@@ -1,0 +1,432 @@
+{
+  "schema": "talonsoclab.soc-intake/v3",
+  "generated": "2026-08-12T12:00:00Z",
+  "source": "talonsoclab",
+  "consumer": "casa-ai-agent (github.com/ktalons/casa-ai-agent)",
+  "window": {
+    "start": "2026-08-11T12:00:00Z",
+    "end": "2026-08-12T12:00:00Z",
+    "lookback_hours": 24
+  },
+  "filter": {
+    "min_level": 10,
+    "include_rule_ids": [
+      "100960"
+    ],
+    "cap": 200,
+    "order": "newest_first"
+  },
+  "truncated": false,
+  "counts": [
+    {
+      "date": "2026-08-11",
+      "matched": 0,
+      "included": 0
+    },
+    {
+      "date": "2026-08-12",
+      "matched": 8,
+      "included": 8
+    }
+  ],
+  "pipeline": {
+    "collector_ok": true,
+    "agents_reporting": 6,
+    "last_event_seen": "2026-08-12T11:57:19.402Z"
+  },
+  "detections": [
+    {
+      "level": 13,
+      "description": "Sysmon - sc.exe stopping the Sysmon service",
+      "rule_id": "100966",
+      "agent": "corpsrv52",
+      "mitre": [
+        "T1685"
+      ],
+      "timestamp": "2026-08-12T03:17:09.648117Z",
+      "alert_id": "1786504629.0022940",
+      "tactic": [
+        "defense-impairment"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "sysmon_event1",
+        "service_tampering"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100966",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "1",
+      "sysmon": {
+        "process_create": {
+          "image": "C:\\Windows\\System32\\sc.exe",
+          "command_line": "sc.exe stop Sysmon64",
+          "parent_image": "C:\\Windows\\System32\\cmd.exe",
+          "parent_command_line": "\"C:\\Windows\\system32\\cmd.exe\" ",
+          "process_id": 1876,
+          "parent_process_id": 6120,
+          "process_guid": "{8a2f61d0-d5f3-4c6e-8a19-2f7b0e4d9c81}",
+          "parent_process_guid": "{8a2f61d0-7c4e-4b19-b3a5-0f6e2d91c7a4}",
+          "user": "CORP\\adm-ops17",
+          "integrity_level": "High",
+          "current_directory": "C:\\Users\\adm-ops17\\",
+          "hashes": {
+            "md5": null,
+            "sha1": null,
+            "sha256": "7a1c9e3b5d0f2a4c6e8b0d2f4a6c8e0b1d3f5a7c9e2b4d6f8a0c3e5b7d9f1a2c",
+            "imphash": "0c4e8a2d6f1b5e9c3a7d0f4b8e2c6a1d"
+          }
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Sysmon - sc.exe setting the Sysmon service start type to disabled",
+      "rule_id": "100965",
+      "agent": "corpsrv52",
+      "mitre": [
+        "T1685"
+      ],
+      "timestamp": "2026-08-12T03:17:05.336Z",
+      "alert_id": "1786504625.0021058",
+      "tactic": [
+        "defense-impairment"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "sysmon_event1",
+        "service_tampering"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100965",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "1",
+      "sysmon": {
+        "process_create": {
+          "image": "C:\\Windows\\System32\\sc.exe",
+          "command_line": "sc.exe config Sysmon64 start= disabled",
+          "parent_image": "C:\\Windows\\System32\\cmd.exe",
+          "parent_command_line": "\"C:\\Windows\\system32\\cmd.exe\" ",
+          "process_id": 6604,
+          "parent_process_id": 6120,
+          "process_guid": "{8a2f61d0-c2d9-4a8b-b5f0-7d1e3a9c6e24}",
+          "parent_process_guid": "{8a2f61d0-7c4e-4b19-b3a5-0f6e2d91c7a4}",
+          "user": "CORP\\adm-ops17",
+          "integrity_level": "High",
+          "current_directory": "C:\\Users\\adm-ops17\\",
+          "hashes": {
+            "md5": null,
+            "sha1": null,
+            "sha256": "7a1c9e3b5d0f2a4c6e8b0d2f4a6c8e0b1d3f5a7c9e2b4d6f8a0c3e5b7d9f1a2c",
+            "imphash": "0c4e8a2d6f1b5e9c3a7d0f4b8e2c6a1d"
+          }
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Microsoft Defender Antivirus: real-time protection was disabled (event 5001)",
+      "rule_id": "100964",
+      "agent": "corpsrv52",
+      "mitre": [
+        "T1685"
+      ],
+      "timestamp": "2026-08-12T03:15:59.771Z",
+      "alert_id": "1786504559.0019147",
+      "tactic": [
+        "defense-impairment"
+      ],
+      "groups": [
+        "windows",
+        "defender"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100964",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "5001",
+      "sysmon": null,
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Sysmon - PowerShell turning off Microsoft Defender real-time monitoring",
+      "rule_id": "100963",
+      "agent": "corpsrv52",
+      "mitre": [
+        "T1685"
+      ],
+      "timestamp": "2026-08-12T03:15:58.402Z",
+      "alert_id": "1786504558.0017270",
+      "tactic": [
+        "defense-impairment"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "sysmon_event1",
+        "powershell",
+        "defender"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100963",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "1",
+      "sysmon": {
+        "process_create": {
+          "image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "command_line": "powershell.exe -NoProfile -Command \"Set-MpPreference -DisableRealtimeMonitoring $true\"",
+          "parent_image": "C:\\Windows\\System32\\cmd.exe",
+          "parent_command_line": "\"C:\\Windows\\system32\\cmd.exe\" ",
+          "process_id": 2980,
+          "parent_process_id": 6120,
+          "process_guid": "{8a2f61d0-b7e1-4d3a-a06c-9e2f4b8d1c53}",
+          "parent_process_guid": "{8a2f61d0-7c4e-4b19-b3a5-0f6e2d91c7a4}",
+          "user": "CORP\\adm-ops17",
+          "integrity_level": "High",
+          "current_directory": "C:\\Users\\adm-ops17\\",
+          "hashes": {
+            "md5": null,
+            "sha1": null,
+            "sha256": "3f0a7c2e9b4d61f8a5c3e7b9d1f0a2c4e6b8d0f3a5c7e9b1d4f6a8c0e2b5d7f9",
+            "imphash": "f8b9a1e0d2c34e57a6b8c9d0e1f2a3b4"
+          }
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Sysmon - Windows event log cleared with wevtutil",
+      "rule_id": "100961",
+      "agent": "corpsrv52",
+      "mitre": [
+        "T1685.005"
+      ],
+      "timestamp": "2026-08-12T03:14:44.910233Z",
+      "alert_id": "1786504484.0015313",
+      "tactic": [
+        "defense-impairment"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "sysmon_event1",
+        "log_clearing"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100961",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "1",
+      "sysmon": {
+        "process_create": {
+          "image": "C:\\Windows\\System32\\wevtutil.exe",
+          "command_line": "wevtutil.exe cl System",
+          "parent_image": "C:\\Windows\\System32\\cmd.exe",
+          "parent_command_line": "\"C:\\Windows\\system32\\cmd.exe\" ",
+          "process_id": 5096,
+          "parent_process_id": 6120,
+          "process_guid": "{8a2f61d0-a4c8-4f2e-91d7-3b0e6c5a2f19}",
+          "parent_process_guid": "{8a2f61d0-7c4e-4b19-b3a5-0f6e2d91c7a4}",
+          "user": "CORP\\adm-ops17",
+          "integrity_level": "High",
+          "current_directory": "C:\\Users\\adm-ops17\\",
+          "hashes": {
+            "md5": null,
+            "sha1": null,
+            "sha256": "e4c3a1f8b2d6094a7c5e3b1f0d8a6c4e2b0f9d7a5c3e1b9f7d5a3c1e0b8f6d4a",
+            "imphash": "2b7d0e5f8a1c4d6e9f0a3b5c7d9e1f2a"
+          }
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 13,
+      "description": "Windows: the Security audit log was cleared (event 1102)",
+      "rule_id": "100962",
+      "agent": "corpsrv52",
+      "mitre": [
+        "T1685.005"
+      ],
+      "timestamp": "2026-08-12T03:14:41.587Z",
+      "alert_id": "1786504481.0013413",
+      "tactic": [
+        "defense-impairment"
+      ],
+      "groups": [
+        "windows",
+        "windows_security",
+        "log_clearing"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100962",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": "adm-ops17",
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "1102",
+      "sysmon": null,
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Sysmon - Windows event log cleared with wevtutil",
+      "rule_id": "100961",
+      "agent": "corpsrv52",
+      "mitre": [
+        "T1685.005"
+      ],
+      "timestamp": "2026-08-12T03:14:41.203Z",
+      "alert_id": "1786504481.0011493",
+      "tactic": [
+        "defense-impairment"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "sysmon_event1",
+        "log_clearing"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100961",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "1",
+      "sysmon": {
+        "process_create": {
+          "image": "C:\\Windows\\System32\\wevtutil.exe",
+          "command_line": "wevtutil.exe cl Security",
+          "parent_image": "C:\\Windows\\System32\\cmd.exe",
+          "parent_command_line": "\"C:\\Windows\\system32\\cmd.exe\" ",
+          "process_id": 4412,
+          "parent_process_id": 6120,
+          "process_guid": "{8a2f61d0-91b3-4e07-8c2d-5a6f1e0b3d78}",
+          "parent_process_guid": "{8a2f61d0-7c4e-4b19-b3a5-0f6e2d91c7a4}",
+          "user": "CORP\\adm-ops17",
+          "integrity_level": "High",
+          "current_directory": "C:\\Users\\adm-ops17\\",
+          "hashes": {
+            "md5": null,
+            "sha1": null,
+            "sha256": "e4c3a1f8b2d6094a7c5e3b1f0d8a6c4e2b0f9d7a5c3e1b9f7d5a3c1e0b8f6d4a",
+            "imphash": "2b7d0e5f8a1c4d6e9f0a3b5c7d9e1f2a"
+          }
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 5,
+      "description": "Windows: successful Remote Desktop logon (logon type 10)",
+      "rule_id": "100960",
+      "agent": "corpsrv52",
+      "mitre": [
+        "T1021.001",
+        "T1078"
+      ],
+      "timestamp": "2026-08-12T03:12:07.118402Z",
+      "alert_id": "1786504327.0009563",
+      "tactic": [
+        "lateral-movement",
+        "initial-access"
+      ],
+      "groups": [
+        "windows",
+        "authentication_success",
+        "rdp"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100960",
+        "rev": null
+      },
+      "src_ip": "198.51.100.36",
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": "adm-ops17",
+      "logon_type": 10,
+      "event_id": "4624",
+      "sysmon": null,
+      "suricata": null
+    }
+  ],
+  "recon_delta": {
+    "markdown": "## Recon delta — 2026-08-12\n\nScheduled run completed against the 2026-08-05 baseline: no new or removed listeners.\n",
+    "baseline": "2026-08-05",
+    "changes": []
+  },
+  "note": "Deterministic intake. Reasoning happens in CASA, not here."
+}

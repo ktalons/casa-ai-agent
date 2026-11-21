@@ -51,7 +51,8 @@ advisory and comes from `casa:evaluator`. Nothing here edits a brief.
 
 - The machine checks are deterministic and final. If you disagree with one, the fix is in the
   brief or in `expected.json`, never in the grade file.
-- The evaluator's quotations must be verbatim. If a quotation does not appear in the brief,
-  treat that rubric item as failed and say so.
+- The evaluator's quotations must be verbatim. The merge in step 4 checks every passing quote
+  against the brief and fails any it cannot find, with the reason in that item's `note`; report
+  those failures as they stand, and do not edit the rubric or grade file by hand.
 - Results are gitignored. If a grade should be kept, copy the brief under `${CLAUDE_PLUGIN_ROOT}/evals/samples/` as
   `<fixture>.runN.brief.md`; the test suite lints every run sample.

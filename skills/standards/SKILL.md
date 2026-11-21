@@ -30,7 +30,10 @@ Every hostname, IP, rule ID, event ID, technique ID, user, port and timestamp in
 must trace to the input you were given or to a reference table under this skill's
 `${CLAUDE_PLUGIN_ROOT}/skills/standards/references/`. Absence of an alert is not absence of activity, and absence of evidence is
 not evidence of absence: say what you could not see and what would show it. When the input
-is empty, report that plainly and stop; never manufacture a finding. Never write example
+is empty, report that plainly and stop; never manufacture a finding. When the input says it
+was truncated, its earliest and latest detections are the edges of what was collected, never
+the start or end of the activity: write that it was first seen in the window at a time, never
+that it began then. Never write example
 telemetry to illustrate a point; use placeholders such as `<host>` and `<rule_id>`.
 
 ## 4. Reasoning trace
@@ -50,9 +53,28 @@ is less likely. Gaps in the chain are stated, not bridged.
 - **Low** — indirect or circumstantial; heuristic rather than indicator; benign explanations
   are at least as likely.
 
+The level rates the claim the evidence supports, which is what was observed. What is still
+unknown around it, such as who started it or what it did next, narrows the claim and becomes a
+data request; it does not lower the level of what was observed. A benign explanation counts
+against High only when something in the input supports it. One that is only not ruled out,
+because no change record was given or nobody has been asked yet, is listed as an alternative
+with the request that would settle it, and does not hold the level down. The reverse does not
+hold: a `refuted` verdict that rests on the input's own account of sanctioned activity, such as
+a scheduled scan or a maintenance run it describes, is Medium at most until someone outside the
+input confirms that account. It is telemetry, not confirmed context, and calling activity
+benign is the conclusion that lowers the guard.
+
 Modifiers, one level each: analyst-confirmed environment context (+), independent threat
-intelligence match (+), missing baseline (−), truncated window (−). A confidence statement
-about an empty input is about **coverage** (was the pipeline live?), never about a threat.
+intelligence match (+), missing baseline (−), truncated window (−). Missing baseline applies
+only when a finding rests on activity being unusual for this environment (a rare destination,
+a first-seen domain, an odd hour, a new listener) and the input gives nothing normal to
+compare it with. Behavior whose meaning does not depend on what is normal here, such as
+clearing a security log or switching off a defense, does not take it; nor does the plain
+absence of a change record or an account history, which no intake carries. Truncated window
+applies whenever the input says detections were cut: that is missing evidence inside the claim,
+not an unknown around it, so the level drops one and the brief names that as the reason. A confidence
+statement about an empty input is about **coverage** (was the pipeline live?), never about a
+threat.
 
 ## 6. Citations
 

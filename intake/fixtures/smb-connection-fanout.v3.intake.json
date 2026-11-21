@@ -1,0 +1,333 @@
+{
+  "schema": "talonsoclab.soc-intake/v3",
+  "generated": "2026-08-18T06:00:00Z",
+  "source": "talonsoclab",
+  "consumer": "casa-ai-agent (github.com/ktalons/casa-ai-agent)",
+  "window": {
+    "start": "2026-08-17T06:00:00Z",
+    "end": "2026-08-18T06:00:00Z",
+    "lookback_hours": 24
+  },
+  "filter": {
+    "min_level": 12,
+    "include_rule_ids": [],
+    "cap": 200,
+    "order": "newest_first"
+  },
+  "truncated": false,
+  "counts": [
+    {
+      "date": "2026-08-17",
+      "matched": 6,
+      "included": 6
+    },
+    {
+      "date": "2026-08-18",
+      "matched": 0,
+      "included": 0
+    }
+  ],
+  "pipeline": {
+    "collector_ok": true,
+    "agents_reporting": 6,
+    "last_event_seen": "2026-08-18T05:58:47.019Z"
+  },
+  "detections": [
+    {
+      "level": 12,
+      "description": "Suricata: LOCAL SCAN RDP sweep, one internal source to 20 or more internal hosts on 3389/tcp within 60 seconds",
+      "rule_id": "100983",
+      "agent": "corpids14",
+      "mitre": [
+        "T1046"
+      ],
+      "timestamp": "2026-08-17T15:43:44.360218Z",
+      "alert_id": "1786981424.0034450",
+      "tactic": [
+        "discovery"
+      ],
+      "groups": [
+        "ids",
+        "suricata",
+        "scan"
+      ],
+      "engine": {
+        "name": "suricata",
+        "rule_id": "1000211",
+        "rev": 1
+      },
+      "src_ip": "198.51.100.63",
+      "src_port": 52317,
+      "dst_ip": "198.51.100.52",
+      "dst_port": 3389,
+      "proto": "tcp",
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": null,
+      "sysmon": null,
+      "suricata": {
+        "event_type": "alert",
+        "signature": "LOCAL SCAN RDP sweep, one internal source to 20 or more internal hosts on 3389/tcp within 60 seconds",
+        "category": "Attempted Information Leak",
+        "severity": 2,
+        "action": "allowed",
+        "flow_id": "907213588046390",
+        "app_proto": null,
+        "http_hostname": null,
+        "http_url": null,
+        "http_user_agent": null,
+        "tls_sni": null,
+        "dns_rrname": null
+      }
+    },
+    {
+      "level": 12,
+      "description": "Suricata: LOCAL SCAN SMB sweep, one internal source to 20 or more internal hosts on 445/tcp within 60 seconds",
+      "rule_id": "100982",
+      "agent": "corpids14",
+      "mitre": [
+        "T1046"
+      ],
+      "timestamp": "2026-08-17T15:43:31.905Z",
+      "alert_id": "1786981411.0032536",
+      "tactic": [
+        "discovery"
+      ],
+      "groups": [
+        "ids",
+        "suricata",
+        "scan"
+      ],
+      "engine": {
+        "name": "suricata",
+        "rule_id": "1000210",
+        "rev": 1
+      },
+      "src_ip": "198.51.100.63",
+      "src_port": 52288,
+      "dst_ip": "198.51.100.47",
+      "dst_port": 445,
+      "proto": "tcp",
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": null,
+      "sysmon": null,
+      "suricata": {
+        "event_type": "alert",
+        "signature": "LOCAL SCAN SMB sweep, one internal source to 20 or more internal hosts on 445/tcp within 60 seconds",
+        "category": "Attempted Information Leak",
+        "severity": 2,
+        "action": "allowed",
+        "flow_id": "907213588041127",
+        "app_proto": null,
+        "http_hostname": null,
+        "http_url": null,
+        "http_user_agent": null,
+        "tls_sni": null,
+        "dns_rrname": null
+      }
+    },
+    {
+      "level": 12,
+      "description": "Sysmon - process named like a Windows binary, outside System32, connecting to an internal host on 445/tcp or 3389/tcp",
+      "rule_id": "100981",
+      "agent": "corpws63",
+      "mitre": [
+        "T1046"
+      ],
+      "timestamp": "2026-08-17T15:43:03.077Z",
+      "alert_id": "1786981383.0030609",
+      "tactic": [
+        "discovery"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "sysmon_event3",
+        "network"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100981",
+        "rev": null
+      },
+      "src_ip": "198.51.100.63",
+      "src_port": 52133,
+      "dst_ip": "198.51.100.21",
+      "dst_port": 445,
+      "proto": "tcp",
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "3",
+      "sysmon": {
+        "network_connect": {
+          "image": "C:\\Users\\Public\\Libraries\\svchost.exe",
+          "process_id": 9128,
+          "process_guid": "{3e9b04c7-6a1f-4d82-b7e3-c05a19f2d846}",
+          "user": "CORP\\u-fin22",
+          "initiated": true,
+          "source_hostname": "corpws63",
+          "destination_hostname": null
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Sysmon - process named like a Windows binary, outside System32, connecting to an internal host on 445/tcp or 3389/tcp",
+      "rule_id": "100981",
+      "agent": "corpws63",
+      "mitre": [
+        "T1046"
+      ],
+      "timestamp": "2026-08-17T15:43:02.640Z",
+      "alert_id": "1786981382.0028724",
+      "tactic": [
+        "discovery"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "sysmon_event3",
+        "network"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100981",
+        "rev": null
+      },
+      "src_ip": "198.51.100.63",
+      "src_port": 52121,
+      "dst_ip": "198.51.100.14",
+      "dst_port": 3389,
+      "proto": "tcp",
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "3",
+      "sysmon": {
+        "network_connect": {
+          "image": "C:\\Users\\Public\\Libraries\\svchost.exe",
+          "process_id": 9128,
+          "process_guid": "{3e9b04c7-6a1f-4d82-b7e3-c05a19f2d846}",
+          "user": "CORP\\u-fin22",
+          "initiated": true,
+          "source_hostname": "corpws63",
+          "destination_hostname": null
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Sysmon - process named like a Windows binary, outside System32, connecting to an internal host on 445/tcp or 3389/tcp",
+      "rule_id": "100981",
+      "agent": "corpws63",
+      "mitre": [
+        "T1046"
+      ],
+      "timestamp": "2026-08-17T15:43:02.118734Z",
+      "alert_id": "1786981382.0026763",
+      "tactic": [
+        "discovery"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "sysmon_event3",
+        "network"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100981",
+        "rev": null
+      },
+      "src_ip": "198.51.100.63",
+      "src_port": 52114,
+      "dst_ip": "198.51.100.12",
+      "dst_port": 445,
+      "proto": "tcp",
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "3",
+      "sysmon": {
+        "network_connect": {
+          "image": "C:\\Users\\Public\\Libraries\\svchost.exe",
+          "process_id": 9128,
+          "process_guid": "{3e9b04c7-6a1f-4d82-b7e3-c05a19f2d846}",
+          "user": "CORP\\u-fin22",
+          "initiated": true,
+          "source_hostname": "corpws63",
+          "destination_hostname": null
+        }
+      },
+      "suricata": null
+    },
+    {
+      "level": 12,
+      "description": "Sysmon - svchost.exe started from a path outside System32 by a non-service parent",
+      "rule_id": "100980",
+      "agent": "corpws63",
+      "mitre": [
+        "T1036.005"
+      ],
+      "timestamp": "2026-08-17T15:42:10.553Z",
+      "alert_id": "1786981330.0024861",
+      "tactic": [
+        "stealth"
+      ],
+      "groups": [
+        "windows",
+        "sysmon",
+        "sysmon_event1",
+        "masquerading"
+      ],
+      "engine": {
+        "name": "wazuh",
+        "rule_id": "100980",
+        "rev": null
+      },
+      "src_ip": null,
+      "src_port": null,
+      "dst_ip": null,
+      "dst_port": null,
+      "proto": null,
+      "subject_user": null,
+      "target_user": null,
+      "logon_type": null,
+      "event_id": "1",
+      "sysmon": {
+        "process_create": {
+          "image": "C:\\Users\\Public\\Libraries\\svchost.exe",
+          "command_line": "C:\\Users\\Public\\Libraries\\svchost.exe -k netsvcs",
+          "parent_image": "C:\\Windows\\System32\\cmd.exe",
+          "parent_command_line": "cmd.exe /c start \"\" /b C:\\Users\\Public\\Libraries\\svchost.exe -k netsvcs",
+          "process_id": 9128,
+          "parent_process_id": 8840,
+          "process_guid": "{3e9b04c7-6a1f-4d82-b7e3-c05a19f2d846}",
+          "parent_process_guid": "{3e9b04c7-2d58-4a6e-9c01-f7b3e8a5d212}",
+          "user": "CORP\\u-fin22",
+          "integrity_level": "Medium",
+          "current_directory": "C:\\Users\\Public\\Libraries\\",
+          "hashes": {
+            "md5": null,
+            "sha1": null,
+            "sha256": "c71f3a9e05d2b84f6a1e7c3d9b0f5a2e8c4d6b1f3a7e9c0d2b5f8a1c4e6d9b3f",
+            "imphash": "5d2a8f1c7e3b9d0a4f6c2e8b1d7a3f9c"
+          }
+        }
+      },
+      "suricata": null
+    }
+  ],
+  "recon_delta": {
+    "markdown": "## Recon delta — 2026-08-18\n\nScheduled run `internal-nightly` from scanner `corpscan11` (192.0.2.11), 02:00Z to 02:41Z on 2026-08-18, against the 2026-08-11 baseline: no new or removed listeners.\n",
+    "baseline": "2026-08-11",
+    "changes": []
+  },
+  "note": "Deterministic intake. Reasoning happens in CASA, not here."
+}

@@ -1,0 +1,19 @@
+{
+  "schema": "casa.fixture-sets/v1",
+  "about": "Every fixture family under intake/fixtures/ is in exactly one set. Prompt text may be tuned against authoring fixtures. Held-out fixtures are never named in skill, agent or card text and never tuned against, so their scores measure generalization; a held-out fixture that gets used for tuning moves to authoring and is replaced. Scenarios record which of the eight S2 scenarios a fixture covers.",
+  "fixtures": {
+    "beaconing-recon-delta": { "set": "authoring", "scenarios": [] },
+    "brute-force-dc-chain": { "set": "authoring", "scenarios": [] },
+    "quiet-day": { "set": "authoring", "scenarios": [] },
+    "suricata-scan-burst": { "set": "authoring", "scenarios": ["refuted-benign"] },
+    "auth-failure-flood": { "set": "authoring", "scenarios": ["truncation"] },
+    "scriptlet-proxy-exec": { "set": "authoring", "scenarios": ["lolbins"] },
+    "new-autostart-entries": { "set": "authoring", "scenarios": ["persistence"] },
+    "empty-window": { "set": "held-out", "scenarios": ["healthy-quiet-day"] },
+    "powershell-cradle-alert": { "set": "authoring", "scenarios": ["injected-text", "lolbins"] },
+    "eventlog-service-alerts": { "set": "authoring", "scenarios": ["log-tampering"] },
+    "smb-connection-fanout": { "set": "held-out", "scenarios": ["internal-scanning"] },
+    "linux-audit-alerts": { "set": "held-out", "scenarios": ["log-tampering"] },
+    "iis-worker-process-alerts": { "set": "held-out", "scenarios": ["injected-text"] }
+  }
+}

@@ -12,11 +12,11 @@
       "level": 12,
       "description": "Periodic outbound HTTPS connections to a rarely-contacted external host (regular interval)",
       "rule_id": "100305",
-      "agent": "talonmacbook",
+      "agent": "corpws12",
       "mitre": ["T1071.001"],
       "timestamp": "2026-07-22T09:41:12.004Z",
       "alert_id": "1784799672.004001",
-      "src_ip": "10.10.40.23",
+      "src_ip": "198.51.100.23",
       "dst_ip": "203.0.113.45",
       "user": null,
       "event_id": null,
@@ -27,11 +27,11 @@
       "level": 12,
       "description": "DNS query for a newly-observed high-entropy domain",
       "rule_id": "100310",
-      "agent": "talonmacbook",
+      "agent": "corpws12",
       "mitre": ["T1071.004"],
       "timestamp": "2026-07-22T09:39:58.770Z",
       "alert_id": "1784799598.770002",
-      "src_ip": "10.10.40.23",
+      "src_ip": "198.51.100.23",
       "dst_ip": null,
       "user": null,
       "event_id": null,
@@ -40,9 +40,9 @@
     }
   ],
   "recon_delta": {
-    "markdown": "## Recon delta — 2026-07-22\n\n- **NEW** `talonmacbook:8443/tcp` responding with a self-signed TLS cert — not present in the 2026-07-15 baseline.\n",
+    "markdown": "## Recon delta — 2026-07-22\n\n- **NEW** `corpws12:8443/tcp` responding with a self-signed TLS cert — not present in the 2026-07-15 baseline.\n",
     "baseline": "2026-07-15",
-    "changes": [ { "host": "talonmacbook", "port": 8443, "proto": "tcp", "status": "new" } ]
+    "changes": [ { "host": "corpws12", "port": 8443, "proto": "tcp", "status": "new" } ]
   },
   "note": "Deterministic intake. Reasoning happens in CASA, not here."
 }

@@ -13,18 +13,18 @@
   "threads": [
     {
       "id": "T1",
-      "title": "Periodic HTTPS and high-entropy DNS from talonmacbook, with a new self-signed listener",
-      "hosts": ["talonmacbook"],
+      "title": "Periodic HTTPS and high-entropy DNS from corpws12, with a new self-signed listener",
+      "hosts": ["corpws12"],
       "rule_ids": ["100310", "100305"],
       "attack": ["T1071.004", "T1071.001"],
       "tactic_sequence": ["command-and-control", "command-and-control"],
-      "hypothesis": "talonmacbook is beaconing to a rarely-contacted external host and resolving a high-entropy domain, consistent with C2, and the new self-signed listener on 8443/tcp belongs to the same activity rather than a legitimate service.",
+      "hypothesis": "corpws12 is beaconing to a rarely-contacted external host and resolving a high-entropy domain, consistent with C2, and the new self-signed listener on 8443/tcp belongs to the same activity rather than a legitimate service.",
       "verdict": "undetermined",
       "confidence": {
         "level": "Medium",
         "justification": "The beaconing and DNS components rest on two rule-asserted detections from one host, which corroborate each other only weakly. The intake has no interval, jitter, destination, byte counts, queried name or listener owner. The listener linkage is Low: a self-signed cert fits a local dev server as well as the same activity.",
         "would_raise": [
-          "Zeek conn.log for talonmacbook showing at least ten connections to one destination with jitter under 15 percent of the mean interval",
+          "Zeek conn.log for corpws12 showing at least ten connections to one destination with jitter under 15 percent of the mean interval",
           "A cited threat-intel match on the destination or the high-entropy domain",
           "Process-to-socket telemetry tying one process to the beacon and to the 8443/tcp listener"
         ]
@@ -48,20 +48,20 @@
     { "function": "ID", "category": "ID.AM", "subcategory": "ID.AM-02", "why": "A listening-service inventory would give the new listener a known owner." }
   ],
   "options": [
-    { "kind": "investigate", "action": "Pull flow, DNS and process-to-socket data for talonmacbook around 2026-07-22 and measure interval and jitter, then check whether the beacon destination relates to 8443/tcp.", "tradeoff": "Could raise the beaconing components to High or refute them; costs analyst time and depends on retained logs.", "depends_on": ["DR1", "DR2", "DR3"] },
+    { "kind": "investigate", "action": "Pull flow, DNS and process-to-socket data for corpws12 around 2026-07-22 and measure interval and jitter, then check whether the beacon destination relates to 8443/tcp.", "tradeoff": "Could raise the beaconing components to High or refute them; costs analyst time and depends on retained logs.", "depends_on": ["DR1", "DR2", "DR3"] },
     { "kind": "investigate", "action": "Identify the owner of the 8443/tcp listener and inspect its certificate; ask the host owner whether a local service was started since 2026-07-15.", "tradeoff": "Cheaply resolves the listener question; the owner's answer is context, not proof, and it will not settle the beaconing.", "depends_on": ["DR4"] },
     { "kind": "harden", "action": "Enable flow, DNS query and process-network logging on managed endpoints with retention long enough to measure beacon intervals.", "tradeoff": "Closes the visibility gaps seen here; adds log volume and needs agent configuration changes.", "depends_on": ["DR1", "DR2", "DR3"] },
     { "kind": "harden", "action": "Keep an inventory of authorized listening services per host and review it against the recon baseline.", "tradeoff": "Shortens triage of listener changes; requires upkeep and an exception path for developer machines.", "depends_on": ["DR4"] }
   ],
   "data_requests": [
-    { "id": "DR1", "source": "Zeek conn.log or NetFlow for talonmacbook", "fields": ["ts", "id.resp_h", "id.resp_p", "duration", "orig_bytes", "resp_bytes"], "why": "Measure interval, jitter and payload consistency; identify the destination behind rule 100305." },
+    { "id": "DR1", "source": "Zeek conn.log or NetFlow for corpws12", "fields": ["ts", "id.resp_h", "id.resp_p", "duration", "orig_bytes", "resp_bytes"], "why": "Measure interval, jitter and payload consistency; identify the destination behind rule 100305." },
     { "id": "DR2", "source": "Zeek dns.log, ssl.log or proxy logs", "fields": ["query", "qtype_name", "answers", "rcode_name", "server_name", "issuer", "validation_status"], "why": "Inspect the domain behind rule 100310 and separate a DNS channel from benign resolution." },
     { "id": "DR3", "source": "Process-to-socket telemetry (Sysmon event 3 and 1, or EDR/osquery on macOS)", "fields": ["Image", "ProcessId", "ParentImage", "DestinationIp", "DestinationPort", "User"], "why": "Tie a process to the beacon and DNS activity." },
     { "id": "DR4", "source": "Analyst-supplied lsof or socket output for 8443/tcp, plus the listener's TLS certificate", "fields": ["Image", "User", "listening socket", "process start time", "cert subject", "cert issuer"], "why": "Decide between the dev-server and same-activity readings of the listener." },
     { "id": "DR5", "source": "Threat-intel lookup, offline tables first", "fields": ["ASN", "registration age", "known-C2 lists", "source"], "why": "An independent source is the card's route to High; needs the destination from DR1 or DR2 first." }
   ],
   "trace": [
-    "OBSERVE: intake validated. 2 detections, 1 host (talonmacbook), 1 tactic (command-and-control), both level 12, span 06:39:58Z to 06:41:12Z on 2026-07-22 (about 74 seconds). recon_delta names talonmacbook, which is the agent of both detections.",
+    "OBSERVE: intake validated. 2 detections, 1 host (corpws12), 1 tactic (command-and-control), both level 12, span 06:39:58Z to 06:41:12Z on 2026-07-22 (about 74 seconds). recon_delta names corpws12, which is the agent of both detections.",
     "OBSERVE: no imperative text found in any string field; injection_flags is empty.",
     "HYPOTHESIZE: one thread. Rule (c) fired (recon_delta names a host already in the thread); rule (b) also holds (within 15 minutes). Workflow card c2-beaconing. Specialists: network-analyst and endpoint-analyst from the T1071 row plus the recon_delta row.",
     "INVESTIGATE: both specialists returned valid casa.finding/v1 blocks first time, both verdict undetermined at Medium.",
@@ -76,13 +76,13 @@
 ```
 
 ## Summary
-One thread, T1, on talonmacbook. A DNS query to a newly-observed high-entropy domain (rule 100310) was followed about 74 seconds later by periodic outbound HTTPS to a rarely-contacted host (rule 100305), and the same host gained a new self-signed listener on 8443/tcp. This is worth investigating at Medium confidence. The verdict is undetermined because the intake has no measurement behind the periodicity and nothing ties the listener to the beaconing.
+One thread, T1, on corpws12. A DNS query to a newly-observed high-entropy domain (rule 100310) was followed about 74 seconds later by periodic outbound HTTPS to a rarely-contacted host (rule 100305), and the same host gained a new self-signed listener on 8443/tcp. This is worth investigating at Medium confidence. The verdict is undetermined because the intake has no measurement behind the periodicity and nothing ties the listener to the beaconing.
 
 ## Threads
-### T1 — Periodic HTTPS and high-entropy DNS from talonmacbook, with a new self-signed listener  (undetermined, Medium)
+### T1 — Periodic HTTPS and high-entropy DNS from corpws12, with a new self-signed listener  (undetermined, Medium)
 - Both detections are level 12 and command-and-control, on one host: DNS first (rule 100310, T1071.004), then web protocols (rule 100305, T1071.001).
 - The periodicity is the rule's assertion; the intake carries no interval, jitter, destination or byte counts (rule 100305).
-- The recon delta shows a new self-signed TLS listener on 8443/tcp that was absent from the 2026-07-15 baseline (recon delta, talonmacbook:8443/tcp). It shares the host with both detections and is corroborating context only. It does not raise the beaconing confidence by itself.
+- The recon delta shows a new self-signed TLS listener on 8443/tcp that was absent from the 2026-07-15 baseline (recon delta, corpws12:8443/tcp). It shares the host with both detections and is corroborating context only. It does not raise the beaconing confidence by itself.
 - The two detections corroborate each other only weakly, because both rest on the same host's rule evaluations.
 
 **Alternatives considered**
@@ -91,7 +91,7 @@ One thread, T1, on talonmacbook. A DNS query to a newly-observed high-entropy do
 - The high-entropy domain is a legitimate CDN or telemetry name; the name and query pattern are not in the intake.
 
 **What would raise confidence**
-- Zeek conn.log for talonmacbook showing at least ten connections to one destination with jitter under 15 percent of the mean interval and consistent payload sizes.
+- Zeek conn.log for corpws12 showing at least ten connections to one destination with jitter under 15 percent of the mean interval and consistent payload sizes.
 - A cited threat-intel match on the destination or domain, or process-to-socket telemetry tying a suspicious process to the connection. These are the card's routes to High.
 - The owning process of 8443/tcp, and whether it is the same process as the beacon.
 
@@ -116,7 +116,7 @@ One thread, T1, on talonmacbook. A DNS query to a newly-observed high-entropy do
 No containment option is offered. The finding is not supported, and the card allows containment only at High.
 
 ## Data requests
-- **DR1:** Zeek conn.log or NetFlow for talonmacbook. Fields: ts, id.resp_h, id.resp_p, duration, orig_bytes, resp_bytes.
+- **DR1:** Zeek conn.log or NetFlow for corpws12. Fields: ts, id.resp_h, id.resp_p, duration, orig_bytes, resp_bytes.
 - **DR2:** Zeek dns.log, ssl.log or proxy logs. Fields: query, qtype_name, answers, rcode_name, server_name, issuer, validation_status.
 - **DR3:** Process-to-socket telemetry (Sysmon event 3 and 1, or EDR/osquery on macOS). Fields: Image, ProcessId, ParentImage, DestinationIp, DestinationPort, User.
 - **DR4:** Analyst-supplied lsof or socket output for 8443/tcp, plus the listener's TLS certificate. Fields: Image, User, listening socket, process start time, cert subject, cert issuer.

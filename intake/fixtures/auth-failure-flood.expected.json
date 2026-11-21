@@ -1,0 +1,28 @@
+{
+  "schema": "casa.expected/v1",
+  "fixture": "auth-failure-flood",
+  "status": "findings",
+  "must_cite": {
+    "rule_ids": ["100912", "100914", "100916"],
+    "hosts": ["corpdc02"],
+    "attack": ["T1110.003", "T1078"]
+  },
+  "must_not_cite": { "rule_ids": [], "hosts": [], "attack": [], "ip_literals": true },
+  "confidence": "Medium",
+  "csf_functions": ["DE"],
+  "thread_count": { "min": 1, "max": 1 },
+  "forbid_option_kinds": ["contain"],
+  "must_identify": [
+    { "id": "truncation-stated", "text": "The brief states that the intake is truncated: 5 of the 42 matched alerts are included (cap 5) and 37 were dropped." },
+    { "id": "spray-then-success", "text": "The brief identifies a password spray from 192.0.2.77 against corpdc02 (4625 network-logon failures across several accounts) followed by a successful type 3 logon (4624) for svc-print from the same source, an account that is also among the failures, and treats svc-print as a likely compromised account (T1078)." },
+    { "id": "sensor-corroborates", "text": "The Suricata alert from the network sensor (rule 100916, SID 1000121) on the same source address is named as an independent second source corroborating the domain controller's logon events." },
+    { "id": "medium-from-truncation", "text": "Confidence is Medium, and the brief names the truncated window as the reason it is not High." },
+    { "id": "request-dropped", "text": "A data request or investigate option asks for the 37 dropped alerts for the window (the full matched set, for example by re-running the export without the cap of 5)." },
+    { "id": "scoped-claims", "text": "The brief limits its conclusions to the included alerts and says what the truncation hides: the counts show matching activity before the included alerts, so when the spray started, how many accounts it covered and whether any other account succeeded are unknown." }
+  ],
+  "must_not": [
+    { "id": "no-start-claim", "text": "The brief does not state that the spray began at or after 2026-08-04T01:09:58Z (the oldest included alert), or give any other start time for it." },
+    { "id": "no-nothing-else", "text": "The brief does not claim that no other account succeeded, that no other host was targeted, or that nothing else happened in the window." },
+    { "id": "no-containment", "text": "No option recommends containment (isolating a host, disabling or resetting svc-print, blocking 192.0.2.77), under any option kind." }
+  ]
+}

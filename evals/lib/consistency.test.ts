@@ -310,3 +310,48 @@ test("output root: the manifest declares the option and every writing skill and 
   }
   expect(read(join("skills", "evaluate", "SKILL.md"))).toContain("--out");
 });
+
+// *--- Finding scratch files (ISC-91) ---*
+
+test("scratch: findings are saved under the output root, in a place the skill names", () => {
+  const verify = section(read(INVESTIGATE), "### 4. VERIFY");
+  // A bare "scratchpad" names no directory; headless runs then try paths the harness refuses.
+  expect(verify).not.toMatch(/\bscratchpad\b/i);
+  expect(verify).toContain("briefs/scratch/<run_id>/");
+  expect(verify).toMatch(/output root/i);
+  for (const rel of promptFiles()) expect([rel, /\bscratchpad\b|\/tmp\b/i.test(read(rel))]).toEqual([rel, false]);
+});
+
+// *--- Confidence, time bounds and verdict framing (ISC-93, ISC-94, ISC-95) ---*
+
+test("confidence: unknowns narrow the claim, and a benign reading nothing supports does not hold the level down", () => {
+  const confidence = section(read(STANDARDS), "## 5. Confidence").replace(/\s+/g, " ");
+  expect(confidence).toMatch(/narrows the claim and becomes a data request/);
+  expect(confidence).toMatch(/counts against High only when something in the input supports it/);
+  expect(confidence).toMatch(/only not ruled out[^.]*does not hold the level down/);
+});
+
+test("time bounds: a truncated input's first and last detections are edges of the collection, not of the activity", () => {
+  const rule = section(read(STANDARDS), "## 3. Anti-fabrication").replace(/\s+/g, " ");
+  expect(rule).toMatch(/truncated[^.]*earliest and latest detections are the edges of what was collected, never the start or end of the activity/);
+});
+
+test("verdict framing: a benign outcome refutes the threat hypothesis instead of supporting a benign one", () => {
+  const hypothesize = section(read(INVESTIGATE), "### 2. HYPOTHESIZE").replace(/\s+/g, " ");
+  expect(hypothesize).toMatch(/threat reading the detections themselves assert/);
+  expect(hypothesize).toMatch(/that hypothesis is `refuted`/);
+});
+
+test("confidence: truncation still lowers the level, and a refutation on the input's own account stays at Medium", () => {
+  const confidence = section(read(STANDARDS), "## 5. Confidence").replace(/\s+/g, " ");
+  // Missing evidence inside the claim is not an unknown around it.
+  expect(confidence).toMatch(/Truncated window applies whenever the input says detections were cut/);
+  expect(confidence).toMatch(/level drops one and the brief names that as the reason/);
+  // The rule that protects a supported finding must not be run backwards to wave activity through.
+  expect(confidence).toMatch(/`refuted` verdict that rests on the input's own account of sanctioned activity[^.]*is Medium at most until someone outside the input confirms/);
+});
+
+test("mapping: a brief that offers containment cites the Respond subcategory it falls under", () => {
+  const brief = section(read(INVESTIGATE), "### 6. BRIEF").replace(/\s+/g, " ");
+  expect(brief).toMatch(/`contain` option[^.]*cites the Respond \(RS\) subcategory/);
+});
