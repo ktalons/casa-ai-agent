@@ -118,7 +118,10 @@ Without raw files, or for a query you judged unnecessary, a specialist returns t
 
 ### 4. VERIFY
 
-For each finding, save its JSON block to the scratchpad and run
+For each finding, save its JSON block with the Write tool as
+`briefs/scratch/<run_id>/<thread_id>-<agent>.json` under the output root, and nowhere else: a
+path outside the output root is refused in a headless run. Then run, from the project
+directory and with the file given by its path,
 
 ```bash
 bun ${CLAUDE_PLUGIN_ROOT}/evals/Lint.ts --finding <file> --intake <intake path>

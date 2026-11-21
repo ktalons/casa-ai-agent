@@ -310,3 +310,14 @@ test("output root: the manifest declares the option and every writing skill and 
   }
   expect(read(join("skills", "evaluate", "SKILL.md"))).toContain("--out");
 });
+
+// *--- Finding scratch files (ISC-91) ---*
+
+test("scratch: findings are saved under the output root, in a place the skill names", () => {
+  const verify = section(read(INVESTIGATE), "### 4. VERIFY");
+  // A bare "scratchpad" names no directory; headless runs then try paths the harness refuses.
+  expect(verify).not.toMatch(/\bscratchpad\b/i);
+  expect(verify).toContain("briefs/scratch/<run_id>/");
+  expect(verify).toMatch(/output root/i);
+  for (const rel of promptFiles()) expect([rel, /\bscratchpad\b|\/tmp\b/i.test(read(rel))]).toEqual([rel, false]);
+});
