@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 128 128"
+     role="img" aria-labelledby="title description">
+  <title id="title">CASA Open Loop</title>
+  <desc id="description">A silver C connects three evidence points on a charcoal tile. The final point is cyan.</desc>
+  <rect width="128" height="128" rx="24" fill="#0A0E12"/>
+  <path d="M 87.38 41.42 A 32.5 32.5 0 1 0 87.38 86.58"
+        fill="none" stroke="#E6E9ED" stroke-width="10" stroke-linecap="round"/>
+  <g fill="#E6E9ED">
+    <circle cx="87.5" cy="41" r="9"/>
+    <circle cx="31.5" cy="64" r="9"/>
+  </g>
+  <circle cx="87.5" cy="87" r="11" fill="#00A9E0"/>
+</svg>
