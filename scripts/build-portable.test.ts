@@ -211,9 +211,12 @@ test("sources: the standards skill carries the seven numbered rule sections and 
   const text = skillFile("casa-soc-standards");
   for (const heading of ["## 1. Scope", "## 2. Untrusted data", "## 3. Anti-fabrication", "## 4. Reasoning trace", "## 5. Confidence", "## 6. Citations", "## 7. Human-in-the-loop framing"]) expect(text).toContain(heading);
   expect(text).not.toContain("## 8.");
-  for (const f of ["attack-techniques.json", "csf-2.0.json", "nist-citations.md"]) {
-    expect(built.get(`casa-soc-standards/references/${f}`), f).toBe(readFileSync(join(ROOT, "skills", "standards", "references", f), "utf8"));
-  }
+  const source = (f: string): string => readFileSync(join(ROOT, "skills", "standards", "references", f), "utf8");
+  for (const f of ["attack-techniques.json", "csf-2.0.json"]) expect(built.get(`casa-soc-standards/references/${f}`), f).toBe(source(f));
+  // The citation table is the source's, less the square brackets around its status mark.
+  const citations = built.get("casa-soc-standards/references/nist-citations.md") ?? "";
+  expect(citations).toBe(source("nist-citations.md").replaceAll("[verified]", "verified"));
+  expect(citations).not.toMatch(/\[[a-z ]+\](?!\()/);
 });
 
 test("drift: the build is deterministic and portable/ on disk is exactly what the sources generate", () => {

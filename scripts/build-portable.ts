@@ -168,6 +168,11 @@ function standardsRules(): string {
   return out;
 }
 
+/** The NIST citation table. Its status mark loses the square brackets, which Markdown reads as a link with no target. */
+function nistCitations(): string {
+  return swap(read(join(STANDARDS_REFS, "nist-citations.md")), "[verified]", "verified", 22);
+}
+
 /** What a specialist's lane says it does, as one sentence for the matching lens. */
 function lens(agent: string): string {
   const m = read(join("agents", `${agent}.md`)).match(/- \*\*Do\*\*: ([\s\S]*?)\n- \*\*Don't\*\*/);
@@ -270,7 +275,11 @@ const SKILLS: Skill[] = [
     description:
       "Rules for analysing security alerts without inventing anything: every host, address, rule, event, technique and time must trace to the input; a three-level confidence rubric; MITRE ATT&CK and NIST CSF 2.0 IDs taken only from the bundled tables; recommendations written as options with trade-offs. Use when triaging security alerts, writing an incident note or analyst brief, mapping findings to ATT&CK or NIST CSF, or reviewing AI-written security analysis.",
     body: standardsBody,
-    files: () => Object.fromEntries(["attack-techniques.json", "csf-2.0.json", "nist-citations.md"].map((f) => [`references/${f}`, read(join(STANDARDS_REFS, f))])),
+    files: () => ({
+      "references/attack-techniques.json": read(join(STANDARDS_REFS, "attack-techniques.json")),
+      "references/csf-2.0.json": read(join(STANDARDS_REFS, "csf-2.0.json")),
+      "references/nist-citations.md": nistCitations(),
+    }),
   },
   {
     name: "casa-soc-triage",
@@ -313,7 +322,8 @@ export function build(): Map<string, string> {
     for (const [path, text] of Object.entries(skill.files())) out.set(`${skill.name}/${path}`, text);
   }
   const rows = SKILLS.map((s) => `| \`${s.name}\` | ${s.description.split(". Use when")[0]}. |`);
-  out.set("README.md", `${reflow(fill(template("README.md"), { "skill-table": rows.join("\n"), "repo-url": REPO_URL, version: pluginVersion() })).trim()}\n`);
+  const table = ["| Skill | What it gives an agent |", "|---|---|", ...rows].join("\n");
+  out.set("README.md", `${reflow(fill(template("README.md"), { "skill-table": table, "repo-url": REPO_URL, version: pluginVersion() })).trim()}\n`);
   return out;
 }
 

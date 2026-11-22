@@ -4,8 +4,6 @@ Three skills in the [Agent Skills](https://agentskills.io) format, generated fro
 plugin's own rule text at version {{version}}. They are for agents that read that format and
 cannot load the plugin.
 
-| Skill | What it gives an agent |
-|---|---|
 {{skill-table}}
 
 Install `casa-soc-standards` with either of the other two. It holds the rules and the tables
