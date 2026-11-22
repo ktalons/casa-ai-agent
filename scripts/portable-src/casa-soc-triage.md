@@ -69,6 +69,13 @@ settings. Otherwise each one goes into the brief as an exact command for the ana
 Before the brief is written, check every {{token-kinds}} in your draft against the input and
 the reference tables. One that traces to neither was invented. {{strip-rule}}
 
+The time you wrote the brief is not in the input, so it is not in the brief. `<generated>` in
+the template's title, and `generated` in its record, are the input's own `generated` value,
+copied as written.
+
+When the trace says how many values were checked, write the number first ("4 rule IDs, 3
+ports"). A number written after the kind word reads as a value of that kind.
+
 Then check the rubric: {{rubric-check}}
 
 {{disagreement}}

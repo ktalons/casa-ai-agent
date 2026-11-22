@@ -41,6 +41,9 @@ is loaded; they are not project-scope components. The SOC non-negotiables live i
   from the skills, cards and agents and fails when one has changed, so a wording change there
   means updating the matching `swap` or `between` call in `scripts/build-portable.ts`. A version
   bump changes the pack too. `bun test` and CI fail on drift.
+- `bun run pack:agensi` writes `dist/casa-soc-pack-<version>.zip`, the one-ZIP skill pack Agensi
+  takes, straight from the pack build (never from `portable/` on disk) and prints its SHA-256.
+  Two builds of one tree are byte-identical. `dist/` is gitignored.
 
 ## Conventions
 

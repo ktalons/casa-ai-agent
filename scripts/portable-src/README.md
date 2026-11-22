@@ -29,11 +29,19 @@ in it enforces them.
 
 ## Tested
 
-One trial run is on record. On 2026-11-21, Codex CLI on `gpt-6-sol` loaded the pack and triaged
-one of the repository's authoring fixtures. The brief passed the repository's lint and all nine
-machine checks of its grader. The judged rubric was not run.
+On 2026-11-22, Codex CLI on `gpt-6-sol` ran the triage skill on the repository's 15 authoring
+fixtures, one run each, with only this pack installed. The repository's grader scored the briefs.
 
-One run on one fixture is a smoke test, not a score. The scores in the repository README belong
+| Set | Variants | Machine | Rubric |
+|---|---|---|---|
+| Authoring | 15 | 134/135 | 95/99 |
+
+Machine is nine deterministic checks per brief, the lint among them. Rubric is the plugin's
+evaluator agent judging what each brief had to identify and what it must not claim.
+
+This is not a held-out score. The authoring fixtures are the set the plugin's prompts are tuned
+on, and two sentences of this pack were tightened after an earlier partial run on the same set.
+The pack has not been run on the held-out fixtures. The scores in the repository README belong
 to the plugin, not to this pack.
 
 ## These files are generated
