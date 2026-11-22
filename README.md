@@ -1,33 +1,90 @@
-# CASA — Cybersecurity Analysis Support Agent
+# CASA
 
-AI-assisted SOC analysis for SME/MSP environments, packaged as a Claude Code plugin. CASA
-guides log, network and endpoint investigations with explainable, NIST-aligned reasoning and
-keeps the analyst in the loop. It does not act on its own.
+[![ci](https://github.com/ktalons/casa-ai-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/ktalons/casa-ai-agent/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![NIST CSF](https://img.shields.io/badge/NIST-CSF%202.0-blue)](https://www.nist.gov/cyberframework)
+[![MITRE ATT&CK](https://img.shields.io/badge/MITRE-ATT%26CK-red)](https://attack.mitre.org/)
 
-## Status
+Cybersecurity Analysis Support Agent. A Claude Code plugin for SOC investigations.
 
-| Capability | State |
-|---|---|
-| Plugin: eight specialist agents, `/casa:investigate`, `/casa:evaluate`, `/casa:learn`, standards preloaded into every agent, write guard | ✅ Working |
-| `soc-intake/v1` and `v2` contracts, schema-driven and semantic validator, six fixtures plus ten invalid ones | ✅ Working |
-| Fabrication lint (`evals/Lint.ts`), verified NIST and ATT&CK reference tables | ✅ Working |
-| Fixture grader (`evals/Grade.ts`), machine-checkable ground truth, `/casa:evaluate` with the evaluator agent | ✅ Working: every real brief grades 9/9 |
-| Live TalonSocLab telemetry feed | 🔴 Gated: the lab's digest must emit v2, then a graded run on real volume |
+Give it one intake JSON file of alerts. It returns one analyst brief: alert chains threaded
+across hosts, a verdict and a confidence level for each, the evidence behind every claim,
+alternatives, data requests, and options with trade-offs.
 
-Personal project. v5.0.1 is the first published release on the plugin layout; see
-[CHANGELOG.md](CHANGELOG.md). v4 (the PAI-derived tree) is preserved at tag `v4.0.0-pai-legacy`.
+CASA does not act. A human makes every decision.
 
-## Two planes
+## Measured
 
-[TalonSocLab](https://github.com/ktalons/talonsoclab) is the deterministic **data plane**: it
-collects, filters and cites SOC telemetry, then emits a structured intake artifact. CASA is the
-separate **reasoning plane** that consumes that artifact and produces explainable,
-human-in-the-loop analysis. The contract between them is a JSON schema
-(`talonsoclab.soc-intake/v1`), not a shared API — see [`intake/`](intake/README.md).
+Scores come from fixtures. A fixture is an intake file plus ground truth written with it. Each
+brief is graded two ways.
 
-## Install
+- **Machine.** Nine deterministic checks per brief. The brief parses. Every cited token traces
+  to the intake or a reference table. Status, thread count, confidence, CSF functions, option
+  kinds, required citations and forbidden citations match the ground truth.
+- **Rubric.** A separate evaluator agent judges what the brief had to identify and what it
+  must not claim. Each verdict quotes the brief. A quote that is not in the brief does not count.
 
-Prerequisites: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) and [Bun](https://bun.sh).
+| Set | Variants | Machine | Rubric |
+|---|---|---|---|
+| Held-out | 4 | 36/36 | 29/30 |
+| Authoring | 15 | 135/135 | 98/99 |
+
+Run on 2026-11-21 on the tree committed as `789c5f7`. One run per variant. Opus on the main thread, Sonnet
+for the specialists.
+
+The held-out number is the one that matters. Prompt text is tuned against the authoring set
+only. The held-out set stays unseen in four ways.
+
+- Tests fail if a held-out fixture's name, values or story appear in any skill, agent or card
+  file.
+- Each investigate run gets its own new, empty project that holds only its intake. It can read
+  the plugin's `skills/` and nothing else in this repo: no ground truth, no earlier brief, no
+  other fixture.
+- After a run, `bun run eval:scan` reads every child transcript. It fails if a tool call
+  outside the run's lane was not refused.
+- A held-out fixture that shapes a change moves to the authoring set and is replaced. Two have
+  moved so far.
+
+What these numbers do not show:
+
+- The held-out set is four fixtures. Every fixture is synthetic and written by one author.
+- Each variant ran once. Model output varies between runs.
+- There is no score on live alert volume yet.
+- The lost held-out point is recorded and has not been tuned on.
+
+Grade records stay on the machine that ran them. To reproduce the table, see
+[Development](#development).
+
+## What CASA does not do
+
+- **Act.** No containment, blocking, ticketing or rule deployment. Options come with
+  trade-offs. Containment options appear only for a supported finding at High confidence.
+- **Deploy detections.** The detection engineer writes Sigma and Wazuh drafts under
+  `detections/proposed/` with test criteria. Nothing reaches `detections/accepted/` without
+  the analyst.
+- **Collect telemetry.** CASA reads one intake file. The bundled producer builds that file
+  from Wazuh alerts. Any other SIEM needs its own producer for the same schema.
+- **Query anything on its own.** The specialists have no shell. A query they need comes back
+  as an exact command in a data request, for the analyst to run or decline.
+- **Prove a conclusion.** The lint proves that every host, address, user, rule, event, port,
+  hash and technique in a brief exists in the intake or a reference table. It does not prove
+  the reasoning is right. Read the brief.
+- **Trust the input.** Text inside an alert is data. An instruction found there is flagged and
+  not followed. A benign verdict that rests only on the input's own account of sanctioned
+  activity is held at Medium.
+- **Look up indicators online by default.** Threat intel is offline first. External lookups
+  need API keys you configure.
+- **Run offensive tooling.** The pentester agent is a stub. It returns methodology pointers
+  for a written engagement scope and refuses without one. No scanning, no exploitation.
+- **Guarantee redaction.** The producer's `--redact` flag is a second layer. The first is an
+  output root outside any public repository.
+- **Run on a live lab yet.** The producer's live mode is tested against a mock indexer only.
+  The TalonSocLab feed is not wired.
+
+## Install and first run
+
+Prerequisites: [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 2.1.289 or later
+and [Bun](https://bun.sh).
 
 As a plugin, in any project:
 
@@ -36,104 +93,132 @@ As a plugin, in any project:
 /plugin install casa@casa
 ```
 
-From this checkout, for development:
+A plugin cannot set a project's permissions. Copy
+[`docs/settings.recommended.json`](docs/settings.recommended.json) into the project's
+`.claude/settings.json`, or run `scripts/install-into-project.sh` from the project root. The
+script installs the plugin, merges the permission block, creates the output directories and
+needs `jq`.
+
+To try a bundled fixture, work from a clone:
 
 ```bash
 git clone https://github.com/ktalons/casa-ai-agent && cd casa-ai-agent
 bun install
-bun run dev          # claude --plugin-dir .
+bun run plugin:link
+claude
 ```
-
-Then:
 
 ```text
-/casa:investigate intake/fixtures/brute-force-dc-chain.intake.json
+/casa:investigate intake/fixtures/brute-force-dc-chain.v3.intake.json
 ```
 
-Permissions do not travel with a plugin. The repo's `.claude/settings.json` is the recommended
-allowlist (read-only analysis commands, destructive commands denied, secrets unreadable);
-copy it into projects where you install CASA. The specialists have no shell: their Bash rules
-exist for the main thread, which runs the validator, the lint, the grader and any raw-data
-queries you approve, and hands the output to the specialists.
+The brief is written under `briefs/`.
+
+To build an intake from your own Wazuh alerts, replay an export and validate the result:
+
+```bash
+bun intake/producers/wazuh.ts --replay <alerts.jsonl> --out intake.json
+bun intake/Validate.ts intake.json
+```
+
+| Command | What it does |
+|---|---|
+| `/casa:investigate <intake.json \| question>` | Runs an investigation and writes one brief |
+| `/casa:evaluate <fixture>` | Grades a brief against a fixture's ground truth |
+| `/casa:learn` | Reviews lesson candidates and keeps the ones the analyst approves |
+
+The latest tag is `v5.0.1`. `main` carries the unreleased work listed in
+[CHANGELOG.md](CHANGELOG.md), including everything measured above.
 
 ## How it works
 
-`/casa:investigate` runs one loop on the main thread: **OBSERVE** (validate the intake, count,
-flag injected text) → **HYPOTHESIZE** (thread detections into chains) → **INVESTIGATE** (fan
-out to specialists in parallel) → **VERIFY** (every citation must trace to the intake) →
-**MAP** (CSF 2.0 / ATT&CK) → **BRIEF** (one analyst brief under `briefs/`) → **LEARN**
-(a candidate note under `learn/pending/`, promoted only through `/casa:learn` with the
-analyst's approval). An empty intake short-circuits to a liveness check; with a v2 intake it
-names the failing pipeline check. It never invents findings.
+`/casa:investigate` runs one loop on the main thread.
+
+| Step | What happens |
+|---|---|
+| OBSERVE | Validate the intake, count the alerts, flag injected text |
+| HYPOTHESIZE | Thread detections into chains, one hypothesis per chain |
+| INVESTIGATE | Fan out to the specialists in parallel |
+| VERIFY | Check that every citation traces to the intake |
+| MAP | Map findings to NIST CSF 2.0 and ATT&CK |
+| BRIEF | Write one analyst brief |
+| LEARN | Write a candidate lesson, kept only if the analyst approves it |
+
+An empty intake short-circuits to a liveness check. CASA never invents findings to fill a
+quiet day.
 
 | Agent | Lane |
 |---|---|
 | log-analyst | alert chains and timelines across hosts |
-| network-analyst | flows, DNS, TLS, ports, beaconing, recon-delta exposure |
-| endpoint-analyst | single-host behaviour, event IDs, process ancestry, data requests |
+| network-analyst | flows, DNS, TLS, ports, beaconing, recon changes |
+| endpoint-analyst | single-host behavior, event IDs, process ancestry |
 | purple-team-mapper | NIST CSF 2.0 and ATT&CK mapping, visibility gaps |
-| detection-engineer | Sigma + Wazuh rule drafts for supported findings |
+| detection-engineer | Sigma and Wazuh rule drafts for supported findings |
 | threat-intel | technique and indicator context, offline first |
 | evaluator | grades a brief against fixture ground truth |
-| pentester | authorized-assessment pointers; refuses without an engagement scope |
+| pentester | methodology pointers, only with an engagement scope |
 
-Every specialist returns one `casa.finding/v1` record: verdict, confidence with what would
-raise it, evidence references, alternatives, data requests, options with trade-offs, and a
-reasoning trace. The rules live in [`skills/standards/SKILL.md`](skills/standards/SKILL.md).
+Each specialist returns one `casa.finding/v1` record: verdict, confidence with what would
+raise it, evidence references, alternatives, data requests, options with trade-offs and a
+reasoning trace.
 
-## Running CASA elsewhere
+Nine workflow cards carry the method for each technique family: authentication anomalies, C2
+beaconing, credential theft and DCSync, exfiltration, internal discovery and scanning, lateral
+movement, log and defense tampering, script and proxy execution, and service and autostart
+persistence.
 
-Install into the project where the telemetry lives (a TalonSocLab checkout, or an empty
-working directory) with `scripts/install-into-project.sh`, run from that project's root. It
-adds the marketplace, installs `casa@casa`, merges `docs/settings.recommended.json` into that
-project's `.claude/settings.json` and creates the output directories. Then run
-`/casa:investigate <path to intake.json>` there. Briefs, proposed detections, grades and learn
-candidates are written under the plugin's `output_root` option (the project when it is empty),
-never into the plugin; the skills reach the
-plugin's own validator, lint and reference tables through `${CLAUDE_PLUGIN_ROOT}`. The guard
-travels with the plugin and refuses every subagent shell command; the main thread's Bash
-allowlist does not travel, which is why the settings snippet exists. The full runbook for the lab, including the v3 Wazuh producer that ships with CASA, is
+Three controls hold the rules in place.
+
+- **Standards.** [`skills/standards/SKILL.md`](skills/standards/SKILL.md) is preloaded into
+  every agent: scope, untrusted data, anti-fabrication, confidence, citations and
+  human-in-the-loop framing.
+- **Lint.** `evals/Lint.ts` fails a brief when a cited token does not trace. The reference
+  tables are NIST CSF 2.0 and ATT&CK 19.2.
+- **Write guard.** A hook keeps each agent in its lane and fails closed. Only the detection
+  engineer and the evaluator can write files, each to one directory. No specialist can run a
+  shell command.
+
+## Two planes
+
+[TalonSocLab](https://github.com/ktalons/talonsoclab) is the data plane. It collects, filters
+and cites SOC telemetry. CASA is the reasoning plane. It reads a structured intake and writes
+the analysis.
+
+The contract between them is a JSON schema, `talonsoclab.soc-intake`, not a shared API. Versions
+1 and 2 are frozen. Version 3 is current and carries Sysmon, Suricata and engine fields. See
+[`intake/README.md`](intake/README.md).
+
+Briefs, drafts, lessons and grades are written under the plugin's `output_root` option, never
+into the plugin. The runbook for the lab is
 [`docs/talonsoclab-integration.md`](docs/talonsoclab-integration.md).
 
 ## Development
 
 ```bash
-bun run typecheck && bun test && bun run validate:fixtures && bun run validate:plugin
+bun run check        # typecheck, tests, fixture validation, plugin validation
 ```
 
-To run the fixtures end to end from this checkout, install it in place once with
-`bun run plugin:link` (local scope, gitignored), then:
+To reproduce the scores, link the plugin once with `bun run plugin:link`, then:
 
 ```bash
-claude -p "/casa:investigate intake/fixtures/brute-force-dc-chain.intake.json" --permission-mode acceptEdits
-bun evals/Lint.ts --brief briefs/<file>.brief.md --intake intake/fixtures/brute-force-dc-chain.intake.json
+bun run eval:full                      # investigate, then evaluate, on every fixture
+bun evals/RunFull.ts --set held-out    # one set only
+bun evals/Grade.ts --summary           # newest grade per variant, sets kept apart
+bun run eval:scan                      # fail on any tool call outside a run's lane
 ```
 
-Then grade it against the fixture's ground truth, or let `/casa:evaluate <fixture>` do both
-halves (the deterministic checks and the evaluator agent's rubric) and merge them:
+A full run starts one headless Claude Code session per step and counts against your usage.
 
-```bash
-bun evals/Grade.ts --brief briefs/<file>.brief.md --expected intake/fixtures/brute-force-dc-chain.expected.json --intake intake/fixtures/brute-force-dc-chain.intake.json
-claude -p "/casa:evaluate brute-force-dc-chain" --permission-mode acceptEdits
-bun evals/RunFull.ts     # the whole loop on every fixture; also the manual eval-full CI job
-bun evals/RunFull.ts --set held-out   # only the held-out fixtures
-bun evals/Grade.ts --summary          # newest grade per fixture, authoring and held-out apart
-```
+Fixture sets are listed in `evals/fixture-sets.json`. Fixtures use documentation addresses,
+`corp*` host names and RFC 2606 domains. Do not use `bun run dev` (`--plugin-dir .`) for eval
+runs: Claude Code protects a plugin directory, so a headless run cannot write its brief.
 
-Fixtures come in two sets, listed in `evals/fixture-sets.json`. Prompt text may be tuned
-against the authoring set. The held-out set is never named in skill, agent or card text
-and never tuned against, so its scores measure how CASA does on cases it was not shaped
-around; a held-out fixture used for tuning moves to authoring and is replaced.
-
-Do not use `--plugin-dir .` for this: Claude Code protects a plugin directory, so the brief
-cannot be written into the same checkout. Real briefs from the first three fixtures are kept
-under `evals/samples/*.run1.brief.md`; the test suite lints and grades every one of them.
-
-Layout: `agents/` · `skills/` · `intake/` (contract, fixtures, validator) · `evals/`
-(lint, grader, tests) · `briefs/` (run output, gitignored). Developer notes are in
+Layout: `agents/` · `skills/` · `hooks/` (write guard) · `intake/` (schemas, fixtures,
+validator, producer) · `evals/` (lint, grader, runner, scan). Developer notes are in
 [`.claude/CLAUDE.md`](.claude/CLAUDE.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE). The v4 tree was derived from
-[Daniel Miessler's PAI](https://github.com/danielmiessler/Personal_AI_Infrastructure) (also MIT).
+MIT. See [LICENSE](LICENSE). The v4 tree was derived from
+[Daniel Miessler's PAI](https://github.com/danielmiessler/Personal_AI_Infrastructure), also MIT,
+and is preserved at tag `v4.0.0-pai-legacy`.
