@@ -89,7 +89,7 @@ const SAFE_ALIAS = /^[A-Za-z0-9._-]{1,128}$/;
 // *--- Types ---*
 
 type Obj = Record<string, unknown>;
-type FetchInit = {
+export type FetchInit = {
   method: string;
   headers: Record<string, string>;
   body: string;

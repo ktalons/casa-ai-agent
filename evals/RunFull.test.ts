@@ -149,7 +149,7 @@ test("run dir: an investigate run gets a new project that holds only its intake"
     walk(dir);
     // No expected.json, no earlier brief, no settings file: the intake and nothing else.
     expect(files).toEqual([join("intake", "quiet-day.v3.intake.json")]);
-    expect(readFileSync(join(dir, files[0]!), "utf8")).toBe(readFileSync(intake, "utf8"));
+    expect(readFileSync(join(dir, files[0]), "utf8")).toBe(readFileSync(intake, "utf8"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

@@ -57,12 +57,13 @@ function section(text: string, heading: string): string {
   const lines = text.split("\n");
   const start = lines.findIndex((l) => l.trim() === heading);
   if (start === -1) return "";
-  const depth = heading.match(/^#+/)![0].length;
+  const level = (l: string) => (l.match(/^#+/)?.[0] ?? "").length;
+  const depth = level(heading);
   // A `# comment` inside a fenced command block is not a heading.
   let fenced = false;
   const end = lines.findIndex((l, i) => {
     if (i > start && l.startsWith("```")) fenced = !fenced;
-    return i > start && !fenced && /^#+ /.test(l) && l.match(/^#+/)![0].length <= depth;
+    return i > start && !fenced && /^#+ /.test(l) && level(l) <= depth;
   });
   return lines.slice(start + 1, end === -1 ? undefined : end).join("\n");
 }

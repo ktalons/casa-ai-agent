@@ -358,7 +358,9 @@ test("v3 offsets: an intake time with a non-UTC offset traces by its UTC date an
 test("v3 learned TLDs: only a TLD the domain pattern can read is learned", () => {
   const v3 = richV3() as { detections: { sysmon: { dns_query?: { query_name: string } } | null }[] };
   const k = (name: string) => {
-    v3.detections[3].sysmon!.dns_query!.query_name = name;
+    const query = v3.detections[3].sysmon?.dns_query;
+    if (!query) throw new Error("the fixture's fourth detection carries no dns_query group");
+    query.query_name = name;
     return intakeKnowledge(v3).patterns.domainTlds;
   };
   expect(k("sync-cdn.example.zz")).toContain("zz");
@@ -367,7 +369,8 @@ test("v3 learned TLDs: only a TLD the domain pattern can read is learned", () =>
 
 test("v3 Sysmon hosts: a single-label hostname found only in source_hostname traces, and a stranger still fails", () => {
   const v3 = richV3() as { detections: { sysmon?: { network_connect?: Record<string, unknown> } | null }[] };
-  const conn = v3.detections.at(-1)!.sysmon!.network_connect!;
+  const conn = v3.detections.at(-1)?.sysmon?.network_connect;
+  if (!conn) throw new Error("the fixture's last detection carries no network_connect group");
   conn.source_hostname = "wkstn-relay";
   conn.destination_hostname = null;
   const hosts = (text: string, hostPrefix?: string) => lint(text, v3, { hostPrefix }).unknown.filter((u) => u.kind === "host").map((u) => u.token);

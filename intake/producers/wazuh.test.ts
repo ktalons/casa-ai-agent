@@ -11,7 +11,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { validateIntake } from "../Validate.ts";
-import { type Deps, type FetchFn, main } from "./wazuh.ts";
+import { type Deps, type FetchFn, type FetchInit, main } from "./wazuh.ts";
 
 // *--- Configuration ---*
 
@@ -50,7 +50,36 @@ async function run(argv: string[], over: Partial<Deps> = {}): Promise<Ran> {
 }
 
 const replay = (...extra: string[]) => run(["--replay", SAMPLE, ...SAMPLE_END, "--stdout", ...extra]);
-const detections = (r: Ran): any[] => JSON.parse(r.out).detections;
+/** A detection as these tests read it: the named fields, and each Sysmon group as an open record. */
+interface Detection {
+  alert_id: string;
+  rule_id: string;
+  agent: string;
+  src_ip: string | null;
+  engine: unknown;
+  suricata: unknown;
+  sysmon: Record<string, Record<string, unknown>> | null;
+}
+/** One request the fake indexer received. */
+type Call = { url: string; init: FetchInit };
+/** A recorded indexer hit, as far as the fakes read it. */
+type Hit = { _id: string; _source: { "@timestamp": string; rule: { level: number } } };
+
+const detections = (r: Ran): Detection[] => JSON.parse(r.out).detections;
+
+/** The detection with this alert ID; a missing one fails the test by name. */
+function one(r: Ran, alertId: string): Detection {
+  const found = detections(r).find((d) => d.alert_id === alertId);
+  if (!found) throw new Error(`no detection ${alertId} in the output`);
+  return found;
+}
+
+/** One Sysmon group of that detection; a missing one fails the test by name. */
+function group(r: Ran, alertId: string, name: string): Record<string, unknown> {
+  const found = one(r, alertId).sysmon?.[name];
+  if (!found) throw new Error(`detection ${alertId} carries no ${name} group`);
+  return found;
+}
 
 function allStrings(v: unknown, into: string[] = []): string[] {
   if (typeof v === "string") into.push(v);
@@ -65,7 +94,7 @@ const PRIVATE_V4 = /(?<!\d)(?:10\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])|192\.168|100
 const sampleHits = readFileSync(SAMPLE, "utf8").trim().split("\n").map((l) => JSON.parse(l));
 const served = sampleHits.filter((h, i, all) => h._source.rule.level >= 12 && all.findIndex((x) => x._id === h._id) === i);
 
-function indexerFake(seen: { url: string; init: any }[], status = 200): FetchFn {
+function indexerFake(seen: Call[], status = 200): FetchFn {
   return async (url, init) => {
     seen.push({ url, init });
     if (status !== 200) return new Response("denied", { status });
@@ -103,7 +132,7 @@ describe("replay mode", () => {
 
   test("parity", async () => {
     const r = await run(["--replay", RECORDING, "--stdout"]);
-    const want = JSON.parse(readFileSync(V2_FIXTURE, "utf8")).detections.map((d: any) => d.alert_id);
+    const want = JSON.parse(readFileSync(V2_FIXTURE, "utf8")).detections.map((d: { alert_id: string }) => d.alert_id);
     expect(detections(r).map((d) => d.alert_id)).toEqual(want);
     expect(want).toHaveLength(4);
   });
@@ -120,18 +149,17 @@ describe("replay mode", () => {
     const r = await replay();
     expect(r.code).toBe(0);
     expect(validateIntake(JSON.parse(r.out)).errors).toEqual([]);
-    const byId = new Map(detections(r).map((d) => [d.alert_id, d]));
-    const proc = byId.get("1785800400.400004").sysmon.process_create;
+    const proc = group(r, "1785800400.400004", "process_create");
     expect(proc.hashes).toEqual({ md5: "00112233445566778899aabbccddeeff", sha1: "aabbccddeeff00112233445566778899aabbccdd", sha256: "ab".repeat(32), imphash: null });
     expect(proc.process_id).toBe(4120);
     expect(proc.integrity_level).toBe("High");
-    const net = byId.get("1785800500.500005");
-    expect(net.sysmon.network_connect.initiated).toBe(true);
+    const net = one(r, "1785800500.500005");
+    expect(group(r, "1785800500.500005", "network_connect").initiated).toBe(true);
     expect(net).toMatchObject({ src_ip: "10.20.30.41", src_port: 50123, dst_ip: "192.168.5.9", dst_port: 443, proto: "tcp" });
-    expect(Object.keys(byId.get("1785800600.600006").sysmon)).toEqual(["file_create"]);
-    expect(byId.get("1785800700.700007").sysmon.registry_value_set.event_type).toBe("SetValue");
-    expect(byId.get("1785800800.800008").sysmon.dns_query.query_name).toBe("rare.example.net");
-    const sur = byId.get("1785800900.900009");
+    expect(Object.keys(one(r, "1785800600.600006").sysmon ?? {})).toEqual(["file_create"]);
+    expect(group(r, "1785800700.700007", "registry_value_set").event_type).toBe("SetValue");
+    expect(group(r, "1785800800.800008", "dns_query").query_name).toBe("rare.example.net");
+    const sur = one(r, "1785800900.900009");
     expect(sur.engine).toEqual({ name: "suricata", rule_id: "2024897", rev: 3 });
     expect(sur.sysmon).toBeNull();
     expect(sur.suricata).toMatchObject({ event_type: "alert", severity: 2, action: "allowed", flow_id: "1727463534105821", app_proto: "http", http_hostname: "update.example.net" });
@@ -139,11 +167,11 @@ describe("replay mode", () => {
   });
 
   test("users, logon types and the event id come from the Windows fields", async () => {
-    const byId = new Map(detections(await replay()).map((d) => [d.alert_id, d]));
-    expect(byId.get("1785800100.100001")).toMatchObject({ subject_user: "CORP-DC01$", target_user: "svc-sync", logon_type: 3, event_id: "4624", src_port: 49812, engine: { name: "wazuh", rule_id: "100215", rev: null } });
-    expect(byId.get("1785800200.200002")).toMatchObject({ subject_user: null, target_user: "admin", logon_type: 10, src_port: null });
+    const r = await replay();
+    expect(one(r, "1785800100.100001")).toMatchObject({ subject_user: "CORP-DC01$", target_user: "svc-sync", logon_type: 3, event_id: "4624", src_port: 49812, engine: { name: "wazuh", rule_id: "100215", rev: null } });
+    expect(one(r, "1785800200.200002")).toMatchObject({ subject_user: null, target_user: "admin", logon_type: 10, src_port: null });
     // 4662 carries no logon type even when the field is present.
-    expect(byId.get("1785800300.300003")).toMatchObject({ logon_type: null, subject_user: "svc-sync", target_user: null });
+    expect(one(r, "1785800300.300003")).toMatchObject({ logon_type: null, subject_user: "svc-sync", target_user: null });
   });
 
   test("the include list admits a below-floor rule", async () => {
@@ -153,8 +181,8 @@ describe("replay mode", () => {
     expect(validateIntake(JSON.parse(r.out)).errors).toEqual([]);
     const doc = JSON.parse(r.out);
     expect(doc.filter.include_rule_ids).toEqual(["100340"]);
-    expect(doc.detections.find((d: any) => d.rule_id === "100340").level).toBe(8);
-    expect(doc.counts.find((c: any) => c.date === "2026-08-04")).toEqual({ date: "2026-08-04", matched: 8, included: 8 });
+    expect(doc.detections.find((d: { rule_id: string }) => d.rule_id === "100340").level).toBe(8);
+    expect(doc.counts.find((c: { date: string }) => c.date === "2026-08-04")).toEqual({ date: "2026-08-04", matched: 8, included: 8 });
   });
 
   test("truncation and per-day counts with a small cap", async () => {
@@ -163,7 +191,7 @@ describe("replay mode", () => {
     const doc = JSON.parse(r.out);
     expect(validateIntake(doc).errors).toEqual([]);
     expect(doc.truncated).toBe(true);
-    expect(doc.detections.map((d: any) => d.alert_id)).toEqual(["1785800100.100001", "1785800200.200002", "1785800300.300003"]);
+    expect(doc.detections.map((d: { alert_id: string }) => d.alert_id)).toEqual(["1785800100.100001", "1785800200.200002", "1785800300.300003"]);
     expect(doc.counts).toEqual([{ date: "2026-08-03", matched: 2, included: 0 }, { date: "2026-08-04", matched: 7, included: 3 }]);
   });
 
@@ -188,33 +216,31 @@ describe("redaction", () => {
     expect(validateIntake(JSON.parse(r.out)).errors).toEqual([]);
     expect(r.out).not.toMatch(PRIVATE_V4);
     expect(r.out).not.toMatch(/fd12:|fe80:|%eth0/i);
-    const d = new Map(detections(r).map((x) => [x.alert_id, x]));
     // One mapping per run, numbered in order of first sight, shared across fields.
-    expect(d.get("1785800100.100001").src_ip).toBe("192.0.2.1");
-    expect(d.get("1785800300.300003").src_ip).toBe("192.0.2.1");
-    expect(d.get("1785800400.400004").sysmon.process_create.command_line).toContain("\\\\192.0.2.1\\share");
-    expect(d.get("1785800500.500005")).toMatchObject({ src_ip: "192.0.2.2", dst_ip: "192.0.2.3" });
-    expect(d.get("1785800200.200002").src_ip).toBe("2001:db8::1");
-    const results: string = d.get("1785800800.800008").sysmon.dns_query.query_results;
+    expect(one(r, "1785800100.100001").src_ip).toBe("192.0.2.1");
+    expect(one(r, "1785800300.300003").src_ip).toBe("192.0.2.1");
+    expect(group(r, "1785800400.400004", "process_create").command_line).toContain("\\\\192.0.2.1\\share");
+    expect(one(r, "1785800500.500005")).toMatchObject({ src_ip: "192.0.2.2", dst_ip: "192.0.2.3" });
+    expect(one(r, "1785800200.200002").src_ip).toBe("2001:db8::1");
+    const results = group(r, "1785800800.800008", "dns_query").query_results;
     expect(results).toContain("::ffff:192.0.2.2;");
     expect(results).toContain("2001:db8::2;");
-    expect(d.get("1785800900.900009")).toMatchObject({ src_ip: "192.0.2.4", dst_ip: "192.0.2.5" });
+    expect(one(r, "1785800900.900009")).toMatchObject({ src_ip: "192.0.2.4", dst_ip: "192.0.2.5" });
   });
 
   test("redact sids", async () => {
     const r = await replay("--redact");
     expect(r.out).not.toContain("1111111111");
     expect(r.out).not.toContain("3333333333");
-    const d = new Map(detections(r).map((x) => [x.alert_id, x]));
     // The RID after the three sub-authorities stays, and both copies share one number.
-    expect(d.get("1785800700.700007").sysmon.registry_value_set.target_object).toContain("HKU\\S-1-5-21-0-0-1-1105\\Software");
-    expect(d.get("1785800400.400004").sysmon.process_create.command_line).toContain("/user S-1-5-21-0-0-1-1105 ");
+    expect(group(r, "1785800700.700007", "registry_value_set").target_object).toContain("HKU\\S-1-5-21-0-0-1-1105\\Software");
+    expect(group(r, "1785800400.400004", "process_create").command_line).toContain("/user S-1-5-21-0-0-1-1105 ");
   });
 
   test("redact guids", async () => {
     const r = await replay("--redact");
     expect(r.out.toLowerCase()).not.toContain("a1b2c3d4");
-    const proc = detections(r).find((x) => x.alert_id === "1785800400.400004").sysmon.process_create;
+    const proc = group(r, "1785800400.400004", "process_create");
     expect(proc.process_guid).toBe("{00000000-0001-6650-1c00-000000001d00}");
     expect(proc.parent_process_guid).toBe("{00000000-0001-6650-0a00-000000001a00}");
     // The same first field inside free text is zeroed too.
@@ -227,7 +253,7 @@ describe("redaction", () => {
     expect(r.out.toLowerCase()).not.toContain("corp-dc01");
     expect(r.out.toLowerCase()).not.toContain("corp-ws07");
     expect(detections(r)[0].agent).toBe("host-xray");
-    expect(detections(r).find((x) => x.alert_id === "1785800400.400004").agent).toBe("host-bravo");
+    expect(one(r, "1785800400.400004").agent).toBe("host-bravo");
     // A dot ends the token, so the alias also lands inside the dotted hostname.
     expect(r.out).toContain("host-bravo.corp-lab.example");
   });
@@ -263,7 +289,7 @@ describe("live mode", () => {
       }
     };
 
-    const denied: { url: string; init: any }[] = [];
+    const denied: Call[] = [];
     const out401 = join(dir, "out-401.json");
     const r401 = await run(["--out", out401], { env: liveEnv, fetch: indexerFake(denied, 401) });
     expect(r401.code).toBe(1);
@@ -276,7 +302,7 @@ describe("live mode", () => {
     expect(threw.code).toBe(1);
     check(threw);
 
-    const seen: { url: string; init: any }[] = [];
+    const seen: Call[] = [];
     const outOk = join(dir, "out-ok.json");
     const ok = await run(["--out", outOk], { env: liveEnv, fetch: indexerFake(seen) });
     expect(ok.code).toBe(0);
@@ -294,7 +320,7 @@ describe("live mode", () => {
   test("the query follows the contract and the CA bundle goes to fetch", async () => {
     const ca = join(dir, "ca.pem");
     writeFileSync(ca, "-----BEGIN CERTIFICATE-----\nplaceholder\n-----END CERTIFICATE-----\n");
-    const seen: { url: string; init: any }[] = [];
+    const seen: Call[] = [];
     const r = await run(["--ca-file", ca, "--min-level", "10", "--include-rules", "100340,100341", "--cap", "5"], { env: liveEnv, fetch: indexerFake(seen) });
     expect(r.code).toBe(0);
     expect(seen).toHaveLength(2);
@@ -321,7 +347,7 @@ describe("live mode", () => {
   });
 
   test("https only", async () => {
-    const seen: { url: string; init: any }[] = [];
+    const seen: Call[] = [];
     const fetch = indexerFake(seen);
     const plain = await run([], { env: { ...liveEnv, WAZUH_INDEXER_URL: "http://indexer.example:9200" }, fetch });
     expect(plain.code).toBe(2);
@@ -349,7 +375,7 @@ describe("live mode", () => {
   });
 
   test("password source", async () => {
-    const seen: { url: string; init: any }[] = [];
+    const seen: Call[] = [];
     const fetch = indexerFake(seen);
     for (const argv of [["--password", "hunter2-canary"], ["--pass", "hunter2-canary"], ["--password=hunter2-canary"], ["--pass=hunter2-canary"]]) {
       const r = await run(argv, { env: liveEnv, fetch });
@@ -397,7 +423,7 @@ describe("live mode", () => {
 // *--- Review Findings (2026-11-16) ---*
 
 /** A fake indexer over the given hits, counting every hit in its day bucket as a real index would. */
-function fakeOver(hits: any[], seen: { url: string; init: any }[] = []): FetchFn {
+function fakeOver(hits: Hit[], seen: Call[] = []): FetchFn {
   return async (url, init) => {
     seen.push({ url, init });
     const body = JSON.parse(init.body);
@@ -429,7 +455,7 @@ describe("review findings", () => {
   });
 
   test("live window: the window ends at the query upper bound even when the clock moves during the run", async () => {
-    const seen: { url: string; init: any }[] = [];
+    const seen: Call[] = [];
     let t = NOW;
     const r = await run([], { env: liveEnv, fetch: fakeOver(served, seen), now: () => (t += 1500) });
     expect(r.code).toBe(0);
@@ -464,7 +490,7 @@ describe("review findings", () => {
       delete broken._source.rule.description;
       extra.push(broken);
     }
-    const seen: { url: string; init: any }[] = [];
+    const seen: Call[] = [];
     const r = await run(["--cap", "3"], { env: liveEnv, fetch: fakeOver(extra, seen) });
     expect(r.code).toBe(0);
     const doc = JSON.parse(r.out);
@@ -552,7 +578,7 @@ test.skipIf(!HAS_OPENSSL)("tls verification: an unknown CA is refused and --ca-f
 
 describe("review findings, round 2", () => {
   test("live tls: every request verifies certificates, with or without a CA bundle", async () => {
-    const seen: { url: string; init: any }[] = [];
+    const seen: Call[] = [];
     const r = await run([], { env: liveEnv, fetch: indexerFake(seen) });
     expect(r.code).toBe(0);
     expect(seen).toHaveLength(2);
@@ -560,7 +586,7 @@ describe("review findings, round 2", () => {
   });
 
   test("live tls: an environment that turns verification off is refused before any request", async () => {
-    const seen: { url: string; init: any }[] = [];
+    const seen: Call[] = [];
     const r = await run([], { env: { ...liveEnv, NODE_TLS_REJECT_UNAUTHORIZED: "0" }, fetch: indexerFake(seen) });
     expect(r.code).toBe(2);
     expect(r.err).toContain("--ca-file");
@@ -568,7 +594,7 @@ describe("review findings, round 2", () => {
   });
 
   test("live redirects: every request refuses to follow a redirect", async () => {
-    const seen: { url: string; init: any }[] = [];
+    const seen: Call[] = [];
     await run([], { env: liveEnv, fetch: indexerFake(seen) });
     expect(seen.length).toBeGreaterThan(0);
     for (const s of seen) expect(s.init.redirect).toBe("error");

@@ -19,7 +19,8 @@ for (const f of files) {
     const text = readFileSync(join(ROOT, f), "utf8");
     const bare: string[] = [];
     for (const m of text.matchAll(INTERNAL)) {
-      const before = text.slice(Math.max(0, m.index! - ROOT_VAR.length - 20), m.index! + m[1].length);
+      const at = m.index ?? 0;
+      const before = text.slice(Math.max(0, at - ROOT_VAR.length - 20), at + m[1].length);
       if (!before.includes(ROOT_VAR)) bare.push(m[0].trim());
     }
     expect(bare).toEqual([]);
