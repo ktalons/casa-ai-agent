@@ -66,7 +66,7 @@ specialists, or which go into `data_requests` as exact commands for the human an
 
 ```bash
 # 4662 events carrying a replication GUID, with the requesting account
-jq -c 'select(.data.win.system.eventID=="4662") | select(.data.win.eventdata.Properties|test("1131f6a[ad]|89e95b76")) | {t:.timestamp, who:.data.win.eventdata.SubjectUserName, host:.agent.name}' <alerts.jsonl>
+jq -c 'select(.data.win.system.eventID=="4662") | select(.data.win.eventdata.properties|test("1131f6a[ad]|89e95b76")) | {t:.timestamp, who:.data.win.eventdata.subjectUserName, host:.agent.name}' <alerts.jsonl>
 
 # DRSUAPI GetNCChanges over the wire, by source host
 zeek-cut ts id.orig_h id.resp_h endpoint operation < dce_rpc.log | jq -R -r 'split("\t") | select(.[4] | test("DRSGetNCChanges"; "i")) | @tsv'

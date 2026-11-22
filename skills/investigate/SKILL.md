@@ -97,6 +97,10 @@ is `refuted`, and the benign reading is never restated as a hypothesis of its ow
 | T1003 (credential dumping, DCSync) | log-analyst, endpoint-analyst |
 | T1071, T1568, T1573 (C2 channels) | network-analyst, endpoint-analyst |
 | T1041, T1048, T1567 (exfiltration) | network-analyst, log-analyst |
+| T1059, T1218, T1216, T1220, T1127 (script interpreters, signed-binary proxy execution) | endpoint-analyst, network-analyst |
+| T1543, T1547, T1546, and T1053 when it persists on one host (services, autostart entries) | endpoint-analyst |
+| T1685, T1686, T1690, T1070 (cleared logs, stopped sensors, disabled defenses) | endpoint-analyst, log-analyst |
+| T1046, T1018, T1135 (internal discovery, scanning) | network-analyst, log-analyst |
 | recon_delta names a thread host | network-analyst |
 | technique ID not in `${CLAUDE_PLUGIN_ROOT}/skills/standards/references/attack-techniques.json` | threat-intel |
 

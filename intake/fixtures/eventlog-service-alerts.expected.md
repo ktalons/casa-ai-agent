@@ -1,4 +1,4 @@
-# Ground truth — eventlog-service-alerts (held out)
+# Ground truth — eventlog-service-alerts (authoring since 2026-11-16)
 
 Hand-authored synthetic intake. Machine-checkable form: `eventlog-service-alerts.expected.json`. An administrator account logs on to the server `corpsrv52` over RDP and, within five minutes, clears the event logs, turns off Defender real-time protection and disables Sysmon. The test is whether CASA calls the impairment what it is and sees that the host's own telemetry can no longer be trusted to show what came next.
 

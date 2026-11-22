@@ -59,10 +59,10 @@ specialists, or which go into `data_requests` as exact commands for the human an
 
 ```bash
 # failures by source and account in the window
-jq -r 'select(.data.win.system.eventID=="4625") | [.timestamp, .data.win.eventdata.IpAddress, .data.win.eventdata.TargetUserName] | @tsv' <alerts.jsonl>
+jq -r 'select(.data.win.system.eventID=="4625") | [.timestamp, .data.win.eventdata.ipAddress, .data.win.eventdata.targetUserName] | @tsv' <alerts.jsonl>
 
 # the first success after the burst, from the same source
-jq -r 'select(.data.win.system.eventID=="4624") | select(.data.win.eventdata.IpAddress=="<source>") | [.timestamp, .data.win.eventdata.TargetUserName, .data.win.eventdata.LogonType] | @tsv' <alerts.jsonl>
+jq -r 'select(.data.win.system.eventID=="4624") | select(.data.win.eventdata.ipAddress=="<source>") | [.timestamp, .data.win.eventdata.targetUserName, .data.win.eventdata.logonType] | @tsv' <alerts.jsonl>
 
 # Linux
 jq -r 'select(.rule.groups|index("authentication_failed")) | [.timestamp, .data.srcip, .data.srcuser] | @tsv' <alerts.jsonl>
