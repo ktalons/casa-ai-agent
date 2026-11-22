@@ -32,6 +32,15 @@ written in code, keeps each agent in its lane with a write guard, builds its inp
 alerts and measures itself on held-out fixtures. The pack carries the rules and the method only.
 Nothing in it enforces them.
 
+## Tested
+
+One trial run is on record. On 2026-11-21, Codex CLI on `gpt-6-sol` loaded the pack and triaged
+one of the repository's authoring fixtures. The brief passed the repository's lint and all nine
+machine checks of its grader. The judged rubric was not run.
+
+One run on one fixture is a smoke test, not a score. The scores in the repository README belong
+to the plugin, not to this pack.
+
 ## These files are generated
 
 Do not edit them here. Change the plugin sources or the templates under `scripts/portable-src/`,
