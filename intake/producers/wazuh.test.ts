@@ -54,8 +54,8 @@ const detections = (r: Ran): any[] => JSON.parse(r.out).detections;
 
 function allStrings(v: unknown, into: string[] = []): string[] {
   if (typeof v === "string") into.push(v);
-  else if (Array.isArray(v)) v.forEach((x) => allStrings(x, into));
-  else if (typeof v === "object" && v !== null) Object.values(v).forEach((x) => allStrings(x, into));
+  else if (Array.isArray(v)) for (const x of v) allStrings(x, into);
+  else if (typeof v === "object" && v !== null) for (const x of Object.values(v)) allStrings(x, into);
   return into;
 }
 
@@ -75,7 +75,7 @@ function indexerFake(seen: { url: string; init: any }[], status = 200): FetchFn 
     }
     const days = new Map<number, number>();
     for (const h of served) {
-      const k = Date.parse(h._source["@timestamp"].slice(0, 10) + "T00:00:00Z");
+      const k = Date.parse(`${h._source["@timestamp"].slice(0, 10)}T00:00:00Z`);
       days.set(k, (days.get(k) ?? 0) + 1);
     }
     const buckets = [...days].sort((a, b) => a[0] - b[0]).map(([key, doc_count]) => ({ key, doc_count }));
@@ -404,7 +404,7 @@ function fakeOver(hits: any[], seen: { url: string; init: any }[] = []): FetchFn
     if (body.size === 0) return Response.json({ aggregations: { agents: { value: 3 }, last: { value: Date.parse("2026-08-04T04:10:00.100Z") } } });
     const days = new Map<number, number>();
     for (const h of hits) {
-      const k = Date.parse(h._source["@timestamp"].slice(0, 10) + "T00:00:00Z");
+      const k = Date.parse(`${h._source["@timestamp"].slice(0, 10)}T00:00:00Z`);
       days.set(k, (days.get(k) ?? 0) + 1);
     }
     const buckets = [...days].sort((a, b) => a[0] - b[0]).map(([key, doc_count]) => ({ key, doc_count }));
@@ -442,7 +442,7 @@ describe("review findings", () => {
   test("live counts: duplicates and unusable hits are not counted as matched, so no false truncation", async () => {
     const extra = structuredClone(served);
     const dup = structuredClone(served[0]);
-    dup._id = "dup-of-" + dup._id;
+    dup._id = `dup-of-${dup._id}`;
     const broken = structuredClone(served[0]);
     broken._id = broken._source.id = "broken-1";
     delete broken._source.rule.description;
@@ -478,7 +478,7 @@ describe("review findings", () => {
     const at = join(dir, "doc6.jsonl");
     const lines = readFileSync(SAMPLE, "utf8").trim().split("\n").map((l) => JSON.parse(l));
     lines[0]._source.rule.description += " peer 2001:0db8:0000:0000:0000:0000:0000:0001";
-    writeFileSync(at, lines.map((l) => JSON.stringify(l)).join("\n") + "\n");
+    writeFileSync(at, `${lines.map((l) => JSON.stringify(l)).join("\n")}\n`);
     const r = await run(["--replay", at, ...SAMPLE_END, "--stdout", "--redact"]);
     expect(r.code).toBe(0);
     const text = allStrings(JSON.parse(r.out)).join("\n");

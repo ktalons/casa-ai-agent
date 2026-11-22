@@ -68,7 +68,18 @@ export function assertExpected(e: unknown): asserts e is Expected {
 
 // *--- Helper Functions ---*
 
-function parseBrief(text: string): Record<string, any> | null {
+/** The fields of a brief the grader reads. The brief is model-written, so any of them may be missing or misshapen. */
+export interface BriefDoc {
+  schema?: unknown;
+  status?: unknown;
+  threads?: unknown;
+  overall_confidence?: { basis?: unknown; level?: unknown } | null;
+  csf?: unknown;
+  options?: unknown;
+  [key: string]: unknown;
+}
+
+function parseBrief(text: string): BriefDoc | null {
   const block = firstJsonBlock(text);
   if (!block) return null;
   try {
@@ -79,7 +90,7 @@ function parseBrief(text: string): Record<string, any> | null {
   }
 }
 
-export function gradeMachine(briefText: string, expected: Expected, intake: unknown, opts: LintOptions = {}): { lint: LintResult; machine: MachineCheck[]; fabrication: Fabrication[]; brief: Record<string, any> | null } {
+export function gradeMachine(briefText: string, expected: Expected, intake: unknown, opts: LintOptions = {}): { lint: LintResult; machine: MachineCheck[]; fabrication: Fabrication[]; brief: BriefDoc | null } {
   const checks: MachineCheck[] = [];
   const brief = parseBrief(briefText);
   checks.push({ check: "brief-json", pass: brief !== null, detail: brief ? "first json block parses as casa.brief/v1" : "no parseable casa.brief/v1 block" });

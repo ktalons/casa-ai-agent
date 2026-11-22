@@ -32,7 +32,7 @@
 
 ## 3. Intake-only decision rules
 
-- A T1543.* or T1547.* detection naming an image in a user-writable or unusual path
+- A T1543.\* or T1547.\* detection naming an image in a user-writable or unusual path
   (`ProgramData`, `AppData`, `Temp`, `Users\Public`, a newly created folder) makes H1
   `supported` at **Medium** on one source. One naming an image under a vendor's install path
   is **Low** until the publisher is known.

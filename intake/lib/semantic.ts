@@ -26,7 +26,7 @@ export function isRealInstant(ts: string): boolean {
 }
 export function isRealDate(day: string): boolean {
   if (!DATE_RE.test(day)) return false;
-  const d = new Date(day + "T00:00:00Z");
+  const d = new Date(`${day}T00:00:00Z`);
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === day;
 }
 
@@ -43,6 +43,18 @@ function knownTechniques(): Set<string> {
 }
 
 type Det = { level: number; rule_id: string; agent: string; mitre: string[]; timestamp: string; alert_id?: string };
+
+// The fields these rules read. Validate.ts runs the schema pass first, so a document that
+// reaches a semantic function already has its version's shape.
+export interface IntakeV1 { generated: string; detections: Det[] }
+interface IntakeCommon {
+  generated: string;
+  window: { start: string; end: string; lookback_hours: number };
+  pipeline: { last_event_seen: string | null };
+  recon_delta: { baseline: string | null };
+  truncated: boolean;
+}
+export interface IntakeV2 extends IntakeCommon { filter: { min_level: number; cap: number }; detections: Det[] }
 
 function checkDetections(dets: Det[], floor: number, floorIs: "error" | "warning", cap: number, dupKey: (d: Det) => string, r: SemanticResult): void {
   const seen = new Set<string>();
@@ -65,7 +77,7 @@ function checkDetections(dets: Det[], floor: number, floorIs: "error" | "warning
   if (dets.length > cap) r.errors.push(`detections: ${dets.length} entries exceeds the cap ${cap}`);
 }
 
-export function semanticV1(doc: any): SemanticResult {
+export function semanticV1(doc: IntakeV1): SemanticResult {
   const r: SemanticResult = { errors: [], warnings: [] };
   if (!isRealDate(doc.generated)) r.errors.push(`generated: "${doc.generated}" is not a real date`);
   // v1 is frozen and carries no floor field; 12 is the producer default, so a lower level is a warning.
@@ -73,7 +85,7 @@ export function semanticV1(doc: any): SemanticResult {
   return r;
 }
 
-export function semanticV2(doc: any): SemanticResult {
+export function semanticV2(doc: IntakeV2): SemanticResult {
   const r: SemanticResult = { errors: [], warnings: [] };
   for (const [k, v] of [["generated", doc.generated], ["window.start", doc.window.start], ["window.end", doc.window.end]] as [string, string][]) {
     if (!isRealInstant(v)) r.errors.push(`${k}: "${v}" is not a real UTC instant`);
@@ -144,7 +156,7 @@ export function utcDate(micros: bigint): string {
 export function windowDays(start: bigint, end: bigint): string[] {
   const out: string[] = [];
   const last = utcDate(end);
-  for (let d = Date.parse(utcDate(start) + "T00:00:00Z"); ; d += 86_400_000) {
+  for (let d = Date.parse(`${utcDate(start)}T00:00:00Z`); ; d += 86_400_000) {
     const day = new Date(d).toISOString().slice(0, 10);
     out.push(day);
     if (day >= last) return out;
@@ -181,7 +193,14 @@ function checkShapeV3(d: DetV3, where: string, r: SemanticResult): void {
   if (d.logon_type !== null && !LOGON_EVENTS.has(String(d.event_id))) r.errors.push(`${where}.logon_type: set, but event_id ${d.event_id} carries no logon type`);
 }
 
-export function semanticV3(doc: any): SemanticResult {
+type DayCount = { date: string; matched: number; included: number };
+export interface IntakeV3 extends IntakeCommon {
+  filter: { min_level: number; cap: number; include_rule_ids: string[] };
+  detections: DetV3[];
+  counts: DayCount[];
+}
+
+export function semanticV3(doc: IntakeV3): SemanticResult {
   const r: SemanticResult = { errors: [], warnings: [] };
   const at = (field: string, v: string): bigint | null => {
     const t = instantMicros(v);

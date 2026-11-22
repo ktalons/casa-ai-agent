@@ -64,7 +64,7 @@ export function validateAgainstSchema(doc: unknown, schema: Schema, root: Schema
   }
   if (Array.isArray(doc)) {
     if ("minItems" in schema && doc.length < (schema.minItems as number)) fail(`fewer than ${schema.minItems} items`);
-    if ("items" in schema) doc.forEach((item, i) => validateAgainstSchema(item, schema.items as Schema, root, `${path}[${i}]`, errors));
+    if ("items" in schema) for (const [i, item] of doc.entries()) validateAgainstSchema(item, schema.items as Schema, root, `${path}[${i}]`, errors);
   }
   if (typeOf(doc) === "object") {
     const obj = doc as Record<string, unknown>;

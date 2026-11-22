@@ -60,7 +60,7 @@ live mode (no --replay):
 
 // Private ranges, one source for every form they take.
 const V4_PRIVATE = String.raw`(?:10\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])|192\.168|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])|169\.254)\.\d{1,3}\.\d{1,3}`;
-const V6_PRIVATE = String.raw`(?:fe[89ab][0-9a-f]|f[cd][0-9a-f]{2})`;
+const V6_PRIVATE = "(?:fe[89ab][0-9a-f]|f[cd][0-9a-f]{2})";
 // A digit or digit-dot before, or a digit or dot-digit after, means it is not an address.
 // One pass for plain addresses and reverse names, so a reverse name is taken whole and both are
 // numbered in the order they appear.
@@ -69,7 +69,7 @@ const V4_PORTED = new RegExp(String.raw`(?<!\d)(?<!\d\.)(${V4_PRIVATE})(?!\d)`, 
 const V4_ARPA = /(?<!\d)(?<!\d\.)(\d{1,3}(?:\.\d{1,3}){3})\.in-addr\.arpa/gi;
 const IS_V4_PRIVATE = new RegExp(`^${V4_PRIVATE}$`);
 const V6_ADDR = new RegExp(String.raw`(?<![0-9a-f:])(${V6_PRIVATE}:(?=[0-9a-f:])[0-9a-f:]*(?:\d{1,3}(?:\.\d{1,3}){3})?)(?:%[A-Za-z0-9_~-]+)?(?![0-9a-f:]|\.\d)`, "gi");
-const V6_GLUED = new RegExp(String.raw`(?<=[0-9a-f:])${V6_PRIVATE}:(?=[0-9a-f:])`, "gi");
+const V6_GLUED = new RegExp(`(?<=[0-9a-f:])${V6_PRIVATE}:(?=[0-9a-f:])`, "gi");
 // A full ip6.arpa nibble name: 32 nibbles, lowest first.
 const ARPA6 = /((?:[0-9a-f]\.){32})(ip6\.arpa)/gi;
 // A ::ffff: (mapped) or 64:ff9b:: (NAT64) address ending in hex; the value decides which. Each open
@@ -246,7 +246,10 @@ function parseRecord(hit: unknown): Rec | null {
   };
 }
 
-const usable = (r: Rec): boolean => r.id !== null && r.level !== null && r.ruleId !== null && r.agent !== null && r.description !== null;
+/** A record with every field a detection needs. */
+type UsableRec = Rec & { id: string; level: number; ruleId: string; agent: string; description: string };
+
+const usable = (r: Rec): r is UsableRec => r.id !== null && r.level !== null && r.ruleId !== null && r.agent !== null && r.description !== null;
 
 function hashes(v: unknown): Obj | null {
   const s = text(v);
@@ -511,12 +514,20 @@ function makeRedactor(aliases: [string, string][], guidPrefixes: string[], taken
   const v6 = new Map<string, number>();
   const sids = new Map<string, number>();
   const alias4 = (value: number): number => {
-    if (!v4.has(value)) v4.set(value, alloc(taken.v4, 254, "private IPv4 addresses"));
-    return v4.get(value)!;
+    let alias = v4.get(value);
+    if (alias === undefined) {
+      alias = alloc(taken.v4, 254, "private IPv4 addresses");
+      v4.set(value, alias);
+    }
+    return alias;
   };
   const alias6 = (key: string): number => {
-    if (!v6.has(key)) v6.set(key, alloc(taken.v6, 0xffff, "private IPv6 addresses"));
-    return v6.get(key)!;
+    let alias = v6.get(key);
+    if (alias === undefined) {
+      alias = alloc(taken.v6, 0xffff, "private IPv6 addresses");
+      v6.set(key, alias);
+    }
+    return alias;
   };
   // The alias value of a private address given as a number, or null when it is not private.
   // A mapped or NAT64 address keeps its prefix and its embedded IPv4 address takes its plain alias.
@@ -536,7 +547,7 @@ function makeRedactor(aliases: [string, string][], guidPrefixes: string[], taken
       return `${head}0-0-${sids.get(key)}`;
     });
     if (guidRe) t = t.replace(guidRe, "00000000");
-    t = t.replace(V6_ADDR, (m, addr: string) => {
+    t = t.replace(V6_ADDR, (_m, addr: string) => {
       // A trailing single colon is sentence punctuation, not part of the address.
       const tail = /[^:]:$/.test(addr) ? ":" : "";
       const body = tail ? addr.slice(0, -1) : addr;
@@ -550,7 +561,8 @@ function makeRedactor(aliases: [string, string][], guidPrefixes: string[], taken
         return value === null ? m : `192.0.2.${alias4(value)}`;
       }
       // A reverse name is rewritten only when the address it names is private; a public one stays whole.
-      const fwd = reversed(ptr!);
+      if (ptr === undefined) return m;
+      const fwd = reversed(ptr);
       const value = v4Value(fwd);
       return value !== null && IS_V4_PRIVATE.test(fwd) ? `${alias4(value)}.2.0.192${suffix}` : m;
     });
@@ -739,7 +751,7 @@ function loadRecon(file: string | undefined): Recon {
 function assemble(o: Options, w: { start: bigint; end: bigint; generated: bigint }, dets: Det[], matched: Map<string, number>, totalMatched: number, pipeline: Pipeline): Obj {
   const included = new Map<string, number>();
   for (const d of dets) {
-    const day = utcDate(instantMicros(String(d.det.timestamp))!);
+    const day = utcDate(d.micros);
     included.set(day, (included.get(day) ?? 0) + 1);
   }
   return {
@@ -767,8 +779,8 @@ function newestFirst(recs: Rec[], cap: number): Det[] {
     .map(({ r }) => ({ micros: r.micros, det: toDetection(r) }));
 }
 
-function replay(o: Options, deps: Deps): Obj {
-  const parsed = loadHits(o.replay!).map(parseRecord);
+function replay(o: Options, file: string, deps: Deps): Obj {
+  const parsed = loadHits(file).map(parseRecord);
   const recs = parsed.filter((r): r is Rec => r !== null);
   const unparsed = parsed.length - recs.length;
   let end = o.windowEnd;
@@ -787,8 +799,8 @@ function replay(o: Options, deps: Deps): Obj {
       skipped++;
       continue;
     }
-    if (!(r.level! >= o.minLevel || include.has(r.ruleId!)) || seen.has(r.id!)) continue;
-    seen.add(r.id!);
+    if (!(r.level >= o.minLevel || include.has(r.ruleId)) || seen.has(r.id)) continue;
+    seen.add(r.id);
     matched.push(r);
   }
   if (unparsed) deps.stderr(`wazuh: skipped ${unparsed} record(s) whose timestamp cannot be parsed\n`);
@@ -906,14 +918,15 @@ async function liveRun(o: Options, deps: Deps, live: Live): Promise<Obj> {
   const seen = new Set<string>();
   const recs: Rec[] = [];
   for (const r of hits.map(parseRecord)) {
-    if (r !== null && usable(r) && !seen.has(r.id!)) {
-      seen.add(r.id!);
+    if (r !== null && usable(r) && !seen.has(r.id)) {
+      seen.add(r.id);
       recs.push(r);
     } else if (r !== null) {
       // A discarded hit matched the query but is not an alert the intake can carry: not matched.
       const day = utcDate(r.micros);
-      if ((matched.get(day) ?? 0) > 0) {
-        matched.set(day, matched.get(day)! - 1);
+      const left = matched.get(day) ?? 0;
+      if (left > 0) {
+        matched.set(day, left - 1);
         total--;
       }
     }
@@ -946,7 +959,7 @@ async function liveRun(o: Options, deps: Deps, live: Live): Promise<Obj> {
 async function run(o: Options, deps: Deps, register: (s: string[]) => void): Promise<string> {
   let secrets: string[] = [];
   let doc: Obj;
-  if (o.replay !== undefined) doc = replay(o, deps);
+  if (o.replay !== undefined) doc = replay(o, o.replay, deps);
   else {
     const live = liveConfig(o, deps);
     secrets = live.secrets;
@@ -958,7 +971,10 @@ async function run(o: Options, deps: Deps, register: (s: string[]) => void): Pro
   const json = `${JSON.stringify(doc, null, 2)}\n`;
   // SECURITY: a credential inside alert data must not reach the output either, in any spelling.
   const strings: string[] = [];
-  mapStrings(doc, (x) => (strings.push(x), x));
+  mapStrings(doc, (x) => {
+    strings.push(x);
+    return x;
+  });
   const spellings = secrets.flatMap((x) => [x, JSON.stringify(x).slice(1, -1)]);
   if (secrets.some((x) => strings.some((t) => t.includes(x))) || spellings.some((x) => json.includes(x))) throw new RunError("the intake holds the indexer credentials; nothing written");
   const result = validateIntake(doc);

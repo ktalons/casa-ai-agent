@@ -18,19 +18,23 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { validateAgainstSchema, type Schema } from "./lib/schema.ts";
-import { semanticV1, semanticV2, semanticV3 } from "./lib/semantic.ts";
+import { semanticV1, semanticV2, semanticV3, type IntakeV1, type IntakeV2, type IntakeV3, type SemanticResult } from "./lib/semantic.ts";
 
 const INTAKE_DIR = dirname(Bun.fileURLToPath(import.meta.url));
-const VERSIONS: Record<string, { schema: string; semantic: (doc: any) => { errors: string[]; warnings: string[] } }> = {
-  "talonsoclab.soc-intake/v1": { schema: "soc-intake.v1.schema.json", semantic: semanticV1 },
-  "talonsoclab.soc-intake/v2": { schema: "soc-intake.v2.schema.json", semantic: semanticV2 },
-  "talonsoclab.soc-intake/v3": { schema: "soc-intake.v3.schema.json", semantic: semanticV3 },
+// validateIntake runs the schema pass first, so each semantic check gets a document that
+// already has its version's shape; the cast below states that and nothing more.
+const VERSIONS: Record<string, { schema: string; semantic: (doc: unknown) => SemanticResult }> = {
+  "talonsoclab.soc-intake/v1": { schema: "soc-intake.v1.schema.json", semantic: (doc) => semanticV1(doc as IntakeV1) },
+  "talonsoclab.soc-intake/v2": { schema: "soc-intake.v2.schema.json", semantic: (doc) => semanticV2(doc as IntakeV2) },
+  "talonsoclab.soc-intake/v3": { schema: "soc-intake.v3.schema.json", semantic: (doc) => semanticV3(doc as IntakeV3) },
 };
 const schemaCache = new Map<string, Schema>();
 function loadSchema(file: string): Schema {
-  let s = schemaCache.get(file);
-  if (!s) { s = JSON.parse(readFileSync(join(INTAKE_DIR, "schema", file), "utf8")); schemaCache.set(file, s!); }
-  return s!;
+  const cached = schemaCache.get(file);
+  if (cached) return cached;
+  const schema = JSON.parse(readFileSync(join(INTAKE_DIR, "schema", file), "utf8")) as Schema;
+  schemaCache.set(file, schema);
+  return schema;
 }
 
 export function validateIntake(doc: unknown): { errors: string[]; warnings: string[] } {

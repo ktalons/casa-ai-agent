@@ -38,5 +38,5 @@ const out = {
 };
 const n = (o: object) => Object.keys(o).length;
 if (n(out.functions) !== 6 || n(out.categories) !== 22 || n(out.subcategories) !== 106) throw new Error(`unexpected counts: ${n(out.functions)}/${n(out.categories)}/${n(out.subcategories)}`);
-await Bun.write(OUT, JSON.stringify(out, null, 1) + "\n");
+await Bun.write(OUT, `${JSON.stringify(out, null, 1)}\n`);
 console.error(`wrote ${n(out.subcategories)} subcategories to ${OUT}`);

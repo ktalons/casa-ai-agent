@@ -102,7 +102,7 @@ function hasParentSegment(raw: string): boolean {
 
 /** True when a relative path leaves its base: `..` itself, `..` then a separator, or an absolute result. */
 function escapes(rel: string): boolean {
-  return rel === ".." || rel.startsWith(".." + sep) || isAbsolute(rel);
+  return rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel);
 }
 
 /** True when `path` is `dir` or lies under it. */
