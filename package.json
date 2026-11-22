@@ -1,6 +1,6 @@
 {
   "name": "casa-ai-agent",
-  "version": "5.1.0",
+  "version": "5.2.0",
   "description": "CASA: Cybersecurity Analysis Support Agent. A Claude Code plugin for explainable, human-in-the-loop SOC investigation.",
   "license": "MIT",
   "private": true,

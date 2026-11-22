@@ -5,7 +5,7 @@ license: MIT
 compatibility: "Needs the casa-soc-standards skill from the same pack for the ATT&CK and NIST CSF tables."
 metadata:
   author: "ktalons"
-  version: "5.1.0"
+  version: "5.2.0"
   source: "https://github.com/ktalons/casa-ai-agent"
 ---
 
@@ -89,4 +89,4 @@ bun evals/Lint.ts --brief <brief.md> --intake <intake.json>
 It exits 1 and lists every value that does not trace. Where it can run, prefer it to this manual
 check: a script does not get tired on the fortieth timestamp.
 
-Generated from the CASA sources at version 5.1.0.
+Generated from the CASA sources at version 5.2.0.

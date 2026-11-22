@@ -4,7 +4,7 @@ description: "Rules for analysing security alerts without inventing anything: ev
 license: MIT
 metadata:
   author: "ktalons"
-  version: "5.1.0"
+  version: "5.2.0"
   source: "https://github.com/ktalons/casa-ai-agent"
 ---
 
@@ -115,7 +115,7 @@ The ATT&CK table is large. Search it for the technique ID in hand instead of rea
 ## Where this comes from
 
 These rules are the standards of [CASA](https://github.com/ktalons/casa-ai-agent), a SOC
-investigation plugin for Claude Code, generated from its sources at version 5.1.0. The plugin
+investigation plugin for Claude Code, generated from its sources at version 5.2.0. The plugin
 enforces them with code: a lint that fails a brief when a cited value does not trace, and a
 guard that keeps each agent in its lane. This skill carries the rules without that enforcement,
 so the checking is yours.
