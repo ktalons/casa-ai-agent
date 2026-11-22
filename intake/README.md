@@ -136,6 +136,9 @@ bun intake/Validate.ts            # every fixtures/*.intake.json
 bun intake/Validate.ts path.json  # a specific artifact
 ```
 
+Each accepted file is followed by a `sha256` line: the hash of the file as read. A brief records
+that value as `intake.sha256`, and the lint reports a brief whose recorded hash is not the file's.
+
 Non-zero exit on any structural violation. Run it against a freshly produced intake before feeding it to CASA.
 
 ## Round-trip through the producer

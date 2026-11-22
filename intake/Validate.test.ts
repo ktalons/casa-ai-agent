@@ -1,4 +1,5 @@
 import { test, expect } from "bun:test";
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { validateIntake } from "./Validate.ts";
@@ -306,4 +307,16 @@ test("neutral names: no fixture file name tells the investigation its verdict", 
   const names = [...readdirSync(join(DIR, "fixtures")), ...Object.keys(SETS.fixtures)];
   expect(names.filter((n) => VERDICT.test(n))).toEqual([]);
   expect(VERDICT.test("benign-admin-scan")).toBe(true);
+});
+
+test("sha256: the CLI prints the SHA-256 of each file it accepts, the value the lint computes, and none for a refused file", () => {
+  const run = (rel: string) => Bun.spawnSync(["bun", join(DIR, "Validate.ts"), join(DIR, rel)], { stdout: "pipe", stderr: "pipe" });
+  const good = "fixtures/brute-force-dc-chain.v3.intake.json";
+  const expected = createHash("sha256").update(readFileSync(join(DIR, good))).digest("hex");
+  const ok = run(good);
+  expect(ok.exitCode).toBe(0);
+  expect(ok.stdout.toString()).toContain(`    sha256 ${expected}\n`);
+  const bad = run(`fixtures-invalid/${Object.keys(manifest)[0]}`);
+  expect(bad.exitCode).toBe(1);
+  expect(`${bad.stdout}${bad.stderr}`).not.toMatch(/sha256 [0-9a-f]{64}/);
 });

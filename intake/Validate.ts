@@ -13,8 +13,12 @@
  *   bun intake/Validate.ts                 # validate every fixtures/*.intake.json
  *   bun intake/Validate.ts path.json ...   # validate specific intake files
  *
+ * Each accepted file is followed by a `sha256` line: the hash of the file as read, which is the
+ * value a brief records as `intake.sha256` and the lint checks it against.
+ *
  * Exit codes: 0 all valid, 1 any violation or unreadable file. Warnings never fail.
  */
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { validateAgainstSchema, type Schema } from "./lib/schema.ts";
@@ -59,10 +63,16 @@ if (import.meta.main) {
   let failed = 0;
   for (const target of targets) {
     let result: { errors: string[]; warnings: string[] };
-    try { result = validateIntake(JSON.parse(readFileSync(target, "utf8"))); }
+    let sha256 = "";
+    try {
+      const raw = readFileSync(target);
+      sha256 = createHash("sha256").update(raw).digest("hex");
+      result = validateIntake(JSON.parse(raw.toString("utf8")));
+    }
     catch (err) { result = { errors: [`unreadable or invalid JSON: ${err instanceof Error ? err.message : String(err)}`], warnings: [] }; }
     if (result.errors.length === 0) {
       console.log(`✓ ${target}`);
+      console.log(`    sha256 ${sha256}`);
       for (const w of result.warnings) console.log(`    ! ${w}`);
     } else {
       failed++;
