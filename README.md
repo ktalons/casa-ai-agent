@@ -127,8 +127,8 @@ bun intake/Validate.ts intake.json
 | `/casa:evaluate <fixture>` | Grades a brief against a fixture's ground truth |
 | `/casa:learn` | Reviews lesson candidates and keeps the ones the analyst approves |
 
-The latest tag is `v5.0.1`. `main` carries the unreleased work listed in
-[CHANGELOG.md](CHANGELOG.md), including everything measured above.
+The current release is `v5.1.0`. Everything measured above is in it. See
+[CHANGELOG.md](CHANGELOG.md).
 
 ## How it works
 

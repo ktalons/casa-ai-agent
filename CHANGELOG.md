@@ -1,11 +1,25 @@
 # Changelog
 
 All notable changes to CASA. The format follows Keep a Changelog; versions follow semver.
-Tags on GitHub: `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
+Tags on GitHub: `v5.1.0`, `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
 
 ## Unreleased
 
+## 5.1.0 (2026-11-21)
+
+Intake v3 with a Wazuh producer, a held-out fixture set, and evals whose scores come from
+cases the prompts were not tuned on. Scores at this release, one run per variant: held-out
+36/36 machine and 29/30 rubric, authoring 135/135 and 98/99.
+
 ### Added
+
+- Four workflow cards for technique families that had none: script and signed-binary proxy
+  execution, service and autostart persistence, log and defense tampering, and internal
+  discovery and scanning. Each has a row in the investigate skill's technique table.
+- `bun run eval:scan` (`evals/ScanRuns.ts`): reads the transcripts of an eval run and fails if
+  a tool call outside the run's lane was not refused.
+- A plugin icon, and `scripts/check-icon.ts`, which holds it to the plugin directory's size
+  rules.
 
 - Intake v3 (`intake/schema/soc-intake.v3.schema.json`): the engine that raised each alert and
   its own IDs, ports and protocol, `subject_user` and `target_user` with the logon type, typed
@@ -64,6 +78,22 @@ Tags on GitHub: `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
 - Approved lessons are written to `${CLAUDE_PLUGIN_DATA}/lessons.md`, which survives plugin
   updates, and every investigation reads them.
 - `/casa:evaluate` writes the grade and the rubric into the project's `evals/results/`.
+- Each investigate step of an eval runs in its own new, empty project that holds only its
+  intake, on a named model, without the user's settings or instruction files. It can read the
+  plugin's `skills/` and nothing else in the repo. Scores recorded before this change came
+  from runs that could read earlier briefs, and none of them is a baseline.
+- Standards §5: the confidence level rates what was observed. Unknowns around it narrow the
+  claim and become data requests. A benign explanation that nothing in the input supports
+  does not hold the level down. A refutation that rests only on the input's own account of
+  sanctioned activity stays at Medium. A truncated input lowers the level by one, and the
+  brief names that as the reason.
+- Standards §3: in a truncated input, the earliest and latest detections are the edges of what
+  was collected, not the start or end of the activity.
+- The investigate skill: a benign outcome refutes the threat hypothesis and is never restated
+  as a hypothesis of its own; findings are saved under `briefs/scratch/<run_id>/`; a brief
+  that offers containment cites the Respond subcategory it falls under.
+- The README leads with the measured scores and how the held-out set stays unseen, then says
+  what CASA does not do.
 
 ### Fixed
 
@@ -72,6 +102,9 @@ Tags on GitHub: `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
 - `evals/RunFull.ts` runs every intake version's fixtures and strips session and API-key
   variables from the child environment.
 - Detection drafts get run-unique names. One rule decides when containment options appear: only for a supported finding at High confidence.
+- The `jq` recipes in three workflow cards named Windows event fields in Windows' own casing.
+  Wazuh writes those fields with a lower-case first letter, so the recipes returned nothing on
+  real output.
 
 ## 5.0.1 (2026-10-05)
 

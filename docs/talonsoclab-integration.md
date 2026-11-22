@@ -34,7 +34,7 @@ bash /path/to/casa-ai-agent/scripts/install-into-project.sh --source /path/to/ca
 On any other machine, install from GitHub instead:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ktalons/casa-ai-agent/v5.0.1/scripts/install-into-project.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ktalons/casa-ai-agent/v5.1.0/scripts/install-into-project.sh | bash
 ```
 
 The script is idempotent. It:
