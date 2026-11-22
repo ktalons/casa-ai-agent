@@ -26,10 +26,10 @@ brief is graded two ways.
 
 | Set | Variants | Machine | Rubric |
 |---|---|---|---|
-| Held-out | 4 | 36/36 | 29/30 |
+| Held-out | 4 | 36/36 | 30/30 |
 | Authoring | 15 | 135/135 | 98/99 |
 
-Run on 2026-11-21 on the tree committed as `789c5f7`. One run per variant. Opus on the main thread, Sonnet
+Run on 2026-11-22 on the tree committed as `09cd139`. One run per variant. Opus on the main thread, Sonnet
 for the specialists.
 
 The held-out number is the one that matters. Prompt text is tuned against the authoring set
