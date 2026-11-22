@@ -36,6 +36,11 @@ is loaded; they are not project-scope components. The SOC non-negotiables live i
 - Fixtures use documentation addresses (192.0.2.0/24, 198.51.100.0/24, 203.0.113.0/24,
   2001:db8::/32), `corp*` host names and RFC 2606 domains; tests enforce all three.
 - `claude plugin eval` is not used; the manifest points it at the empty `evals/plugin-eval/`.
+- `portable/` is generated, so a hand edit there is overwritten by the next build. Change the
+  plugin sources or the templates in `scripts/portable-src/`, then run `bun run build:portable`. The build pulls exact sentences
+  from the skills, cards and agents and fails when one has changed, so a wording change there
+  means updating the matching `swap` or `between` call in `scripts/build-portable.ts`. A version
+  bump changes the pack too. `bun test` and CI fail on drift.
 
 ## Conventions
 

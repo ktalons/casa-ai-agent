@@ -192,6 +192,13 @@ Briefs, drafts, lessons and grades are written under the plugin's `output_root` 
 into the plugin. The runbook for the lab is
 [`docs/talonsoclab-integration.md`](docs/talonsoclab-integration.md).
 
+## Other agents
+
+Agents that cannot load a Claude Code plugin can use the pack in
+[`portable/`](portable/README.md): three skills in the [Agent Skills](https://agentskills.io)
+format, generated from the same rule text. They carry the rules and the method. Nothing in them
+enforces either: no lint in code, no write guard, no parallel specialists.
+
 ## Development
 
 ```bash
@@ -214,7 +221,8 @@ Fixture sets are listed in `evals/fixture-sets.json`. Fixtures use documentation
 runs: Claude Code protects a plugin directory, so a headless run cannot write its brief.
 
 Layout: `agents/` · `skills/` · `hooks/` (write guard) · `intake/` (schemas, fixtures,
-validator, producer) · `evals/` (lint, grader, runner, scan). Developer notes are in
+validator, producer) · `evals/` (lint, grader, runner, scan) · `portable/` (generated skill
+pack; rebuild with `bun run build:portable`). Developer notes are in
 [`.claude/CLAUDE.md`](.claude/CLAUDE.md).
 
 ## License
