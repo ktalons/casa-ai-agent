@@ -237,10 +237,10 @@ test("linear time: a 100,000-character brief of one repeated shape lints in unde
     "defanged dots": "[.]".repeat(n / 3),
     // Blanked spans become whitespace, so keyword-then-whitespace is a real shape, not a contrived one.
     "space run": spaces,
-    "events then spaces": "events" + spaces,
-    "ports then spaces": "ports" + spaces,
-    "rule then spaces": "rule" + spaces,
-    "list comma then spaces": "events 1," + spaces,
+    "events then spaces": `events${spaces}`,
+    "ports then spaces": `ports${spaces}`,
+    "rule then spaces": `rule${spaces}`,
+    "list comma then spaces": `events 1,${spaces}`,
   };
   const slow: string[] = [];
   for (const [name, text] of Object.entries(inputs)) {
@@ -255,13 +255,13 @@ test("linear time: a 100,000-character brief of one repeated shape lints in unde
 test("the brief's own intake hash is provenance, not evidence, and a stale one is reported as a note", () => {
   const raw = readFileSync(join(ROOT, "intake/fixtures/brute-force-dc-chain.intake.json"));
   const sha = createHash("sha256").update(raw).digest("hex");
-  const brief = (h: string) => "```json\n" + JSON.stringify({ schema: "casa.brief/v1", intake: { sha256: h } }) + "\n```\n";
+  const brief = (h: string) => `\`\`\`json\n${JSON.stringify({ schema: "casa.brief/v1", intake: { sha256: h } })}\n\`\`\`\n`;
   expect(lint(brief(sha), intake, { intakeSha256: sha })).toMatchObject({ pass: true, notes: [] });
   const stale = lint(brief(SHA256_B), intake, { intakeSha256: sha });
   expect(stale.pass).toBe(true);
   expect(stale.notes.length).toBe(1);
   // Cited anywhere else, the same value is an ordinary hash claim.
-  expect(flagged(brief(SHA256_B) + `\nThe payload hash was ${SHA256_B}.`, intake)).toEqual([`hash:${SHA256_B}`]);
+  expect(flagged(`${brief(SHA256_B)}\nThe payload hash was ${SHA256_B}.`, intake)).toEqual([`hash:${SHA256_B}`]);
 });
 
 test("quiet-day intake: any host, rule ID or technique is a fabrication", () => {
@@ -358,7 +358,9 @@ test("v3 offsets: an intake time with a non-UTC offset traces by its UTC date an
 test("v3 learned TLDs: only a TLD the domain pattern can read is learned", () => {
   const v3 = richV3() as { detections: { sysmon: { dns_query?: { query_name: string } } | null }[] };
   const k = (name: string) => {
-    v3.detections[3].sysmon!.dns_query!.query_name = name;
+    const query = v3.detections[3].sysmon?.dns_query;
+    if (!query) throw new Error("the fixture's fourth detection carries no dns_query group");
+    query.query_name = name;
     return intakeKnowledge(v3).patterns.domainTlds;
   };
   expect(k("sync-cdn.example.zz")).toContain("zz");
@@ -367,7 +369,8 @@ test("v3 learned TLDs: only a TLD the domain pattern can read is learned", () =>
 
 test("v3 Sysmon hosts: a single-label hostname found only in source_hostname traces, and a stranger still fails", () => {
   const v3 = richV3() as { detections: { sysmon?: { network_connect?: Record<string, unknown> } | null }[] };
-  const conn = v3.detections.at(-1)!.sysmon!.network_connect!;
+  const conn = v3.detections.at(-1)?.sysmon?.network_connect;
+  if (!conn) throw new Error("the fixture's last detection carries no network_connect group");
   conn.source_hostname = "wkstn-relay";
   conn.destination_hostname = null;
   const hosts = (text: string, hostPrefix?: string) => lint(text, v3, { hostPrefix }).unknown.filter((u) => u.kind === "host").map((u) => u.token);
@@ -375,7 +378,7 @@ test("v3 Sysmon hosts: a single-label hostname found only in source_hostname tra
   expect(hosts("wkstn-relay connected out.", "wkstn-")).toEqual([]);
   expect(hosts("wkstn-other connected out.", "wkstn-")).toEqual(["wkstn-other"]);
   // A brief's JSON block names a host with no prefix to read it by, so the intake's typed field is the only voucher.
-  const block = (h: string) => "```json\n" + JSON.stringify({ schema: "casa.brief/v1", threads: [{ hosts: [h] }] }) + "\n```\n";
+  const block = (h: string) => `\`\`\`json\n${JSON.stringify({ schema: "casa.brief/v1", threads: [{ hosts: [h] }] })}\n\`\`\`\n`;
   expect(hosts(block("wkstn-relay"))).toEqual([]);
   expect(hosts(block("wkstn-other"))).toEqual(["wkstn-other"]);
 });

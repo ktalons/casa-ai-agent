@@ -108,7 +108,7 @@ test("v3 fields: the schema defines all eight field groups", () => {
 
 test("v3 instants: microseconds order, offsets convert, impossible components are refused", () => {
   expect(instantMicros("2026-07-20T09:19:47.418123+07:00")).toBe(instantMicros("2026-07-20T02:19:47.418123Z"));
-  expect(instantMicros("2026-07-20T02:19:47.000001Z")! > instantMicros("2026-07-20T02:19:47Z")!).toBe(true);
+  expect(micros("2026-07-20T02:19:47.000001Z") > micros("2026-07-20T02:19:47Z")).toBe(true);
   for (const bad of ["2026-02-30T00:00:00Z", "2026-07-20T24:00:00Z", "2026-07-20T00:00:60Z", "2026-07-20T00:00:00+14:30", "2026-07-20T00:00:00+05:60", "2026-07-20T00:00:00"]) expect(instantMicros(bad)).toBeNull();
   expect(instantMicros("2026-07-20T00:00:00-12:00")).not.toBeNull();
 });
@@ -137,9 +137,9 @@ test("v3 invalid set: each file fails naming its rule, and truncation agrees wit
 test("instants before year 100: years 0000 to 0099 parse, and a pre-epoch instant keeps its own UTC day", () => {
   expect(instantMicros("0050-03-01T00:00:00Z")).not.toBeNull();
   expect(instantMicros("0000-01-01T00:00:00Z")).not.toBeNull();
-  expect(instantMicros("0099-12-31T23:59:59Z")! < instantMicros("0100-01-01T00:00:00Z")!).toBe(true);
-  expect(utcDate(instantMicros("1969-12-31T23:59:59.999999Z")!)).toBe("1969-12-31");
-  expect(utcDate(instantMicros("0050-03-01T12:00:00Z")!)).toBe("0050-03-01");
+  expect(micros("0099-12-31T23:59:59Z") < micros("0100-01-01T00:00:00Z")).toBe(true);
+  expect(utcDate(micros("1969-12-31T23:59:59.999999Z"))).toBe("1969-12-31");
+  expect(utcDate(micros("0050-03-01T12:00:00Z"))).toBe("0050-03-01");
 });
 
 test("window cap: a window longer than 366 days is refused fast, and the counts error quotes few dates", () => {
@@ -187,7 +187,23 @@ const intakeVariants = (base: string) =>
 const newestVariant = (base: string) => intakeVariants(base).at(-1) as string;
 const covers = (ids: string[], want: string) => ids.some((id) => id === want || id.startsWith(`${want}.`));
 
-type Truth = { intake: any; expected: any };
+/** A v3 instant that must parse; one that does not fails the test with its own text. */
+function micros(ts: string): bigint {
+  const parsed = instantMicros(ts);
+  if (parsed === null) throw new Error(`not a real instant: ${ts}`);
+  return parsed;
+}
+
+/** The intake and ground-truth fields the scenario checks read. */
+type Truth = {
+  intake: {
+    detections: { description: string; mitre?: string[] }[];
+    recon_delta?: { markdown?: string };
+    truncated: boolean;
+    pipeline?: { collector_ok: boolean; agents_reporting: number; last_event_seen: string | null };
+  };
+  expected: { status: string; forbid_option_kinds: string[]; must_identify: { text: string }[]; must_cite: { attack: string[] } };
+};
 // What each scenario means, checked on the fixture's own data; at least one tagged fixture must show it.
 const SCENARIO_SHOWN: Record<string, (t: Truth) => boolean> = {
   "refuted-benign": ({ expected }) =>

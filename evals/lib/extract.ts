@@ -35,7 +35,7 @@ const RE_MAC = /\b(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}\b/gi;
 const RE_EMAIL = /(?<![\w.+-])[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9-]+\.)+[A-Za-z]{2,24}(?![\w-]|\.[A-Za-z0-9])/g;
 // NetBIOS domains are written uppercase; a lowercase `corp\bob` is a known gap, because a single
 // backslash inside a JSON string is an escape (`line\nnext`) and would read as an account.
-const RE_DOMAIN_USER = /(?<![\w\\.:\/$%-])([A-Z][A-Z0-9-]{0,14})\\{1,2}([A-Za-z0-9._$-]*[A-Za-z0-9$])(?![\w\\]|[.$-]\w)/g;
+const RE_DOMAIN_USER = /(?<![\w\\.:/$%-])([A-Z][A-Z0-9-]{0,14})\\{1,2}([A-Za-z0-9._$-]*[A-Za-z0-9$])(?![\w\\]|[.$-]\w)/g;
 // Registry hives and the built-in principals (NT AUTHORITY\SYSTEM, BUILTIN\Administrators) are not accounts to trace.
 const RE_NOT_A_DOMAIN_USER = /^(?:HKLM|HKCU|HKU|HKCR|HKCC|AUTHORITY|BUILTIN)$/;
 // .NET namespaces read like domains under a real TLD (System.Net); they are written PascalCase.
@@ -44,12 +44,12 @@ const RE_IPV6_CANDIDATE = /(?<![\w:.])(?:[0-9a-f]{0,4}:){2,7}(?:(?:\d{1,3}\.){3}
 // A numeric offset is read only after seconds; "02:00-03:00" is a range, so its tail is a second time.
 const RE_DATETIME = /\b(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:?\d{2})?|Z)?)(?:\s*(?:-|–|to)\s*(\d{2}:\d{2}(?::\d{2})?)Z?)?(?:\s*UTC\b)?(?![\w:]|\.\d)/g;
 // A date glued to more file-name characters is part of a path, not a timestamp claim.
-const RE_DATE = /(?<![\w\/.-])\d{4}-\d{2}-\d{2}(?![\w]|-[A-Za-z0-9]|[.\/][A-Za-z0-9])/g;
+const RE_DATE = /(?<![\w/.-])\d{4}-\d{2}-\d{2}(?![\w]|-[A-Za-z0-9]|[./][A-Za-z0-9])/g;
 const RE_DATE_ANY = /\b\d{4}-\d{2}-\d{2}\b/g;
 const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
 const RE_DATE_MONTH_FIRST = /\b(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\b/gi;
 const RE_DATE_DAY_FIRST = /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?,?\s+(\d{4})\b/gi;
-const RE_DATE_SLASH = /(?<![\w\/.])(\d{1,2})\/(\d{1,2})\/(\d{4})(?![\w\/]|\.\d)/g;
+const RE_DATE_SLASH = /(?<![\w/.])(\d{1,2})\/(\d{1,2})\/(\d{4})(?![\w/]|\.\d)/g;
 // Compact dates (20261231) and epoch numbers are not read as timestamps: they collide with rule IDs,
 // counts and PIDs. A keyword-gated form could be added if briefs start writing them.
 // A bare HH:MM needs Z, UTC or a preceding "at" to count as a time; "ratio 10:30" is not one.
@@ -60,8 +60,8 @@ const RE_TIME = /(?<![\w:.])(\d{2}:\d{2}(?::\d{2}(?:\.\d{1,9})?)?)(Z)?(\s*UTC\b)
 const RE_QUERY_BEFORE = /(?:\b(?:from|between|until|till|window|quer(?:y|ies|ying)|pull\w*|request\w*)\b|\beither\s+side(?:\s+of)?|\u00b1)(?:\s+[^\s.;]+){0,3}\s*$/i;
 const RE_RANGE_BEFORE = /(?:\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?Z?|\bUTC)\s*(?:to|and|through|until|-|\u2013)\s*$/i;
 const RE_ALERT_ID = /(?<![\w.])\d{9,11}\.\d{3,9}(?![\w]|\.\d)/g;
-const RE_HOST_PORT = /(?<![\w.\/-])((?:\d{1,3}\.){3}\d{1,3}|[A-Za-z][A-Za-z0-9.-]*[A-Za-z0-9]):(\d{1,5})(\/(?:tcp|udp|sctp))?(?![\w:]|\.\d)/gi;
-const RE_PORT_PROTO = /(?<![\w.:\/])(\d{1,5})\/(?:tcp|udp|sctp)\b/gi;
+const RE_HOST_PORT = /(?<![\w./-])((?:\d{1,3}\.){3}\d{1,3}|[A-Za-z][A-Za-z0-9.-]*[A-Za-z0-9]):(\d{1,5})(\/(?:tcp|udp|sctp))?(?![\w:]|\.\d)/gi;
+const RE_PORT_PROTO = /(?<![\w.:/])(\d{1,5})\/(?:tcp|udp|sctp)\b/gi;
 // A range ("ports 1-1024") is a query scope, not a claim about one port, so it is not checked.
 // Separators are written so no two \s* sit side by side: that pairing backtracks quadratically on long whitespace.
 const RE_PORT_LIST = /\b(?:ports?|dst_port|src_port|dest_port|dport|sport|destinationport|sourceport)\b\s*(?:[:=]\s*)?((?:\d{1,5}(?:\s*-\s*\d{1,5})?(?![\d:.]\d|\d)(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)?)+)/gi;
@@ -84,11 +84,11 @@ const RE_EVENT_BARE = /(?<![\w.:-])4[6-9]\d\d(?![\w]|[.:]\d)/g;
 // four-digit built-in Wazuh rules are not checked either (they share a shape with event IDs).
 // Up to three words or an opening parenthesis may sit between the keyword and the numbers ("rule
 // numbers 100341", "the rule fired (99999)"), but not another ID keyword ("rule on build 19045").
-const RE_RULE_LIST = /\b(?:rules?|rule_ids?|rule\s+ids?|sids?|signature\s+ids?)\b(?:\s+(?!(?:build|pid|ports?|events?|eids?|cve|version|kb|sp|line|level|alert|alert_id)\b)[A-Za-z][\w-]*){0,3}\s*(?:[:=#(]\s*)?((?:\d{5,7}(?![\d:.\/-]\d|\d)(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+|\s*\/\s*)?)+)/gi;
+const RE_RULE_LIST = /\b(?:rules?|rule_ids?|rule\s+ids?|sids?|signature\s+ids?)\b(?:\s+(?!(?:build|pid|ports?|events?|eids?|cve|version|kb|sp|line|level|alert|alert_id)\b)[A-Za-z][\w-]*){0,3}\s*(?:[:=#(]\s*)?((?:\d{5,7}(?![\d:./-]\d|\d)(?:\s*,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+|\s*\/\s*)?)+)/gi;
 const RE_HOST_KEYWORD = /\b(?:host|hosts|hostname|endpoint|workstation|server|machine|computer)\s+([A-Za-z][A-Za-z0-9_-]*\d[A-Za-z0-9_-]*)\b/gi;
 // Letters (hyphen or underscore groups allowed) then at least two digits: web07, FILESERVER01, WS-0042, ws_0042.
 // One trailing digit (oauth2, ps1, md5) is too often a protocol or file type to be read as a host.
-const RE_HOST_SHAPE = /(?<![\w.\/\\:-])[A-Za-z]{2,}(?:[-_][A-Za-z]+)*[-_]?\d{2,}(?![\w-]|[.\/\\]\w)/g;
+const RE_HOST_SHAPE = /(?<![\w./\\:-])[A-Za-z]{2,}(?:[-_][A-Za-z]+)*[-_]?\d{2,}(?![\w-]|[./\\]\w)/g;
 const HOST_STOP_STEMS = new Set(["sha", "md", "ipv", "utf", "base", "aes", "rc", "des", "ntlmv", "smbv", "tls", "tlsv", "ssl", "sslv", "snmpv", "http", "https", "pkcs", "rfc", "cve", "cwe", "kb", "ms", "iso", "ecma", "es", "py", "python", "node", "bun", "java", "ver", "version", "run", "rev", "phase", "step", "round", "part", "page", "line", "level", "tier", "top", "gen", "win", "wow", "amd", "arm", "int", "uint", "float", "ec", "office", "windows", "server", "dr", "isc", "cl", "ta", "car", "sp", "nist", "port", "rule", "event", "eid", "alert", "build", "case", "ticket", "inc", "incident", "req", "chg", "cr", "sysmon", "iis", "ubuntu", "rhel", "debian", "kernel", "pid", "regsvr", "rundll", "system", "syswow"]);
 const RE_BRIEF_ID = /^(?:T\d+(?:\.\d+)?|DR\d+)$/;
 const RE_USER_KEYWORD = /\b(?:user|users|account|accounts|username|targetusername|subjectusername)(?:\s*[:=]\s*|\s+)(`[^`\s]+`|"[^"\s]+"|'[^'\s]+'|[A-Za-z][A-Za-z0-9._$@\\-]*)/gi;
@@ -409,7 +409,10 @@ export function extractTokens(text: string, patterns: Partial<NamePatterns> = {}
   consume(buf, RE_MAC, () => "");
 
   // Accounts written as an address or DOMAIN\user, before the domain pass reads their suffix.
-  consume(buf, RE_EMAIL, (m) => (t.user.add(m[0].toLowerCase()), ""));
+  consume(buf, RE_EMAIL, (m) => {
+    t.user.add(m[0].toLowerCase());
+    return "";
+  });
   consume(buf, RE_DOMAIN_USER, (m) => {
     if (RE_NOT_A_DOMAIN_USER.test(m[1])) return null;
     t.user.add(`${m[1]}\\${m[2]}`.toLowerCase());
@@ -442,7 +445,10 @@ export function extractTokens(text: string, patterns: Partial<NamePatterns> = {}
       return "";
     });
   }
-  consume(buf, RE_DATE, (m) => (t.timestamp.add(m[0]), ""));
+  consume(buf, RE_DATE, (m) => {
+    t.timestamp.add(m[0]);
+    return "";
+  });
   consume(buf, RE_DATE_ANY, () => "");
   consume(buf, RE_TIME, (m) => {
     const before = m.input.slice(Math.max(0, m.index - 4), m.index);
@@ -452,8 +458,14 @@ export function extractTokens(text: string, patterns: Partial<NamePatterns> = {}
     if (inQueryContext(m.input, m.index)) t.query_stamps.add(`${m[1]}Z`);
     return "";
   });
-  consume(buf, RE_ALERT_ID, (m) => (t.alert_id.add(m[0]), ""));
-  consume(buf, RE_CSF, (m) => (t.csf.add(m[0]), ""));
+  consume(buf, RE_ALERT_ID, (m) => {
+    t.alert_id.add(m[0]);
+    return "";
+  });
+  consume(buf, RE_CSF, (m) => {
+    t.csf.add(m[0]);
+    return "";
+  });
   consume(buf, RE_CSF_CATEGORY, () => "");
 
   // Ports: host:port exposures, then N/proto, then keyword lists.
@@ -494,12 +506,18 @@ export function extractTokens(text: string, patterns: Partial<NamePatterns> = {}
     return "";
   });
 
-  consume(buf, RE_ATTACK, (m) => (t.attack.add(m[0]), ""));
+  consume(buf, RE_ATTACK, (m) => {
+    t.attack.add(m[0]);
+    return "";
+  });
   consume(buf, RE_EVENT_LIST, (m) => {
     for (const n of m[1].match(/\d+/g) ?? []) t.event_id.add(String(Number(n)));
     return m[0].slice(0, m[0].length - m[1].length);
   });
-  consume(buf, RE_EVENT_BARE, (m) => (t.event_id.add(m[0]), ""));
+  consume(buf, RE_EVENT_BARE, (m) => {
+    t.event_id.add(m[0]);
+    return "";
+  });
   consume(buf, RE_RULE_LIST, (m) => {
     for (const n of m[1].match(/\d+/g) ?? []) t.rule_id.add(n);
     return m[0].slice(0, m[0].length - m[1].length);

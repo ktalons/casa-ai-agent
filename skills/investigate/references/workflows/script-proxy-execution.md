@@ -34,7 +34,7 @@
 
 ## 3. Intake-only decision rules
 
-- A T1059.* or T1218.* detection whose description shows a remote argument (a URL or a UNC
+- A T1059.\* or T1218.\* detection whose description shows a remote argument (a URL or a UNC
   path), a hidden or encoded command, or an unusual parent (an Office application, a browser,
   a mail client, a script host) makes H1 `supported` at **Medium** on one
   source. Without any of those markers it is **Low**: interpreters and these binaries run all

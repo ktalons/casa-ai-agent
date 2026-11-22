@@ -89,7 +89,7 @@ const grade = buildGrade(expected.fixture, briefPath, m, rubric, { intake: intak
 const dir = join(outDir, expected.fixture);
 mkdirSync(dir, { recursive: true });
 const outPath = join(dir, `${grade.graded_at.replace(/[:.]/g, "-")}.grade.json`);
-writeFileSync(outPath, JSON.stringify(grade, null, 2) + "\n");
+writeFileSync(outPath, `${JSON.stringify(grade, null, 2)}\n`);
 
 if (process.argv.includes("--json")) {
   console.log(JSON.stringify({ ...grade, path: outPath }, null, 2));

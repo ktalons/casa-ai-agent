@@ -166,7 +166,7 @@ function sessionCwd(mainTranscript: string): string | null {
       const cwd = (JSON.parse(line) as { cwd?: unknown }).cwd;
       if (typeof cwd === "string") return cwd;
     } catch {
-      continue;
+      // Not a JSON line: the next one may still carry the cwd.
     }
   }
   return null;

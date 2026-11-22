@@ -165,7 +165,8 @@ export function summarize(grades: StoredGrade[], sets: FixtureSets): Summary {
   const rows: SummaryRow[] = [];
   for (const [variant, g] of [...latest].sort(([a], [b]) => a.localeCompare(b))) {
     const set = setOf(sets, g.fixture);
-    const t = (totals[set] ??= emptyTotals());
+    totals[set] ??= emptyTotals();
+    const t = totals[set];
     const s = g.score;
     const rubricDone = s.rubric_pass !== null && s.rubric_total !== null;
     t.variants++;

@@ -57,12 +57,13 @@ function section(text: string, heading: string): string {
   const lines = text.split("\n");
   const start = lines.findIndex((l) => l.trim() === heading);
   if (start === -1) return "";
-  const depth = heading.match(/^#+/)![0].length;
+  const level = (l: string) => (l.match(/^#+/)?.[0] ?? "").length;
+  const depth = level(heading);
   // A `# comment` inside a fenced command block is not a heading.
   let fenced = false;
   const end = lines.findIndex((l, i) => {
-    if (i > start && /^```/.test(l)) fenced = !fenced;
-    return i > start && !fenced && /^#+ /.test(l) && l.match(/^#+/)![0].length <= depth;
+    if (i > start && l.startsWith("```")) fenced = !fenced;
+    return i > start && !fenced && /^#+ /.test(l) && level(l) <= depth;
   });
   return lines.slice(start + 1, end === -1 ? undefined : end).join("\n");
 }
@@ -121,7 +122,7 @@ function pipeSegments(line: string): string[] {
 /** Each `## ` section of a Markdown file that holds a fenced command, keyed by its heading. */
 function recipeSections(text: string): Array<{ heading: string; body: string }> {
   const out: Array<{ heading: string; body: string }> = [];
-  for (const heading of text.split("\n").filter((l) => /^## /.test(l))) {
+  for (const heading of text.split("\n").filter((l) => l.startsWith("## "))) {
     const body = section(text, heading.trim());
     if (recipeLines(body).length > 0) out.push({ heading: heading.trim(), body });
   }
@@ -228,7 +229,7 @@ test("recipes: every card recipe uses only commands the recommended settings all
 });
 
 test("recipes: no agent tells a specialist to run a shell command", () => {
-  const query = new RegExp("`(" + [...QUERY_WORDS, ...SHELL_WORDS].join("|") + ")\\b[^`]*`");
+  const query = new RegExp(`\`(${[...QUERY_WORDS, ...SHELL_WORDS].join("|")})\\b[^\`]*\``);
   const told: string[] = [];
   for (const f of promptFiles().filter((p) => p.startsWith("agents"))) {
     const text = read(f);
@@ -240,7 +241,7 @@ test("recipes: no agent tells a specialist to run a shell command", () => {
 });
 
 test("recipes: no prompt prose names a command outside the allowlist", () => {
-  const word = new RegExp("`(" + SHELL_WORDS.join("|") + ")\\b[^`]*`");
+  const word = new RegExp(`\`(${SHELL_WORDS.join("|")})\\b[^\`]*\``);
   const named: string[] = [];
   for (const f of promptFiles()) {
     for (const s of sentences(read(f))) if (word.test(s)) named.push(`${f}: ${s}`);
@@ -280,7 +281,8 @@ test("v3 fields: the investigate skill names the split users, the typed groups, 
   const text = read(INVESTIGATE);
   for (const field of ["talonsoclab.soc-intake/v3", "subject_user", "target_user", "logon_type", "src_port", "dst_port", "engine", "include_rule_ids", "counts", "process_create", "network_connect", "file_create", "registry_value_set", "dns_query", "suricata"]) {
     // Named inside a code span, alone or as a path such as `filter.include_rule_ids`.
-    const span = new RegExp("`[^`\\n]*\\b" + field.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&") + "\\b[^`\\n]*`");
+    const escaped = field.replace(/[.*+?^${}()|[\]\\/]/g, "\\$&");
+    const span = new RegExp(`\`[^\`\\n]*\\b${escaped}\\b[^\`\\n]*\``);
     expect([field, span.test(text)]).toEqual([field, true]);
   }
 });
@@ -410,7 +412,7 @@ function listItems(text: string): string[] {
 
 /** Rows of the technique-to-specialist table under HYPOTHESIZE, as [family cell, specialists cell]. */
 function techniqueTable(): Array<[string, string]> {
-  const rows = section(read(INVESTIGATE), "### 2. HYPOTHESIZE").split("\n").filter((l) => /^\|/.test(l));
+  const rows = section(read(INVESTIGATE), "### 2. HYPOTHESIZE").split("\n").filter((l) => l.startsWith("|"));
   return rows
     .slice(2)
     .map((l) => l.split("|").slice(1, -1).map((c) => c.trim()))

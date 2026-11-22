@@ -17,7 +17,7 @@ const OUT = join(import.meta.dir, "..", "skills", "standards", "references", "at
 type Version = { version: string; modified: string; url: string };
 type Collection = { name: string; versions: Version[] };
 
-const index = (await (await fetch(BASE + "index.json")).json()) as { collections: Collection[] };
+const index = (await (await fetch(`${BASE}index.json`)).json()) as { collections: Collection[] };
 const enterprise = index.collections.find((c) => /enterprise/i.test(c.name));
 if (!enterprise) throw new Error("Enterprise collection not found in index.json");
 
@@ -28,19 +28,23 @@ if (!pick) throw new Error(`version ${wanted} not in index`);
 
 const url = pick.url.replace(/^https:\/\/raw\.githubusercontent\.com\/mitre-attack\/attack-stix-data\/master\//, BASE);
 console.error(`fetching Enterprise ATT&CK ${pick.version} (${pick.modified})`);
-const bundle = (await (await fetch(url)).json()) as { objects: any[] };
+// The STIX fields this script reads; a bundle object may lack any of them.
+type Reference = { source_name?: string; external_id?: string; url?: string };
+type Phase = { kill_chain_name?: string; phase_name?: string };
+type StixObject = { type?: string; name?: string; revoked?: boolean; x_mitre_deprecated?: boolean; external_references?: Reference[]; kill_chain_phases?: Phase[] };
+const bundle = (await (await fetch(url)).json()) as { objects: StixObject[] };
 
 type Technique = { id: string; name: string; tactics: string[]; url: string | undefined };
 const techniques: Technique[] = bundle.objects
   .filter((o) => o.type === "attack-pattern" && !o.revoked && !o.x_mitre_deprecated)
   .map((o) => {
-    const ext = (o.external_references ?? []).find((r: any) => r.source_name === "mitre-attack");
+    const ext = (o.external_references ?? []).find((r) => r.source_name === "mitre-attack");
     return {
       id: ext?.external_id as string,
       name: o.name as string,
       tactics: (o.kill_chain_phases ?? [])
-        .filter((k: any) => k.kill_chain_name === "mitre-attack")
-        .map((k: any) => k.phase_name as string),
+        .filter((k) => k.kill_chain_name === "mitre-attack")
+        .map((k) => k.phase_name as string),
       url: ext?.url as string | undefined,
     };
   })
@@ -55,5 +59,5 @@ const out = {
   count: techniques.length,
   techniques,
 };
-await Bun.write(OUT, JSON.stringify(out, null, 1) + "\n");
+await Bun.write(OUT, `${JSON.stringify(out, null, 1)}\n`);
 console.error(`wrote ${techniques.length} techniques to ${OUT}`);

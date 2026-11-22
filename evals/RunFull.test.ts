@@ -141,12 +141,15 @@ test("run dir: an investigate run gets a new project that holds only its intake"
     expect(dir).toBe(join(root, "stamp-quiet-day.v3"));
     const files: string[] = [];
     const walk = (d: string): void => {
-      for (const e of readdirSync(d, { withFileTypes: true })) e.isDirectory() ? walk(join(d, e.name)) : files.push(join(d, e.name).slice(dir.length + 1));
+      for (const e of readdirSync(d, { withFileTypes: true })) {
+        if (e.isDirectory()) walk(join(d, e.name));
+        else files.push(join(d, e.name).slice(dir.length + 1));
+      }
     };
     walk(dir);
     // No expected.json, no earlier brief, no settings file: the intake and nothing else.
     expect(files).toEqual([join("intake", "quiet-day.v3.intake.json")]);
-    expect(readFileSync(join(dir, files[0]!), "utf8")).toBe(readFileSync(intake, "utf8"));
+    expect(readFileSync(join(dir, files[0]), "utf8")).toBe(readFileSync(intake, "utf8"));
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
