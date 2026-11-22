@@ -106,6 +106,10 @@ bun /path/to/casa-ai-agent/intake/producers/wazuh.ts --password-file <path-to-pa
 bun /path/to/casa-ai-agent/intake/Validate.ts "<output-root>/intake/$(date -u +%F)-intake.json"
 ```
 
+The validator prints the intake's SHA-256 under its tick line. A brief records that value as
+`intake.sha256`, and the lint reports a brief whose recorded hash is not the file's, so a brief
+always names the exact intake it was written from.
+
 `--redact` applies the lab's own mapping before anything is written: private IPv4 addresses
 become `192.0.2.n` and private IPv6 addresses `2001:db8::n` in order of first sight, account
 SIDs become `S-1-5-21-0-0-n`, the machine-derived first field of each Sysmon GUID becomes
