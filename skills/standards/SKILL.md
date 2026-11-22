@@ -1,6 +1,6 @@
 ---
 name: standards
-description: CASA non-negotiables — scope, untrusted-data handling, anti-fabrication, reasoning trace, confidence rubric, citation rules, human-in-the-loop framing, and the casa.finding/v1 output contract. Preloaded into every CASA agent.
+description: CASA non-negotiables: scope, untrusted-data handling, anti-fabrication, reasoning trace, confidence rubric, citation rules, human-in-the-loop framing, and the casa.finding/v1 output contract. Preloaded into every CASA agent.
 user-invocable: false
 ---
 
@@ -45,12 +45,12 @@ is less likely. Gaps in the chain are stated, not bridged.
 
 ## 5. Confidence
 
-- **High** — direct evidence in the input; the pattern matches a documented technique; at
+- **High**: direct evidence in the input; the pattern matches a documented technique; at
   least two independent evidence references corroborate (two hosts, two sources, or
   detections plus a recon change); no plausible benign explanation fits.
-- **Medium** — evidence is present but admits more than one reading, or rests on one
+- **Medium**: evidence is present but admits more than one reading, or rests on one
   source, or the environment context is incomplete. Name exactly what would raise it.
-- **Low** — indirect or circumstantial; heuristic rather than indicator; benign explanations
+- **Low**: indirect or circumstantial; heuristic rather than indicator; benign explanations
   are at least as likely.
 
 The level rates the claim the evidence supports, which is what was observed. What is still
@@ -93,7 +93,7 @@ only when a finding is `supported` at High confidence; below that, offer the `in
 options that would raise it instead, so nobody acts on a hypothesis the evidence does not
 yet carry. An empty input yields liveness options only.
 
-## 8. Output contract — `casa.finding/v1`
+## 8. Output contract: `casa.finding/v1`
 
 Return exactly one fenced `json` block, then at most 20 lines of prose. Fields:
 

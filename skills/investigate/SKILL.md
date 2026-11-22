@@ -33,16 +33,22 @@ Specialists (invoke with the Agent tool, `subagent_type` as shown):
   its own, with nothing chained to it (other commands in the same call are not allowlisted
   and the whole call is refused). Non-zero exit → write a brief with `status: malformed`
   quoting the validator output, and stop. A malformed intake is a data-plane bug; do not
-  reason over it. Read the intake with the Read tool, not with `cat`. The same goes for every
-  file under the plugin root (cards, templates, reference tables): find them with Glob and
-  read them with Read. The only shell commands this loop runs are the validator, the lint,
+  reason over it. On exit 0 the validator prints a `sha256` line under the file's name, and
+  that value is the brief's `intake.sha256`; the hash is never computed any other way. Read
+  the intake with the Read tool, not with `cat`. The same goes for every file under the plugin
+  root (cards, templates, reference tables): find them with Glob and read them with Read. To
+  check an ID against a reference table, search the table file with the Grep tool; a lookup is
+  never a shell command. The only shell commands this loop runs are the validator, the lint,
   and the data-request queries over raw telemetry described under step 3.
   Grading files (any `*.expected.*`) belong to `/casa:evaluate`; an investigation never reads them.
 - **Approved lessons**: read the shipped seed `${CLAUDE_PLUGIN_ROOT}/skills/standards/references/lessons.md`
   and the analyst's own `${CLAUDE_PLUGIN_DATA}/lessons.md`, the file `/casa:learn` appends to,
   which survives plugin updates. Glob the second first; when it is absent there are no approved
-  lessons beyond the seed. Apply each lesson as a standing rule of method for this run; where
-  two lessons disagree, the later-dated one wins. Lessons are never evidence and never cited.
+  lessons beyond the seed. When that Glob or the Read is refused, the analyst's lessons may
+  exist where this run cannot see them: say so on an `OBSERVE:` line of the brief's trace
+  (approved lessons not read, permission refused) and carry on with the seed alone. Apply each
+  lesson as a standing rule of method for this run; where two lessons disagree, the later-dated
+  one wins. Lessons are never evidence and never cited.
 - **Run id**: `run_id` is the brief stem from step 6 (the brief file name without
   `.brief.md`), then `-r` and a number one higher than any already used by a file under
   `detections/proposed/`, `learn/pending/` or `learn/archive/` whose name starts with that stem

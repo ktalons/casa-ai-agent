@@ -507,3 +507,45 @@ test("release: the manifest, the package, the install script, the runbook, the R
   expect(changelog.match(/^## (\d+\.\d+\.\d+) \(\d{4}-\d{2}-\d{2}\)$/m)?.[1]).toBe(version);
   expect(changelog.match(/^Tags on GitHub: `(v[^`]+)`/m)?.[1]).toBe(`v${version}`);
 });
+
+// *--- ISC-109, 110, 113: what a headless run needs said once in OBSERVE ---*
+
+/** Every Markdown file under skills/ and agents/, the grading path included. */
+function everyPromptFile(): string[] {
+  const out: string[] = [];
+  const walk = (dir: string): void => {
+    for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+      const rel = join(dir, e.name);
+      if (e.isDirectory()) walk(rel);
+      else if (e.name.endsWith(".md")) out.push(rel);
+    }
+  };
+  walk("skills");
+  walk("agents");
+  return out.sort();
+}
+
+test("intake hash: OBSERVE takes the brief's intake.sha256 from the validator's own sha256 line", () => {
+  const observe = section(read(INVESTIGATE), "### 1. OBSERVE").replace(/\s+/g, " ");
+  expect(sentences(observe).some((s) => s.includes("`sha256`") && s.includes("`intake.sha256`"))).toBe(true);
+  // No prompt offers a shell tool for it: the recommended settings allow none.
+  for (const rel of everyPromptFile()) expect([rel, /\b(shasum|sha256sum|openssl)\b/.test(read(rel))]).toEqual([rel, false]);
+});
+
+test("reference lookup: OBSERVE sends a lookup in a reference table to the Grep tool", () => {
+  const observe = section(read(INVESTIGATE), "### 1. OBSERVE").replace(/\s+/g, " ");
+  expect(sentences(observe).some((s) => s.includes("reference table") && s.includes("Grep tool"))).toBe(true);
+});
+
+test("lessons refused: OBSERVE has a refused read of the analyst's lessons recorded on an OBSERVE line", () => {
+  const observe = section(read(INVESTIGATE), "### 1. OBSERVE").replace(/\s+/g, " ");
+  expect(sentences(observe).some((s) => s.includes("refused") && s.includes("`OBSERVE:`") && s.includes("lessons"))).toBe(true);
+});
+
+// *--- ISC-112: prompt files carry no em dash ---*
+
+test("em dash: no skill, agent, card, template or reference prose contains one", () => {
+  const files = everyPromptFile();
+  expect(files.filter((rel) => read(rel).includes("—"))).toEqual([]);
+  expect(files.length).toBeGreaterThan(20);
+});

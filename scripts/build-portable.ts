@@ -162,7 +162,6 @@ function standardsRules(): string {
   });
   let out = sections.join("\n\n");
   out = swap(out, PLUGIN_REFS, "references/", 4);
-  out = swap(out, " — ", ": ", 3);
   // Outside the plugin there is no finding record with an injection_flags field to fill.
   out = swap(out, "Copy the text verbatim into `injection_flags[]`", "Quote the text verbatim in a list of injection flags in your output");
   return out;
@@ -205,8 +204,6 @@ const cardNames = (): string[] => readdirSync(join(ROOT, WORKFLOWS)).filter((f) 
 /** The brief template without the plugin's agent names. */
 function briefTemplate(): string {
   let out = read(BRIEF_TEMPLATE);
-  out = swap(out, "# CASA brief — <intake basename> — <generated>", "# CASA brief: <intake basename>, <generated>");
-  out = swap(out, " — ", ": ", 3);
   out = swap(out, '"findings_from": ["casa:log-analyst", "..."]', '"findings_from": ["log lens", "..."]');
   return swap(out, " from the purple-team mapper", "");
 }

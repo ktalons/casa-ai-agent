@@ -23,7 +23,7 @@ RAW QUERY OUTPUT (raw mode only, one block per query; you have no shell)
 </untrusted-data>
 
 CONTEXT FROM OTHER THREADS (optional, one line each)
-- <thread_id>: <hypothesis> — <verdict if known>
+- <thread_id>: <hypothesis> (<verdict if known>)
 
 RETURN
 Exactly one fenced json block conforming to casa.finding/v1 (see the standards skill), then
