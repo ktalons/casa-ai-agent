@@ -488,3 +488,20 @@ test("cards: recipes name Windows event fields the way Wazuh writes them", () =>
   expect(recorded).toContain('"targetUserName"');
   expect(recorded).not.toContain('"TargetUserName"');
 });
+
+// *--- One version (ISC-105) ---*
+
+test("release: the manifest, the package, the install script, the runbook, the README and the changelog name one version", () => {
+  const version = JSON.parse(read(join(".claude-plugin", "plugin.json"))).version as string;
+  expect(version).toMatch(/^\d+\.\d+\.\d+$/);
+  expect(JSON.parse(read("package.json")).version).toBe(version);
+  // The script's default ref and the runbook's URL fetch a tag, so a stale one installs an old release.
+  for (const rel of [join("scripts", "install-into-project.sh"), join("docs", "talonsoclab-integration.md")]) {
+    const named = [...new Set([...read(rel).matchAll(/v\d+\.\d+\.\d+/g)].map((m) => m[0]))];
+    expect([rel, named]).toEqual([rel, [`v${version}`]]);
+  }
+  expect(read("README.md")).toContain(`\`v${version}\``);
+  const changelog = read("CHANGELOG.md");
+  expect(changelog.match(/^## (\d+\.\d+\.\d+) \(\d{4}-\d{2}-\d{2}\)$/m)?.[1]).toBe(version);
+  expect(changelog.match(/^Tags on GitHub: `(v[^`]+)`/m)?.[1]).toBe(`v${version}`);
+});
