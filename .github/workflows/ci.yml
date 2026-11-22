@@ -36,6 +36,8 @@ jobs:
         run: bun test
       - name: validate intake fixtures (the invalid set is covered by bun test)
         run: bun intake/Validate.ts
+      - name: portable skill pack matches its sources
+        run: bun scripts/build-portable.ts --check
 
   secrets:
     name: gitleaks

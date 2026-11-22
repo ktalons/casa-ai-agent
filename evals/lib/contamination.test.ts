@@ -54,6 +54,9 @@ function promptFiles(withGradingPath = false): string[] {
   };
   walk("skills");
   walk("agents");
+  // The portable pack and its templates are prompt text too: other agents load them.
+  walk("portable");
+  walk(join("scripts", "portable-src"));
   return out.sort();
 }
 

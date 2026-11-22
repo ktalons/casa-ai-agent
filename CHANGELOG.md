@@ -5,6 +5,14 @@ Tags on GitHub: `v5.1.0`, `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
 
 ## Unreleased
 
+### Added
+
+- A portable skill pack under `portable/` for agents that cannot load the plugin:
+  `casa-soc-standards`, `casa-soc-triage` and `casa-evidence-check`, in the Agent Skills format.
+  `scripts/build-portable.ts` generates it from the plugin's own skills, cards and agents, and
+  fails when a sentence it pulls has changed. CI fails when the pack differs from what the
+  sources generate.
+
 ## 5.1.0 (2026-11-21)
 
 Intake v3 with a Wazuh producer, a held-out fixture set, and evals whose scores come from
