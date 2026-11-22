@@ -1,9 +1,9 @@
 # Changelog
 
 All notable changes to CASA. The format follows Keep a Changelog; versions follow semver.
-Tags on GitHub: `v5.1.0`, `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
+Tags on GitHub: `v5.2.0`, `v5.1.0`, `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
 
-## Unreleased
+## 5.2.0 (2026-11-22)
 
 ### Added
 

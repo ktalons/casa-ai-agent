@@ -1,7 +1,7 @@
 # CASA portable skills
 
 Three skills in the [Agent Skills](https://agentskills.io) format, generated from the CASA
-plugin's own rule text at version 5.1.0. They are for agents that read that format and cannot
+plugin's own rule text at version 5.2.0. They are for agents that read that format and cannot
 load the plugin.
 
 | Skill | What it gives an agent |

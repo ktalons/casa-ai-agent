@@ -5,7 +5,7 @@ license: MIT
 compatibility: "Needs the casa-soc-standards skill from the same pack installed alongside it."
 metadata:
   author: "ktalons"
-  version: "5.1.0"
+  version: "5.2.0"
   source: "https://github.com/ktalons/casa-ai-agent"
 ---
 
@@ -180,7 +180,7 @@ plainly that an empty window can mean quiet *or* a pipeline that is not producin
 ## Where this comes from
 
 This is the single-agent form of [CASA](https://github.com/ktalons/casa-ai-agent), a SOC
-investigation plugin for Claude Code, generated from its sources at version 5.1.0. The plugin
+investigation plugin for Claude Code, generated from its sources at version 5.2.0. The plugin
 runs each lens as its own agent in parallel, checks every citation with a lint written in code,
 and keeps each agent in its lane with a write guard. This skill has none of that enforcement.
 Its verification step is a check you perform, not a proof.
