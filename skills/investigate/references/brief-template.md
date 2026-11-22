@@ -4,7 +4,7 @@ The brief is a Markdown file whose first fenced `json` block is the machine-read
 the prose after it is for the analyst. Both must agree.
 
 ````markdown
-# CASA brief — <intake basename> — <generated>
+# CASA brief: <intake basename>, <generated>
 
 ```json
 {
@@ -33,10 +33,10 @@ the prose after it is for the analyst. Both must agree.
 Two to five sentences. Lead with the most severe thread and its verdict.
 
 ## Threads
-### T1 — <title>  (<verdict>, <confidence>)
+### T1: <title>  (<verdict>, <confidence>)
 What the evidence shows, each claim followed by its reference in parentheses, e.g. (rule <rule_id> on <host>).
-**Alternatives considered** — only for Medium/Low.
-**What would raise confidence** — exact data, exact source.
+**Alternatives considered**: only for Medium/Low.
+**What would raise confidence**: exact data, exact source.
 
 ## Mapping
 CSF 2.0 and ATT&CK rows from the purple-team mapper, each with a one-line "why".

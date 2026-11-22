@@ -12,6 +12,22 @@ Tags on GitHub: `v5.1.0`, `v5.0.1`, `v5.0.0`, `v4.0.0-pai-legacy`.
   `scripts/build-portable.ts` generates it from the plugin's own skills, cards and agents, and
   fails when a sentence it pulls has changed. CI fails when the pack differs from what the
   sources generate.
+- `bun run pack:agensi` (`scripts/pack-agensi.ts`): writes the pack as one ZIP for a skills
+  marketplace upload, checks it against the marketplace's packaging rules, and prints its
+  SHA-256. The same tree always gives the same bytes.
+- The validator prints the SHA-256 of each intake it accepts. The investigate skill records that
+  value as the brief's `intake.sha256`, so a headless run no longer needs a shell hashing tool
+  that the recommended settings refuse.
+
+### Changed
+
+- The investigate skill sends a lookup in a reference table to the Grep tool, and says on an
+  `OBSERVE:` line when the analyst's lessons file could not be read.
+- The plugin's skills, agents and templates no longer contain em dashes. The brief's title line
+  is now `# CASA brief: <intake basename>, <generated>`.
+- Scores on these prompts, one run per variant on 2026-11-22: held-out 36/36 machine and 30/30
+  rubric, authoring 135/135 and 98/99. The portable pack, run through Codex CLI on the authoring
+  set: 134/135 and 95/99.
 
 ## 5.1.0 (2026-11-21)
 

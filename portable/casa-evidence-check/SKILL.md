@@ -73,7 +73,8 @@ analysis's reasoning trace. Then run the whole check again, because a correction
 new value.
 
 Report the result in three lines: values checked per kind, values beyond the input, and unknown
-values with the reason for each.
+values with the reason for each. Write each count with the number first ("4 rule IDs, 3 ports"):
+a number written after the kind word reads as a value of that kind.
 
 ## The same check in code
 

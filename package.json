@@ -15,7 +15,8 @@
     "plugin:link": "claude plugin marketplace add ./ --scope local && claude plugin install casa@casa --scope local",
     "eval:full": "bun evals/RunFull.ts",
     "eval:scan": "bun evals/ScanRuns.ts",
-    "build:portable": "bun scripts/build-portable.ts"
+    "build:portable": "bun scripts/build-portable.ts",
+    "pack:agensi": "bun scripts/pack-agensi.ts"
   },
   "devDependencies": {
     "typescript": "^5.9.0",
