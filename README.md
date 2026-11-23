@@ -194,6 +194,8 @@ into the plugin. The runbook for the lab is
 
 ## Other agents
 
+For the two Agensi packs, see the [CASA Free and Pro quickstart](docs/agensi-quickstart.md) and try the synthetic alert.
+
 Agents that cannot load a Claude Code plugin can use the pack in
 [`portable/`](portable/README.md): three skills in the [Agent Skills](https://agentskills.io)
 format, generated from the same rule text. They carry the rules and the method. Nothing in them
